@@ -12,7 +12,6 @@ from nelson.git_utils import GitError
 from nelson.prd_branch import ensure_branch_for_task
 from nelson.prd_parser import PRDParser, PRDTaskStatus
 from nelson.prd_state import PRDStateManager
-from nelson.prd_task_state import TaskStatus
 from nelson.state import NelsonState
 
 

@@ -140,6 +140,22 @@ def main(
                 "Use 'nelson --help' for usage information."
             )
 
+    # Validate and resolve target path if provided
+    target_path: Path | None = None
+    if path is not None:
+        # Resolve to absolute path
+        target_path = path.resolve()
+        logger.info(f"Target repository path: {target_path}")
+
+        # Verify it's a git repository
+        git_dir = target_path / ".git"
+        if not git_dir.exists():
+            logger.error(f"Path is not a git repository: {target_path}")
+            raise click.UsageError(
+                f"The specified path is not a git repository: {target_path}\n"
+                "Nelson requires a git repository to track changes."
+            )
+
     # Get prompt from file if it's a path
     if prompt and Path(prompt).is_file():
         logger.info(f"Reading prompt from file: {prompt}")

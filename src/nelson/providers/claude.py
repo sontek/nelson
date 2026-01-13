@@ -42,14 +42,16 @@ class ClaudeProvider(AIProvider):
     }
     """
 
-    def __init__(self, claude_command: str | None = None) -> None:
+    def __init__(self, claude_command: str | None = None, target_path: Path | None = None) -> None:
         """Initialize Claude provider.
 
         Args:
             claude_command: Path to claude command (None = system 'claude', or custom path)
+            target_path: Optional target repository path for command execution
         """
         self.claude_command = claude_command or "claude"
         self._uses_jail_mode = "claude-jail" in str(self.claude_command)
+        self.target_path = target_path
 
     def execute(
         self,
@@ -148,12 +150,16 @@ class ClaudeProvider(AIProvider):
                 result = self._execute_with_script(cmd)
             else:
                 # Native claude handles TTY properly
-                result = subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                )
+                run_kwargs = {
+                    "capture_output": True,
+                    "text": True,
+                    "check": False,
+                }
+                # If target_path is set, run claude in that directory
+                if self.target_path:
+                    run_kwargs["cwd"] = self.target_path
+
+                result = subprocess.run(cmd, **run_kwargs)
         except FileNotFoundError as e:
             raise ProviderError(
                 f"Claude command not found: {self.claude_command}",
@@ -256,12 +262,16 @@ class ClaudeProvider(AIProvider):
         try:
             # Run with script command
             script_cmd = ["script", "-q", output_file] + cmd
-            result = subprocess.run(
-                script_cmd,
-                capture_output=True,
-                text=True,
-                check=False,
-            )
+            run_kwargs = {
+                "capture_output": True,
+                "text": True,
+                "check": False,
+            }
+            # If target_path is set, run script in that directory
+            if self.target_path:
+                run_kwargs["cwd"] = self.target_path
+
+            result = subprocess.run(script_cmd, **run_kwargs)
 
             # Read output from file
             with open(output_file) as f:
@@ -407,10 +417,17 @@ class ClaudeProvider(AIProvider):
         """
         try:
             # Check if command exists
+            run_kwargs = {
+                "capture_output": True,
+                "check": False,
+            }
+            # If target_path is set, run version check in that directory
+            if self.target_path:
+                run_kwargs["cwd"] = self.target_path
+
             result = subprocess.run(
                 [str(self.claude_command), "--version"],
-                capture_output=True,
-                check=False,
+                **run_kwargs
             )
             return result.returncode == 0
         except (FileNotFoundError, PermissionError):

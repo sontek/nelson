@@ -221,7 +221,7 @@ def _execute_workflow(prompt: str, config: NelsonConfig) -> None:
     claude_command = (
         str(config.claude_command_path) if config.claude_command_path else config.claude_command
     )
-    provider = ClaudeProvider(claude_command=claude_command)
+    provider = ClaudeProvider(claude_command=claude_command, target_path=config.target_path)
 
     # Check provider availability
     if not provider.is_available():
@@ -232,12 +232,17 @@ def _execute_workflow(prompt: str, config: NelsonConfig) -> None:
 
     # Get starting commit for audit trail
     try:
-        starting_commit = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            capture_output=True,
-            text=True,
-            check=True,
-        ).stdout.strip()
+        git_cmd = ["git", "rev-parse", "HEAD"]
+        git_kwargs = {
+            "capture_output": True,
+            "text": True,
+            "check": True,
+        }
+        # If target_path is set, run git in that directory
+        if config.target_path:
+            git_kwargs["cwd"] = config.target_path
+
+        starting_commit = subprocess.run(git_cmd, **git_kwargs).stdout.strip()
     except subprocess.CalledProcessError:
         logger.warning("Not in a git repository - starting_commit will be empty")
         starting_commit = ""
@@ -454,7 +459,7 @@ def _resume_from_path(run_dir: Path) -> None:
     claude_command = (
         str(config.claude_command_path) if config.claude_command_path else config.claude_command
     )
-    provider = ClaudeProvider(claude_command=claude_command)
+    provider = ClaudeProvider(claude_command=claude_command, target_path=config.target_path)
 
     # Check provider availability
     if not provider.is_available():

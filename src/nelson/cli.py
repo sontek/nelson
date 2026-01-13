@@ -173,6 +173,7 @@ def main(
 
     # Build configuration with CLI overrides
     config = _build_config(
+        target_path=target_path,
         max_iterations=max_iterations,
         cost_limit=cost_limit,
         model=model,
@@ -283,6 +284,7 @@ def _execute_workflow(prompt: str, config: NelsonConfig) -> None:
 
 
 def _build_config(
+    target_path: Path | None,
     max_iterations: int | None,
     cost_limit: float | None,
     model: str | None,
@@ -293,7 +295,7 @@ def _build_config(
 ) -> NelsonConfig:
     """Build configuration with CLI overrides."""
     # Load base config from environment
-    config = NelsonConfig.from_environment()
+    config = NelsonConfig.from_environment(target_path=target_path)
 
     # Determine final values with CLI overrides
     final_max_iterations = max_iterations if max_iterations is not None else config.max_iterations
@@ -329,6 +331,7 @@ def _build_config(
         nelson_dir=config.nelson_dir,
         audit_dir=config.audit_dir,
         runs_dir=config.runs_dir,
+        target_path=config.target_path,
         claude_command=final_claude_command,
         claude_command_path=final_claude_command_path,
         model=final_model,
@@ -420,6 +423,7 @@ def _resume_from_path(run_dir: Path) -> None:
                 nelson_dir=config.nelson_dir,
                 audit_dir=config.audit_dir,
                 runs_dir=config.runs_dir,
+                target_path=config.target_path,
                 claude_command=config.claude_command,
                 claude_command_path=config.claude_command_path,
                 model=config.model,

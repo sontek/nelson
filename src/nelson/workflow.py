@@ -164,9 +164,31 @@ class WorkflowOrchestrator:
                 next_phase = determine_next_phase(current_phase, self.plan_file)
 
                 if next_phase is None:
-                    # Workflow complete (COMMIT phase finished)
-                    logger.success("Ralph workflow complete - COMMIT phase finished")
-                    break
+                    # Phase 6 (COMMIT) complete - cycle finished
+                    # Increment cycle counter and loop back to Phase 1
+                    self.state.increment_cycle()
+                    new_cycle = self.state.cycle_iterations
+
+                    logger.success(
+                        f"Cycle {new_cycle - 1} complete - Phase 6 (COMMIT) finished"
+                    )
+                    logger.info(
+                        f"Starting cycle {new_cycle} - returning to Phase 1 (PLAN)"
+                    )
+
+                    # Archive the old plan.md (makes next cycle stateless)
+                    if self.plan_file.exists():
+                        archived_plan = self.run_dir / f"plan-cycle-{new_cycle - 1}.md"
+                        logger.info(f"Archiving plan to: {archived_plan.name}")
+                        self.plan_file.rename(archived_plan)
+
+                    # Log cycle completion to decisions file
+                    self._log_cycle_completion(new_cycle - 1, new_cycle)
+
+                    # Reset to Phase 1
+                    self.state.transition_phase(Phase.PLAN.value, Phase.PLAN.name_str)
+
+                    # Continue loop (don't break) - will start new cycle at Phase 1
 
                 elif next_phase != current_phase:
                     # Phase transition
@@ -358,6 +380,26 @@ class WorkflowOrchestrator:
         # when provider supports cost reporting
         # For now, no cost tracking implemented
         pass
+
+    def _log_cycle_completion(self, completed_cycle: int, new_cycle: int) -> None:
+        """Log cycle completion to decisions file.
+
+        Args:
+            completed_cycle: Cycle number that just completed
+            new_cycle: Next cycle number
+        """
+        # Append to decisions file
+        with open(self.decisions_file, "a") as f:
+            f.write("\n")
+            f.write(
+                f"## Cycle {completed_cycle} Complete "
+                f"(Phase Execution {self.state.total_iterations})\n"
+            )
+            f.write("\n")
+            f.write("**Phase 6 (COMMIT)**: Complete\n")
+            f.write(f"**Next**: Starting cycle {new_cycle} - Phase 1 (PLAN)\n")
+            f.write("**Note**: Previous plan archived. Next cycle will start fresh (stateless).\n")
+            f.write("\n")
 
     def _log_phase_transition(self, from_phase: Phase, to_phase: Phase) -> None:
         """Log phase transition to decisions file.

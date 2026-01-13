@@ -392,14 +392,14 @@ class TestWorkflowRun:
             auto_approve_push=False,
         )
 
-        # Set state to be at limit
-        mock_state.total_iterations = 1
+        # Set state to be exactly at cycle limit (will fail on next _check_limits call)
+        mock_state.cycle_iterations = 2
 
         # Provider returns no EXIT_SIGNAL
         mock_provider.extract_status_block.return_value = {
             "status": "IN_PROGRESS",
-            "tasks_completed": 0,
-            "files_modified": 0,
+            "tasks_completed": 1,
+            "files_modified": 1,
             "tests_status": "NOT_RUN",
             "work_type": "IMPLEMENTATION",
             "exit_signal": False,
@@ -409,7 +409,7 @@ class TestWorkflowRun:
         orchestrator = WorkflowOrchestrator(config, mock_state, mock_provider, mock_run_dir)
         orchestrator.plan_file.write_text("# Plan\n- [ ] Task 1")
 
-        # Should raise WorkflowError
+        # Should raise WorkflowError when cycle limit is reached
         with pytest.raises(WorkflowError, match="Stopping due to limits"):
             orchestrator.run("Test prompt")
 

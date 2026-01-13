@@ -70,7 +70,7 @@ class TestDecisionsLog:
         )
 
         content = log_path.read_text()
-        assert content.startswith("# Ralph Decisions Log\n\n")
+        assert content.startswith("# Nelson Decisions Log\n\n")
 
     def test_append_decision_formats_correctly(self, tmp_path: Path) -> None:
         """Test decision entry is formatted correctly."""
@@ -162,7 +162,7 @@ class TestDecisionsLog:
 
         content = log_path.read_text()
         # Should only have one header
-        assert content.count("# Ralph Decisions Log") == 1
+        assert content.count("# Nelson Decisions Log") == 1
         # Should have both iterations
         assert "## [Iteration 1] Phase 1: Planning" in content
         assert "## [Iteration 2] Phase 2: Implementation" in content

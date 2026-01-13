@@ -17,7 +17,7 @@ from nelson.logging_config import get_logger
 from nelson.phases import Phase
 from nelson.prompts import build_full_prompt, build_loop_context
 from nelson.providers.base import AIProvider, ProviderError
-from nelson.state import RalphState
+from nelson.state import NelsonState
 from nelson.transitions import determine_next_phase, should_transition_phase
 
 logger = get_logger()
@@ -54,7 +54,7 @@ class WorkflowOrchestrator:
     def __init__(
         self,
         config: RalphConfig,
-        state: RalphState,
+        state: NelsonState,
         provider: AIProvider,
         run_dir: Path,
     ) -> None:

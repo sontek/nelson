@@ -1,7 +1,7 @@
 """Tests for circuit breaker detection."""
 
 from nelson.circuit_breaker import CircuitBreaker, CircuitBreakerResult
-from nelson.state import RalphState
+from nelson.state import NelsonState
 
 
 class TestCircuitBreakerResult:
@@ -19,7 +19,7 @@ class TestCircuitBreakerExitSignal:
 
     def test_exit_signal_true(self) -> None:
         """Test that EXIT_SIGNAL=true returns EXIT_SIGNAL result."""
-        state = RalphState()
+        state = NelsonState()
         breaker = CircuitBreaker(state)
 
         result = breaker.check(
@@ -35,7 +35,7 @@ class TestCircuitBreakerExitSignal:
 
     def test_exit_signal_false(self) -> None:
         """Test that EXIT_SIGNAL=false doesn't trigger EXIT_SIGNAL result."""
-        state = RalphState()
+        state = NelsonState()
         breaker = CircuitBreaker(state)
 
         result = breaker.check(
@@ -55,7 +55,7 @@ class TestCircuitBreakerNoProgress:
 
     def test_single_iteration_no_progress(self) -> None:
         """Test that single iteration with no progress doesn't trigger."""
-        state = RalphState()
+        state = NelsonState()
         breaker = CircuitBreaker(state)
 
         result = breaker.check(
@@ -72,7 +72,7 @@ class TestCircuitBreakerNoProgress:
 
     def test_two_iterations_no_progress(self) -> None:
         """Test that two iterations with no progress doesn't trigger."""
-        state = RalphState()
+        state = NelsonState()
         breaker = CircuitBreaker(state)
 
         for _ in range(2):
@@ -90,7 +90,7 @@ class TestCircuitBreakerNoProgress:
 
     def test_three_iterations_no_progress(self) -> None:
         """Test that three iterations with no progress triggers circuit breaker."""
-        state = RalphState()
+        state = NelsonState()
         breaker = CircuitBreaker(state)
 
         for _ in range(3):
@@ -108,7 +108,7 @@ class TestCircuitBreakerNoProgress:
 
     def test_progress_resets_counter(self) -> None:
         """Test that making progress resets no_progress counter."""
-        state = RalphState()
+        state = NelsonState()
         breaker = CircuitBreaker(state)
 
         # Two iterations with no progress
@@ -139,7 +139,7 @@ class TestCircuitBreakerNoProgress:
 
     def test_files_modified_counts_as_progress(self) -> None:
         """Test that files_modified > 0 counts as progress."""
-        state = RalphState()
+        state = NelsonState()
         breaker = CircuitBreaker(state)
 
         result = breaker.check(
@@ -160,7 +160,7 @@ class TestCircuitBreakerTestOnlyLoops:
 
     def test_single_test_iteration_no_files(self) -> None:
         """Test that single TESTING iteration with no files doesn't trigger."""
-        state = RalphState()
+        state = NelsonState()
         breaker = CircuitBreaker(state)
 
         result = breaker.check(
@@ -177,7 +177,7 @@ class TestCircuitBreakerTestOnlyLoops:
 
     def test_two_test_iterations_no_files(self) -> None:
         """Test that two TESTING iterations with no files doesn't trigger."""
-        state = RalphState()
+        state = NelsonState()
         breaker = CircuitBreaker(state)
 
         for _ in range(2):
@@ -195,7 +195,7 @@ class TestCircuitBreakerTestOnlyLoops:
 
     def test_three_test_iterations_no_files(self) -> None:
         """Test that three TESTING iterations with no files triggers."""
-        state = RalphState()
+        state = NelsonState()
         breaker = CircuitBreaker(state)
 
         for _ in range(3):
@@ -213,7 +213,7 @@ class TestCircuitBreakerTestOnlyLoops:
 
     def test_test_with_files_resets_counter(self) -> None:
         """Test that TESTING with files_modified resets counter."""
-        state = RalphState()
+        state = NelsonState()
         breaker = CircuitBreaker(state)
 
         # Two TESTING iterations with no files
@@ -244,7 +244,7 @@ class TestCircuitBreakerTestOnlyLoops:
 
     def test_non_testing_work_resets_counter(self) -> None:
         """Test that non-TESTING work type resets counter."""
-        state = RalphState()
+        state = NelsonState()
         breaker = CircuitBreaker(state)
 
         # Two TESTING iterations with no files
@@ -279,7 +279,7 @@ class TestCircuitBreakerRepeatedErrors:
 
     def test_single_error(self) -> None:
         """Test that single error doesn't trigger."""
-        state = RalphState()
+        state = NelsonState()
         breaker = CircuitBreaker(state)
 
         result = breaker.check(
@@ -296,7 +296,7 @@ class TestCircuitBreakerRepeatedErrors:
 
     def test_two_same_errors(self) -> None:
         """Test that two identical errors don't trigger."""
-        state = RalphState()
+        state = NelsonState()
         breaker = CircuitBreaker(state)
 
         error_msg = "Import error encountered"
@@ -315,7 +315,7 @@ class TestCircuitBreakerRepeatedErrors:
 
     def test_three_same_errors(self) -> None:
         """Test that three identical errors trigger circuit breaker."""
-        state = RalphState()
+        state = NelsonState()
         breaker = CircuitBreaker(state)
 
         error_msg = "Import error encountered"
@@ -334,7 +334,7 @@ class TestCircuitBreakerRepeatedErrors:
 
     def test_different_errors_reset_counter(self) -> None:
         """Test that different error messages reset counter."""
-        state = RalphState()
+        state = NelsonState()
         breaker = CircuitBreaker(state)
 
         # First error
@@ -364,7 +364,7 @@ class TestCircuitBreakerRepeatedErrors:
 
     def test_success_clears_errors(self) -> None:
         """Test that successful iteration clears error tracking."""
-        state = RalphState()
+        state = NelsonState()
         breaker = CircuitBreaker(state)
 
         # Two errors
@@ -395,7 +395,7 @@ class TestCircuitBreakerRepeatedErrors:
 
     def test_error_in_recommendation_text(self) -> None:
         """Test that 'error' in recommendation triggers error tracking."""
-        state = RalphState()
+        state = NelsonState()
         breaker = CircuitBreaker(state)
 
         result = breaker.check(
@@ -412,7 +412,7 @@ class TestCircuitBreakerRepeatedErrors:
 
     def test_blocked_status_triggers_error_tracking(self) -> None:
         """Test that BLOCKED status triggers error tracking."""
-        state = RalphState()
+        state = NelsonState()
         breaker = CircuitBreaker(state)
 
         result = breaker.check(
@@ -433,7 +433,7 @@ class TestCircuitBreakerGetTriggerReason:
 
     def test_no_progress_reason(self) -> None:
         """Test reason string for no progress trigger."""
-        state = RalphState()
+        state = NelsonState()
         breaker = CircuitBreaker(state)
 
         # Trigger no progress
@@ -453,7 +453,7 @@ class TestCircuitBreakerGetTriggerReason:
 
     def test_test_only_reason(self) -> None:
         """Test reason string for test-only loop trigger."""
-        state = RalphState()
+        state = NelsonState()
         breaker = CircuitBreaker(state)
 
         # Trigger test-only loop
@@ -473,7 +473,7 @@ class TestCircuitBreakerGetTriggerReason:
 
     def test_repeated_error_reason(self) -> None:
         """Test reason string for repeated error trigger."""
-        state = RalphState()
+        state = NelsonState()
         breaker = CircuitBreaker(state)
 
         # Trigger repeated errors
@@ -494,7 +494,7 @@ class TestCircuitBreakerGetTriggerReason:
 
     def test_no_trigger_reason(self) -> None:
         """Test reason string when no trigger has occurred."""
-        state = RalphState()
+        state = NelsonState()
         breaker = CircuitBreaker(state)
 
         reason = breaker.get_trigger_reason()

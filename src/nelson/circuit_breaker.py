@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from enum import Enum
 
-from nelson.state import RalphState
+from nelson.state import NelsonState
 
 
 class CircuitBreakerResult(Enum):
@@ -34,7 +34,7 @@ class CircuitBreaker:
     - Repeated errors (same error pattern multiple times)
     """
 
-    def __init__(self, state: RalphState) -> None:
+    def __init__(self, state: NelsonState) -> None:
         """Initialize circuit breaker.
 
         Args:

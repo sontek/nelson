@@ -8,7 +8,7 @@ import pytest
 from nelson.config import RalphConfig
 from nelson.phases import Phase
 from nelson.providers.base import AIResponse, ProviderError
-from nelson.state import RalphState
+from nelson.state import NelsonState
 from nelson.workflow import (
     CircuitBreakerResult,
     WorkflowError,
@@ -36,9 +36,9 @@ def mock_config(tmp_path: Path) -> RalphConfig:
 
 
 @pytest.fixture
-def mock_state() -> RalphState:
+def mock_state() -> NelsonState:
     """Create mock state."""
-    return RalphState(
+    return NelsonState(
         prompt="Test prompt",
         current_phase=1,
         total_iterations=0,
@@ -89,7 +89,7 @@ def mock_run_dir(tmp_path: Path) -> Path:
 @pytest.fixture
 def orchestrator(
     mock_config: RalphConfig,
-    mock_state: RalphState,
+    mock_state: NelsonState,
     mock_provider: MagicMock,
     mock_run_dir: Path,
 ) -> WorkflowOrchestrator:
@@ -108,7 +108,7 @@ class TestWorkflowOrchestratorInitialization:
     def test_initialization(
         self,
         mock_config: RalphConfig,
-        mock_state: RalphState,
+        mock_state: NelsonState,
         mock_provider: MagicMock,
         mock_run_dir: Path,
     ) -> None:
@@ -189,7 +189,7 @@ class TestProviderExecution:
 
     def test_execute_provider_plan_phase(
         self,
-        mock_state: RalphState,
+        mock_state: NelsonState,
         mock_provider: MagicMock,
         mock_run_dir: Path,
         tmp_path: Path,
@@ -221,7 +221,7 @@ class TestProviderExecution:
 
     def test_execute_provider_review_phase(
         self,
-        mock_state: RalphState,
+        mock_state: NelsonState,
         mock_provider: MagicMock,
         mock_run_dir: Path,
         tmp_path: Path,
@@ -370,7 +370,7 @@ class TestWorkflowRun:
 
     def test_run_with_iteration_limit(
         self,
-        mock_state: RalphState,
+        mock_state: NelsonState,
         mock_provider: MagicMock,
         mock_run_dir: Path,
         tmp_path: Path,

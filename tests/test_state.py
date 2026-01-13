@@ -5,15 +5,15 @@ from pathlib import Path
 
 import pytest
 
-from nelson.state import RalphState, _utc_timestamp
+from nelson.state import NelsonState, _utc_timestamp
 
 
-class TestRalphState:
-    """Tests for RalphState dataclass."""
+class TestNelsonState:
+    """Tests for NelsonState dataclass."""
 
     def test_default_initialization(self) -> None:
         """Test creating state with default values."""
-        state = RalphState()
+        state = NelsonState()
 
         assert state.cycle_iterations == 0
         assert state.total_iterations == 0
@@ -35,7 +35,7 @@ class TestRalphState:
 
     def test_custom_initialization(self) -> None:
         """Test creating state with custom values."""
-        state = RalphState(
+        state = NelsonState(
             total_iterations=5,
             phase_iterations=2,
             cost_usd=1.25,
@@ -55,7 +55,7 @@ class TestRalphState:
 
     def test_increment_iteration(self) -> None:
         """Test incrementing iteration counters."""
-        state = RalphState()
+        state = NelsonState()
         original_updated = state.updated_at
 
         state.increment_iteration()
@@ -72,7 +72,7 @@ class TestRalphState:
 
     def test_reset_phase_iterations(self) -> None:
         """Test resetting phase iteration counter."""
-        state = RalphState(total_iterations=10, phase_iterations=5)
+        state = NelsonState(total_iterations=10, phase_iterations=5)
 
         state.reset_phase_iterations()
 
@@ -81,7 +81,7 @@ class TestRalphState:
 
     def test_increment_cycle(self) -> None:
         """Test incrementing cycle counter."""
-        state = RalphState()
+        state = NelsonState()
         original_updated = state.updated_at
 
         assert state.cycle_iterations == 0
@@ -98,7 +98,7 @@ class TestRalphState:
 
     def test_update_timestamp(self) -> None:
         """Test timestamp update."""
-        state = RalphState()
+        state = NelsonState()
         original_updated = state.updated_at
 
         state.update_timestamp()
@@ -110,7 +110,7 @@ class TestRalphState:
 
     def test_update_cost(self) -> None:
         """Test cost accumulation."""
-        state = RalphState()
+        state = NelsonState()
         original_updated = state.updated_at
 
         state.update_cost(0.50)
@@ -126,7 +126,7 @@ class TestRalphState:
 
     def test_record_progress_with_advancement(self) -> None:
         """Test recording progress when tasks are completed."""
-        state = RalphState(last_completed_count=5, no_progress_iterations=2)
+        state = NelsonState(last_completed_count=5, no_progress_iterations=2)
 
         state.record_progress(7)
 
@@ -135,7 +135,7 @@ class TestRalphState:
 
     def test_record_progress_without_advancement(self) -> None:
         """Test recording progress when no tasks completed."""
-        state = RalphState(last_completed_count=5, no_progress_iterations=1)
+        state = NelsonState(last_completed_count=5, no_progress_iterations=1)
 
         state.record_progress(5)  # Same count, no progress
 
@@ -148,7 +148,7 @@ class TestRalphState:
 
     def test_record_error_new_error(self) -> None:
         """Test recording a new error message."""
-        state = RalphState()
+        state = NelsonState()
 
         state.record_error("Connection timeout")
 
@@ -157,7 +157,7 @@ class TestRalphState:
 
     def test_record_error_repeated_error(self) -> None:
         """Test recording repeated identical errors."""
-        state = RalphState()
+        state = NelsonState()
 
         state.record_error("Connection timeout")
         assert state.repeated_error_count == 1
@@ -170,7 +170,7 @@ class TestRalphState:
 
     def test_record_error_different_error(self) -> None:
         """Test recording different error resets counter."""
-        state = RalphState()
+        state = NelsonState()
 
         state.record_error("Connection timeout")
         assert state.repeated_error_count == 1
@@ -184,7 +184,7 @@ class TestRalphState:
 
     def test_record_test_only_iteration(self) -> None:
         """Test recording test-only iterations."""
-        state = RalphState()
+        state = NelsonState()
 
         state.record_test_only_iteration()
         assert state.test_only_loop_count == 1
@@ -197,7 +197,7 @@ class TestRalphState:
 
     def test_reset_test_only_counter(self) -> None:
         """Test resetting test-only counter."""
-        state = RalphState(test_only_loop_count=5)
+        state = NelsonState(test_only_loop_count=5)
 
         state.reset_test_only_counter()
 
@@ -205,7 +205,7 @@ class TestRalphState:
 
     def test_transition_phase(self) -> None:
         """Test phase transition."""
-        state = RalphState(
+        state = NelsonState(
             current_phase=1,
             phase_name="PLAN",
             phase_iterations=10,
@@ -224,7 +224,7 @@ class TestRalphState:
 
     def test_to_dict(self) -> None:
         """Test converting state to dictionary."""
-        state = RalphState(
+        state = NelsonState(
             total_iterations=5,
             cost_usd=1.50,
             prompt="Test task",
@@ -255,7 +255,7 @@ class TestRalphState:
             "updated_at": "2024-01-13T10:30:00Z",
         }
 
-        state = RalphState.from_dict(data)
+        state = NelsonState.from_dict(data)
 
         assert state.total_iterations == 5
         assert state.phase_iterations == 2
@@ -276,7 +276,7 @@ class TestRalphState:
             "another_invalid": 123,
         }
 
-        state = RalphState.from_dict(data)
+        state = NelsonState.from_dict(data)
 
         assert state.total_iterations == 5
         assert state.cost_usd == 1.50
@@ -285,7 +285,7 @@ class TestRalphState:
     def test_save_and_load(self, tmp_path: Path) -> None:
         """Test saving and loading state from file."""
         state_file = tmp_path / "state.json"
-        state = RalphState(
+        state = NelsonState(
             total_iterations=10,
             phase_iterations=3,
             cost_usd=2.50,
@@ -299,7 +299,7 @@ class TestRalphState:
 
         assert state_file.exists()
 
-        loaded_state = RalphState.load(state_file)
+        loaded_state = NelsonState.load(state_file)
 
         assert loaded_state.total_iterations == 10
         assert loaded_state.phase_iterations == 3
@@ -312,7 +312,7 @@ class TestRalphState:
     def test_save_creates_parent_directories(self, tmp_path: Path) -> None:
         """Test save creates parent directories if they don't exist."""
         state_file = tmp_path / "subdir" / "nested" / "state.json"
-        state = RalphState()
+        state = NelsonState()
 
         state.save(state_file)
 
@@ -324,7 +324,7 @@ class TestRalphState:
         state_file = tmp_path / "missing.json"
 
         with pytest.raises(FileNotFoundError):
-            RalphState.load(state_file)
+            NelsonState.load(state_file)
 
     def test_load_invalid_json(self, tmp_path: Path) -> None:
         """Test loading invalid JSON raises error."""
@@ -332,15 +332,15 @@ class TestRalphState:
         state_file.write_text("not valid json{]")
 
         with pytest.raises(json.JSONDecodeError):
-            RalphState.load(state_file)
+            NelsonState.load(state_file)
 
     def test_load_or_create_existing_file(self, tmp_path: Path) -> None:
         """Test load_or_create loads existing file."""
         state_file = tmp_path / "state.json"
-        state = RalphState(total_iterations=15, cost_usd=3.00)
+        state = NelsonState(total_iterations=15, cost_usd=3.00)
         state.save(state_file)
 
-        loaded_state = RalphState.load_or_create(state_file)
+        loaded_state = NelsonState.load_or_create(state_file)
 
         assert loaded_state.total_iterations == 15
         assert loaded_state.cost_usd == 3.00
@@ -349,7 +349,7 @@ class TestRalphState:
         """Test load_or_create creates new state when file missing."""
         state_file = tmp_path / "missing.json"
 
-        state = RalphState.load_or_create(state_file)
+        state = NelsonState.load_or_create(state_file)
 
         assert state.total_iterations == 0
         assert state.cost_usd == 0.0
@@ -358,7 +358,7 @@ class TestRalphState:
     def test_json_format(self, tmp_path: Path) -> None:
         """Test JSON file is properly formatted."""
         state_file = tmp_path / "state.json"
-        state = RalphState(total_iterations=5)
+        state = NelsonState(total_iterations=5)
         state.save(state_file)
 
         # Read raw JSON to verify format

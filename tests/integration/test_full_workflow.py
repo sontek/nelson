@@ -13,7 +13,7 @@ from nelson.config import RalphConfig
 from nelson.phases import Phase
 from nelson.providers.base import AIProvider, AIResponse
 from nelson.run_manager import RunManager
-from nelson.state import RalphState
+from nelson.state import NelsonState
 from nelson.workflow import WorkflowError, WorkflowOrchestrator
 
 
@@ -87,7 +87,7 @@ class TestWorkflowIntegration:
         mock_provider = MagicMock(spec=AIProvider)
 
         # Create state
-        state = RalphState(current_phase=Phase.PLAN.value)
+        state = NelsonState(current_phase=Phase.PLAN.value)
         state.save(mock_run_manager.get_state_path())
 
         # Create workflow orchestrator
@@ -129,7 +129,7 @@ class TestWorkflowIntegration:
         }
 
         # Create state
-        state = RalphState(current_phase=Phase.IMPLEMENT.value)
+        state = NelsonState(current_phase=Phase.IMPLEMENT.value)
         state.save(mock_run_manager.get_state_path())
 
         # Set low iteration limit to exit quickly
@@ -189,7 +189,7 @@ class TestWorkflowIntegration:
         }
 
         # Create state with low iteration count to stop quickly
-        state = RalphState(current_phase=Phase.IMPLEMENT.value)
+        state = NelsonState(current_phase=Phase.IMPLEMENT.value)
         state.save(mock_run_manager.get_state_path())
 
         # Set low iteration limit
@@ -249,7 +249,7 @@ class TestWorkflowIntegration:
         }
 
         # Create state
-        state = RalphState(current_phase=Phase.IMPLEMENT.value)
+        state = NelsonState(current_phase=Phase.IMPLEMENT.value)
         state.save(mock_run_manager.get_state_path())
 
         # Set low iteration limit
@@ -286,7 +286,7 @@ class TestWorkflowIntegration:
         state_file = mock_config.ralph_dir / "state.json"
         assert state_file.exists()
         # Verify state was saved with some iterations
-        final_state = RalphState.load(state_file)
+        final_state = NelsonState.load(state_file)
         assert final_state.total_iterations >= 1
 
     def test_workflow_uses_phase_specific_models(
@@ -327,7 +327,7 @@ class TestWorkflowIntegration:
         }
 
         # Create state in PLAN phase
-        state = RalphState(current_phase=Phase.PLAN.value)
+        state = NelsonState(current_phase=Phase.PLAN.value)
         state.save(mock_run_manager.get_state_path())
 
         # Create workflow orchestrator

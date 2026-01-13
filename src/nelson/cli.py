@@ -16,7 +16,7 @@ from nelson.config import RalphConfig
 from nelson.logging_config import get_logger
 from nelson.phases import Phase
 from nelson.providers.claude import ClaudeProvider
-from nelson.state import RalphState
+from nelson.state import NelsonState
 from nelson.workflow import WorkflowError, WorkflowOrchestrator
 
 logger = get_logger()
@@ -231,7 +231,7 @@ def _execute_workflow(prompt: str, config: RalphConfig) -> None:
     decisions_file.write_text("# Nelson Implementation - Decisions Log\n\n")
 
     # Create initial state
-    state = RalphState(
+    state = NelsonState(
         cycle_iterations=0,
         total_iterations=0,
         phase_iterations=0,
@@ -356,7 +356,7 @@ def _resume_from_path(run_dir: Path) -> None:
 
     # Load state from the run directory
     try:
-        state = RalphState.load(state_file)
+        state = NelsonState.load(state_file)
     except (json.JSONDecodeError, ValueError) as e:
         logger.error(f"Failed to load state file: {e}")
         raise click.Abort()

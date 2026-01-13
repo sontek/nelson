@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from nelson.config import RalphConfig
+from nelson.config import NelsonConfig
 from nelson.phases import Phase
 from nelson.providers.base import AIResponse, ProviderError
 from nelson.state import NelsonState
@@ -17,9 +17,9 @@ from nelson.workflow import (
 
 
 @pytest.fixture
-def mock_config(tmp_path: Path) -> RalphConfig:
+def mock_config(tmp_path: Path) -> NelsonConfig:
     """Create mock configuration."""
-    return RalphConfig(
+    return NelsonConfig(
         max_iterations=50,
         max_iterations_explicit=True,
         cost_limit=10.0,
@@ -88,7 +88,7 @@ def mock_run_dir(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def orchestrator(
-    mock_config: RalphConfig,
+    mock_config: NelsonConfig,
     mock_state: NelsonState,
     mock_provider: MagicMock,
     mock_run_dir: Path,
@@ -107,7 +107,7 @@ class TestWorkflowOrchestratorInitialization:
 
     def test_initialization(
         self,
-        mock_config: RalphConfig,
+        mock_config: NelsonConfig,
         mock_state: NelsonState,
         mock_provider: MagicMock,
         mock_run_dir: Path,
@@ -196,7 +196,7 @@ class TestProviderExecution:
     ) -> None:
         """Test provider execution in PLAN phase uses plan_model."""
         # Create config with opus for plan_model
-        config = RalphConfig(
+        config = NelsonConfig(
             max_iterations=50,
             max_iterations_explicit=True,
             cost_limit=10.0,
@@ -228,7 +228,7 @@ class TestProviderExecution:
     ) -> None:
         """Test provider execution in REVIEW phase uses review_model."""
         # Create config with opus for review_model
-        config = RalphConfig(
+        config = NelsonConfig(
             max_iterations=50,
             max_iterations_explicit=True,
             cost_limit=10.0,
@@ -377,7 +377,7 @@ class TestWorkflowRun:
     ) -> None:
         """Test workflow run that hits iteration limit."""
         # Create config with low limit
-        config = RalphConfig(
+        config = NelsonConfig(
             max_iterations=2,
             max_iterations_explicit=True,
             cost_limit=10.0,

@@ -6,12 +6,12 @@ a new run. This prevents state file conflicts and preserves history.
 
 from pathlib import Path
 
-from nelson.config import STATE_FILE_NAME, RalphConfig
+from nelson.config import STATE_FILE_NAME, NelsonConfig
 from nelson.logging_config import get_logger
 from nelson.run_manager import RunManager
 
 
-def archive_old_state(config: RalphConfig) -> None:
+def archive_old_state(config: NelsonConfig) -> None:
     """Archive old state files from previous run before starting new run.
 
     Looks for state.json in the ralph_dir (from a previous non-resumed run).

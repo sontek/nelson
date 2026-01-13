@@ -12,7 +12,7 @@ from nelson.config import (
     DECISIONS_FILE_NAME,
     PLAN_FILE_NAME,
     STATE_FILE_NAME,
-    RalphConfig,
+    NelsonConfig,
 )
 
 
@@ -23,7 +23,7 @@ class RunManager:
     containing state.json, plan.md, decisions.md, and audit.log.
     """
 
-    def __init__(self, config: RalphConfig, run_id: str | None = None) -> None:
+    def __init__(self, config: NelsonConfig, run_id: str | None = None) -> None:
         """Initialize run manager.
 
         Args:
@@ -81,7 +81,7 @@ class RunManager:
         return self.run_dir.exists()
 
     @classmethod
-    def find_last_run(cls, config: RalphConfig) -> "RunManager | None":
+    def find_last_run(cls, config: NelsonConfig) -> "RunManager | None":
         """Find the most recent run directory.
 
         Args:
@@ -110,7 +110,7 @@ class RunManager:
         return cls(config, run_id=run_id)
 
     @classmethod
-    def from_run_path(cls, config: RalphConfig, run_path: Path) -> "RunManager":
+    def from_run_path(cls, config: NelsonConfig, run_path: Path) -> "RunManager":
         """Create RunManager from an existing run directory path.
 
         Args:

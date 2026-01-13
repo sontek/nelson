@@ -12,7 +12,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from nelson.config import RalphConfig
+from nelson.config import NelsonConfig
 from nelson.logging_config import get_logger
 from nelson.phases import Phase
 from nelson.prompts import build_full_prompt, build_loop_context
@@ -53,7 +53,7 @@ class WorkflowOrchestrator:
 
     def __init__(
         self,
-        config: RalphConfig,
+        config: NelsonConfig,
         state: NelsonState,
         provider: AIProvider,
         run_dir: Path,

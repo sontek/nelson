@@ -29,7 +29,7 @@ class TestDecisionsLog:
             phase=2,
             phase_name="Implementation",
             task="Create config module",
-            what_i_did="Created src/ralph/config.py with RalphConfig class",
+            what_i_did="Created src/nelson/config.py with NelsonConfig class",
             why="Need configuration management",
             result="Successfully created config module",
         )
@@ -46,7 +46,7 @@ class TestDecisionsLog:
             phase=2,
             phase_name="Implementation",
             task="Create config module",
-            what_i_did="Created src/ralph/config.py",
+            what_i_did="Created src/nelson/config.py",
             why="Need config",
             result="Success",
         )
@@ -82,7 +82,7 @@ class TestDecisionsLog:
             phase=2,
             phase_name="Implementation",
             task="Create config module",
-            what_i_did="Created src/ralph/config.py with RalphConfig class",
+            what_i_did="Created src/nelson/config.py with NelsonConfig class",
             why="Need configuration management",
             result="Successfully created config module",
         )

@@ -6,11 +6,11 @@ from pathlib import Path
 import pytest
 from pytest import MonkeyPatch
 
-from nelson.config import RalphConfig
+from nelson.config import NelsonConfig
 
 
-class TestRalphConfig:
-    """Tests for RalphConfig class."""
+class TestNelsonConfig:
+    """Tests for NelsonConfig class."""
 
     def test_default_configuration(self, monkeypatch: MonkeyPatch) -> None:
         """Test loading configuration with all defaults."""
@@ -19,7 +19,7 @@ class TestRalphConfig:
             if key.startswith("RALPH_"):
                 monkeypatch.delenv(key, raising=False)
 
-        config = RalphConfig.from_environment()
+        config = NelsonConfig.from_environment()
 
         assert config.max_iterations == 50
         assert config.max_iterations_explicit is False
@@ -37,7 +37,7 @@ class TestRalphConfig:
         """Test that max_iterations_explicit is set when user provides value."""
         monkeypatch.setenv("RALPH_MAX_ITERATIONS", "100")
 
-        config = RalphConfig.from_environment()
+        config = NelsonConfig.from_environment()
 
         assert config.max_iterations == 100
         assert config.max_iterations_explicit is True
@@ -53,7 +53,7 @@ class TestRalphConfig:
         monkeypatch.setenv("RALPH_MODEL", "opus")
         monkeypatch.setenv("RALPH_AUTO_APPROVE_PUSH", "true")
 
-        config = RalphConfig.from_environment()
+        config = NelsonConfig.from_environment()
 
         assert config.max_iterations == 30
         assert config.cost_limit == 25.50
@@ -70,7 +70,7 @@ class TestRalphConfig:
         """Test that plan_model and review_model cascade from model if not set."""
         monkeypatch.setenv("RALPH_MODEL", "haiku")
 
-        config = RalphConfig.from_environment()
+        config = NelsonConfig.from_environment()
 
         assert config.model == "haiku"
         assert config.plan_model == "haiku"
@@ -82,7 +82,7 @@ class TestRalphConfig:
         monkeypatch.setenv("RALPH_PLAN_MODEL", "opus")
         monkeypatch.setenv("RALPH_REVIEW_MODEL", "sonnet")
 
-        config = RalphConfig.from_environment()
+        config = NelsonConfig.from_environment()
 
         assert config.model == "sonnet"
         assert config.plan_model == "opus"
@@ -93,13 +93,13 @@ class TestRalphConfig:
         # Test true variants
         for value in ["true", "TRUE", "True", "1", "yes", "YES"]:
             monkeypatch.setenv("RALPH_AUTO_APPROVE_PUSH", value)
-            config = RalphConfig.from_environment()
+            config = NelsonConfig.from_environment()
             assert config.auto_approve_push is True, f"Failed for value: {value}"
 
         # Test false variants
         for value in ["false", "FALSE", "False", "0", "no", "NO", ""]:
             monkeypatch.setenv("RALPH_AUTO_APPROVE_PUSH", value)
-            config = RalphConfig.from_environment()
+            config = NelsonConfig.from_environment()
             assert config.auto_approve_push is False, f"Failed for value: {value}"
 
     def test_claude_jail_path_resolution(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
@@ -112,7 +112,7 @@ class TestRalphConfig:
         script_dir = tmp_path / "bin"
         script_dir.mkdir()
 
-        config = RalphConfig.from_environment(script_dir=script_dir)
+        config = NelsonConfig.from_environment(script_dir=script_dir)
 
         assert config.claude_command == "claude-jail"
         assert config.claude_command_path == script_dir / "claude-jail"
@@ -121,7 +121,7 @@ class TestRalphConfig:
         """Test that native claude command has no explicit path."""
         monkeypatch.setenv("RALPH_CLAUDE_COMMAND", "claude")
 
-        config = RalphConfig.from_environment()
+        config = NelsonConfig.from_environment()
 
         assert config.claude_command == "claude"
         assert config.claude_command_path is None
@@ -130,7 +130,7 @@ class TestRalphConfig:
         """Test custom claude command path resolution."""
         monkeypatch.setenv("RALPH_CLAUDE_COMMAND", "/custom/path/to/claude")
 
-        config = RalphConfig.from_environment()
+        config = NelsonConfig.from_environment()
 
         assert config.claude_command == "/custom/path/to/claude"
         assert config.claude_command_path == Path("/custom/path/to/claude")
@@ -145,7 +145,7 @@ class TestRalphConfig:
         # Use native claude to avoid path validation
         monkeypatch.setenv("RALPH_CLAUDE_COMMAND", "claude")
 
-        config = RalphConfig.from_environment()
+        config = NelsonConfig.from_environment()
         config.validate()  # Should not raise
 
     def test_validate_negative_max_iterations(self, monkeypatch: MonkeyPatch) -> None:
@@ -153,7 +153,7 @@ class TestRalphConfig:
         monkeypatch.setenv("RALPH_MAX_ITERATIONS", "-5")
         monkeypatch.setenv("RALPH_CLAUDE_COMMAND", "claude")
 
-        config = RalphConfig.from_environment()
+        config = NelsonConfig.from_environment()
 
         with pytest.raises(ValueError, match="max_iterations must be > 0"):
             config.validate()
@@ -163,7 +163,7 @@ class TestRalphConfig:
         monkeypatch.setenv("RALPH_COST_LIMIT", "0")
         monkeypatch.setenv("RALPH_CLAUDE_COMMAND", "claude")
 
-        config = RalphConfig.from_environment()
+        config = NelsonConfig.from_environment()
 
         with pytest.raises(ValueError, match="cost_limit must be > 0"):
             config.validate()
@@ -175,7 +175,7 @@ class TestRalphConfig:
         nonexistent_path = tmp_path / "nonexistent" / "claude"
         monkeypatch.setenv("RALPH_CLAUDE_COMMAND", str(nonexistent_path))
 
-        config = RalphConfig.from_environment()
+        config = NelsonConfig.from_environment()
 
         with pytest.raises(ValueError, match="Claude command path does not exist"):
             config.validate()
@@ -192,7 +192,7 @@ class TestRalphConfig:
         monkeypatch.setenv("RALPH_RUNS_DIR", str(runs_dir))
         monkeypatch.setenv("RALPH_CLAUDE_COMMAND", "claude")
 
-        config = RalphConfig.from_environment()
+        config = NelsonConfig.from_environment()
 
         # Directories should not exist yet
         assert not ralph_dir.exists()
@@ -216,7 +216,7 @@ class TestRalphConfig:
         monkeypatch.setenv("RALPH_DIR", str(ralph_dir))
         monkeypatch.setenv("RALPH_CLAUDE_COMMAND", "claude")
 
-        config = RalphConfig.from_environment()
+        config = NelsonConfig.from_environment()
 
         # Create directories twice
         config.ensure_directories()
@@ -229,7 +229,7 @@ class TestRalphConfig:
     def test_config_immutability(self, monkeypatch: MonkeyPatch) -> None:
         """Test that config is immutable (frozen dataclass)."""
         monkeypatch.setenv("RALPH_CLAUDE_COMMAND", "claude")
-        config = RalphConfig.from_environment()
+        config = NelsonConfig.from_environment()
 
         # Should not be able to modify attributes
         with pytest.raises(Exception):  # FrozenInstanceError in Python 3.10+
@@ -240,16 +240,16 @@ class TestRalphConfig:
         monkeypatch.setenv("RALPH_MODEL", "opus")
         monkeypatch.setenv("RALPH_CLAUDE_COMMAND", "claude")
 
-        config1 = RalphConfig.from_environment()
-        config2 = RalphConfig.from_environment()
+        config1 = NelsonConfig.from_environment()
+        config2 = NelsonConfig.from_environment()
 
         assert config1 == config2
 
     def test_config_repr(self, monkeypatch: MonkeyPatch) -> None:
         """Test that config has a useful repr."""
         monkeypatch.setenv("RALPH_CLAUDE_COMMAND", "claude")
-        config = RalphConfig.from_environment()
+        config = NelsonConfig.from_environment()
 
         repr_str = repr(config)
-        assert "RalphConfig" in repr_str
+        assert "NelsonConfig" in repr_str
         assert "max_iterations" in repr_str

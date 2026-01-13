@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from nelson.config import RalphConfig
+from nelson.config import NelsonConfig
 from nelson.phases import Phase
 from nelson.providers.base import AIProvider, AIResponse
 from nelson.run_manager import RunManager
@@ -18,10 +18,10 @@ from nelson.workflow import WorkflowError, WorkflowOrchestrator
 
 
 @pytest.fixture
-def mock_config(tmp_path: Path) -> RalphConfig:
+def mock_config(tmp_path: Path) -> NelsonConfig:
     """Create test configuration with temp directories."""
     ralph_dir = tmp_path / ".ralph"
-    return RalphConfig(
+    return NelsonConfig(
         max_iterations=10,
         max_iterations_explicit=True,
         cost_limit=10.0,
@@ -38,7 +38,7 @@ def mock_config(tmp_path: Path) -> RalphConfig:
 
 
 @pytest.fixture
-def mock_run_manager(tmp_path: Path, mock_config: RalphConfig) -> RunManager:
+def mock_run_manager(tmp_path: Path, mock_config: NelsonConfig) -> RunManager:
     """Create test run manager with temp directory."""
     run_mgr = RunManager(mock_config, run_id="test-20260113-120000")
     run_mgr.create_run_directory()
@@ -80,7 +80,7 @@ class TestWorkflowIntegration:
     """Integration tests for workflow orchestrator."""
 
     def test_workflow_initialization(
-        self, mock_config: RalphConfig, mock_run_manager: RunManager, sample_plan_file: Path
+        self, mock_config: NelsonConfig, mock_run_manager: RunManager, sample_plan_file: Path
     ) -> None:
         """Test workflow can be initialized with all components."""
         # Create mock provider
@@ -108,7 +108,7 @@ class TestWorkflowIntegration:
         assert workflow.last_output_file == mock_run_manager.run_dir / "last_output.txt"
 
     def test_workflow_calls_provider(
-        self, mock_config: RalphConfig, mock_run_manager: RunManager, sample_plan_file: Path
+        self, mock_config: NelsonConfig, mock_run_manager: RunManager, sample_plan_file: Path
     ) -> None:
         """Test workflow calls AI provider with correct parameters."""
         # Create mock provider
@@ -133,7 +133,7 @@ class TestWorkflowIntegration:
         state.save(mock_run_manager.get_state_path())
 
         # Set low iteration limit to exit quickly
-        mock_config = RalphConfig(
+        mock_config = NelsonConfig(
             max_iterations=1,
             max_iterations_explicit=True,
             cost_limit=mock_config.cost_limit,
@@ -167,7 +167,7 @@ class TestWorkflowIntegration:
         assert mock_provider.extract_status_block.called
 
     def test_workflow_saves_provider_output(
-        self, mock_config: RalphConfig, mock_run_manager: RunManager, sample_plan_file: Path
+        self, mock_config: NelsonConfig, mock_run_manager: RunManager, sample_plan_file: Path
     ) -> None:
         """Test workflow saves provider output to last_output.txt."""
         output_content = "This is the provider output that should be saved"
@@ -193,7 +193,7 @@ class TestWorkflowIntegration:
         state.save(mock_run_manager.get_state_path())
 
         # Set low iteration limit
-        mock_config = RalphConfig(
+        mock_config = NelsonConfig(
             max_iterations=1,
             max_iterations_explicit=True,
             cost_limit=mock_config.cost_limit,
@@ -229,7 +229,7 @@ class TestWorkflowIntegration:
         assert output_content == saved_content
 
     def test_workflow_saves_state(
-        self, mock_config: RalphConfig, mock_run_manager: RunManager, sample_plan_file: Path
+        self, mock_config: NelsonConfig, mock_run_manager: RunManager, sample_plan_file: Path
     ) -> None:
         """Test workflow saves state after execution."""
         mock_provider = MagicMock(spec=AIProvider)
@@ -253,7 +253,7 @@ class TestWorkflowIntegration:
         state.save(mock_run_manager.get_state_path())
 
         # Set low iteration limit
-        mock_config = RalphConfig(
+        mock_config = NelsonConfig(
             max_iterations=1,
             max_iterations_explicit=True,
             cost_limit=mock_config.cost_limit,
@@ -290,11 +290,11 @@ class TestWorkflowIntegration:
         assert final_state.total_iterations >= 1
 
     def test_workflow_uses_phase_specific_models(
-        self, mock_config: RalphConfig, mock_run_manager: RunManager, sample_plan_file: Path
+        self, mock_config: NelsonConfig, mock_run_manager: RunManager, sample_plan_file: Path
     ) -> None:
         """Test workflow uses different models for different phases."""
         # Configure phase-specific models
-        mock_config = RalphConfig(
+        mock_config = NelsonConfig(
             max_iterations=1,
             max_iterations_explicit=True,
             cost_limit=mock_config.cost_limit,

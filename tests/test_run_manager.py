@@ -10,15 +10,15 @@ from nelson.config import (
     DECISIONS_FILE_NAME,
     PLAN_FILE_NAME,
     STATE_FILE_NAME,
-    RalphConfig,
+    NelsonConfig,
 )
 from nelson.run_manager import RunManager
 
 
 @pytest.fixture
-def config(tmp_path: Path) -> RalphConfig:
+def config(tmp_path: Path) -> NelsonConfig:
     """Create test configuration with temporary directories."""
-    return RalphConfig(
+    return NelsonConfig(
         max_iterations=50,
         max_iterations_explicit=False,
         cost_limit=10.0,
@@ -37,7 +37,7 @@ def config(tmp_path: Path) -> RalphConfig:
 class TestRunManager:
     """Test RunManager initialization and run ID generation."""
 
-    def test_initialization_with_auto_generated_id(self, config: RalphConfig) -> None:
+    def test_initialization_with_auto_generated_id(self, config: NelsonConfig) -> None:
         """Test RunManager creates run ID automatically."""
         manager = RunManager(config)
 
@@ -49,7 +49,7 @@ class TestRunManager:
         expected_dir = config.runs_dir / f"ralph-{manager.run_id}"
         assert manager.run_dir == expected_dir
 
-    def test_initialization_with_explicit_id(self, config: RalphConfig) -> None:
+    def test_initialization_with_explicit_id(self, config: NelsonConfig) -> None:
         """Test RunManager accepts explicit run ID."""
         run_id = "20260113-101253"
         manager = RunManager(config, run_id=run_id)
@@ -57,7 +57,7 @@ class TestRunManager:
         assert manager.run_id == run_id
         assert manager.run_dir == config.runs_dir / f"ralph-{run_id}"
 
-    def test_generate_run_id_format(self, config: RalphConfig) -> None:
+    def test_generate_run_id_format(self, config: NelsonConfig) -> None:
         """Test run ID matches expected format."""
         manager = RunManager(config)
         run_id = manager.run_id
@@ -68,7 +68,7 @@ class TestRunManager:
         except ValueError:
             pytest.fail(f"Run ID {run_id} doesn't match format YYYYMMDD-HHMMSS")
 
-    def test_generate_run_id_is_unique(self, config: RalphConfig) -> None:
+    def test_generate_run_id_is_unique(self, config: NelsonConfig) -> None:
         """Test consecutive run IDs are different (or very unlikely to collide)."""
         manager1 = RunManager(config)
         manager2 = RunManager(config)
@@ -83,7 +83,7 @@ class TestRunManager:
 class TestRunDirectoryCreation:
     """Test run directory creation."""
 
-    def test_create_run_directory_creates_directory(self, config: RalphConfig) -> None:
+    def test_create_run_directory_creates_directory(self, config: NelsonConfig) -> None:
         """Test create_run_directory creates the directory."""
         manager = RunManager(config, run_id="20260113-101253")
 
@@ -94,7 +94,7 @@ class TestRunDirectoryCreation:
         assert manager.run_dir.exists()
         assert manager.run_dir.is_dir()
 
-    def test_create_run_directory_creates_parents(self, config: RalphConfig) -> None:
+    def test_create_run_directory_creates_parents(self, config: NelsonConfig) -> None:
         """Test create_run_directory creates parent directories."""
         # Parent directories should not exist yet
         assert not config.runs_dir.exists()
@@ -106,7 +106,7 @@ class TestRunDirectoryCreation:
         assert config.runs_dir.exists()
         assert manager.run_dir.exists()
 
-    def test_create_run_directory_fails_if_exists(self, config: RalphConfig) -> None:
+    def test_create_run_directory_fails_if_exists(self, config: NelsonConfig) -> None:
         """Test create_run_directory raises error if directory exists."""
         manager = RunManager(config, run_id="20260113-101253")
         manager.create_run_directory()
@@ -119,25 +119,25 @@ class TestRunDirectoryCreation:
 class TestFilePaths:
     """Test file path getters."""
 
-    def test_get_state_path(self, config: RalphConfig) -> None:
+    def test_get_state_path(self, config: NelsonConfig) -> None:
         """Test get_state_path returns correct path."""
         manager = RunManager(config, run_id="20260113-101253")
         expected = config.runs_dir / "ralph-20260113-101253" / STATE_FILE_NAME
         assert manager.get_state_path() == expected
 
-    def test_get_plan_path(self, config: RalphConfig) -> None:
+    def test_get_plan_path(self, config: NelsonConfig) -> None:
         """Test get_plan_path returns correct path."""
         manager = RunManager(config, run_id="20260113-101253")
         expected = config.runs_dir / "ralph-20260113-101253" / PLAN_FILE_NAME
         assert manager.get_plan_path() == expected
 
-    def test_get_decisions_path(self, config: RalphConfig) -> None:
+    def test_get_decisions_path(self, config: NelsonConfig) -> None:
         """Test get_decisions_path returns correct path."""
         manager = RunManager(config, run_id="20260113-101253")
         expected = config.runs_dir / "ralph-20260113-101253" / DECISIONS_FILE_NAME
         assert manager.get_decisions_path() == expected
 
-    def test_get_audit_path(self, config: RalphConfig) -> None:
+    def test_get_audit_path(self, config: NelsonConfig) -> None:
         """Test get_audit_path returns correct path."""
         manager = RunManager(config, run_id="20260113-101253")
         expected = config.runs_dir / "ralph-20260113-101253" / AUDIT_FILE_NAME
@@ -147,12 +147,12 @@ class TestFilePaths:
 class TestRunExistence:
     """Test run existence checking."""
 
-    def test_run_exists_returns_false_when_not_created(self, config: RalphConfig) -> None:
+    def test_run_exists_returns_false_when_not_created(self, config: NelsonConfig) -> None:
         """Test run_exists returns False for non-existent run."""
         manager = RunManager(config, run_id="20260113-101253")
         assert not manager.run_exists()
 
-    def test_run_exists_returns_true_after_creation(self, config: RalphConfig) -> None:
+    def test_run_exists_returns_true_after_creation(self, config: NelsonConfig) -> None:
         """Test run_exists returns True after directory is created."""
         manager = RunManager(config, run_id="20260113-101253")
         manager.create_run_directory()
@@ -162,20 +162,20 @@ class TestRunExistence:
 class TestFindLastRun:
     """Test finding the most recent run."""
 
-    def test_find_last_run_returns_none_when_no_runs(self, config: RalphConfig) -> None:
+    def test_find_last_run_returns_none_when_no_runs(self, config: NelsonConfig) -> None:
         """Test find_last_run returns None when runs directory doesn't exist."""
         manager = RunManager.find_last_run(config)
         assert manager is None
 
     def test_find_last_run_returns_none_when_runs_dir_empty(
-        self, config: RalphConfig
+        self, config: NelsonConfig
     ) -> None:
         """Test find_last_run returns None when runs directory is empty."""
         config.runs_dir.mkdir(parents=True)
         manager = RunManager.find_last_run(config)
         assert manager is None
 
-    def test_find_last_run_returns_most_recent(self, config: RalphConfig) -> None:
+    def test_find_last_run_returns_most_recent(self, config: NelsonConfig) -> None:
         """Test find_last_run returns the most recent run."""
         config.runs_dir.mkdir(parents=True)
 
@@ -189,7 +189,7 @@ class TestFindLastRun:
         assert manager is not None
         assert manager.run_id == "20260113-143021"  # Most recent
 
-    def test_find_last_run_ignores_non_run_directories(self, config: RalphConfig) -> None:
+    def test_find_last_run_ignores_non_run_directories(self, config: NelsonConfig) -> None:
         """Test find_last_run ignores directories that don't match pattern."""
         config.runs_dir.mkdir(parents=True)
 
@@ -205,7 +205,7 @@ class TestFindLastRun:
         assert manager is not None
         assert manager.run_id == "20260113-101253"
 
-    def test_find_last_run_ignores_files(self, config: RalphConfig) -> None:
+    def test_find_last_run_ignores_files(self, config: NelsonConfig) -> None:
         """Test find_last_run ignores files in runs directory."""
         config.runs_dir.mkdir(parents=True)
 
@@ -224,7 +224,7 @@ class TestFindLastRun:
 class TestFromRunPath:
     """Test creating RunManager from existing path."""
 
-    def test_from_run_path_with_valid_path(self, config: RalphConfig) -> None:
+    def test_from_run_path_with_valid_path(self, config: NelsonConfig) -> None:
         """Test from_run_path creates manager from existing directory."""
         run_path = config.runs_dir / "ralph-20260113-101253"
         run_path.mkdir(parents=True)
@@ -234,14 +234,14 @@ class TestFromRunPath:
         assert manager.run_id == "20260113-101253"
         assert manager.run_dir == run_path
 
-    def test_from_run_path_with_nonexistent_path(self, config: RalphConfig) -> None:
+    def test_from_run_path_with_nonexistent_path(self, config: NelsonConfig) -> None:
         """Test from_run_path raises error for non-existent directory."""
         run_path = config.runs_dir / "ralph-20260113-101253"
 
         with pytest.raises(ValueError, match="does not exist"):
             RunManager.from_run_path(config, run_path)
 
-    def test_from_run_path_with_file_path(self, config: RalphConfig) -> None:
+    def test_from_run_path_with_file_path(self, config: NelsonConfig) -> None:
         """Test from_run_path raises error when path is a file."""
         run_path = config.runs_dir / "ralph-20260113-101253"
         run_path.parent.mkdir(parents=True)
@@ -250,7 +250,7 @@ class TestFromRunPath:
         with pytest.raises(ValueError, match="not a directory"):
             RunManager.from_run_path(config, run_path)
 
-    def test_from_run_path_with_invalid_format(self, config: RalphConfig) -> None:
+    def test_from_run_path_with_invalid_format(self, config: NelsonConfig) -> None:
         """Test from_run_path raises error for invalid directory name."""
         run_path = config.runs_dir / "invalid-directory-name"
         run_path.mkdir(parents=True)

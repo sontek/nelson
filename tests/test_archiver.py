@@ -3,7 +3,7 @@
 from pathlib import Path
 
 from nelson.archiver import archive_file_if_exists, archive_old_state
-from nelson.config import STATE_FILE_NAME, RalphConfig
+from nelson.config import STATE_FILE_NAME, NelsonConfig
 
 
 class TestArchiveOldState:
@@ -11,7 +11,7 @@ class TestArchiveOldState:
 
     def test_no_old_state_file(self, tmp_path: Path) -> None:
         """Test that nothing happens when no old state file exists."""
-        config = RalphConfig(
+        config = NelsonConfig(
             max_iterations=10,
             max_iterations_explicit=False,
             cost_limit=10.0,
@@ -42,7 +42,7 @@ class TestArchiveOldState:
 
     def test_archive_into_most_recent_run(self, tmp_path: Path) -> None:
         """Test archiving into most recent run directory."""
-        config = RalphConfig(
+        config = NelsonConfig(
             max_iterations=10,
             max_iterations_explicit=False,
             cost_limit=10.0,
@@ -82,7 +82,7 @@ class TestArchiveOldState:
 
     def test_archive_creates_previous_directory(self, tmp_path: Path) -> None:
         """Test creating ralph-previous-TIMESTAMP directory when no runs exist."""
-        config = RalphConfig(
+        config = NelsonConfig(
             max_iterations=10,
             max_iterations_explicit=False,
             cost_limit=10.0,
@@ -123,7 +123,7 @@ class TestArchiveOldState:
 
     def test_archive_deletes_if_target_exists(self, tmp_path: Path) -> None:
         """Test that old state is deleted if archive already has state.json."""
-        config = RalphConfig(
+        config = NelsonConfig(
             max_iterations=10,
             max_iterations_explicit=False,
             cost_limit=10.0,
@@ -164,7 +164,7 @@ class TestArchiveOldState:
 
     def test_archive_prefers_most_recent_run(self, tmp_path: Path) -> None:
         """Test that archiving uses most recent run directory."""
-        config = RalphConfig(
+        config = NelsonConfig(
             max_iterations=10,
             max_iterations_explicit=False,
             cost_limit=10.0,

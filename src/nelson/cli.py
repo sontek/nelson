@@ -12,7 +12,7 @@ from pathlib import Path
 
 import click
 
-from nelson.config import RalphConfig
+from nelson.config import NelsonConfig
 from nelson.logging_config import get_logger
 from nelson.phases import Phase
 from nelson.providers.claude import ClaudeProvider
@@ -179,7 +179,7 @@ def main(
         raise
 
 
-def _execute_workflow(prompt: str, config: RalphConfig) -> None:
+def _execute_workflow(prompt: str, config: NelsonConfig) -> None:
     """Execute the main workflow with proper initialization and error handling.
 
     Args:
@@ -265,10 +265,10 @@ def _build_config(
     review_model: str | None,
     claude_command: str | None,
     auto_approve_push: bool,
-) -> RalphConfig:
+) -> NelsonConfig:
     """Build configuration with CLI overrides."""
     # Load base config from environment
-    config = RalphConfig.from_environment()
+    config = NelsonConfig.from_environment()
 
     # Determine final values with CLI overrides
     final_max_iterations = max_iterations if max_iterations is not None else config.max_iterations
@@ -281,7 +281,7 @@ def _build_config(
     # Re-resolve claude command path if it changed
     final_claude_command_path: Path | None
     if claude_command is not None:
-        final_claude_command_path = RalphConfig._resolve_claude_path(claude_command, None)
+        final_claude_command_path = NelsonConfig._resolve_claude_path(claude_command, None)
     else:
         final_claude_command_path = config.claude_command_path
 
@@ -293,7 +293,7 @@ def _build_config(
         final_model if model is not None else config.review_model
     )
 
-    return RalphConfig(
+    return NelsonConfig(
         max_iterations=final_max_iterations,
         max_iterations_explicit=final_max_iterations_explicit,
         cost_limit=final_cost_limit,
@@ -314,7 +314,7 @@ def _resume_from_last() -> None:
     logger.info("Resuming from last checkpoint...")
 
     # Load base config to get runs_dir
-    config = RalphConfig.from_environment()
+    config = NelsonConfig.from_environment()
 
     # Find most recent run directory
     if not config.runs_dir.exists():
@@ -367,7 +367,7 @@ def _resume_from_path(run_dir: Path) -> None:
     logger.info(f"Current cost: ${state.cost_usd:.2f}")
 
     # Load base config from environment
-    config = RalphConfig.from_environment()
+    config = NelsonConfig.from_environment()
 
     # Check if we're at or past the cycle limit
     if state.cycle_iterations >= config.max_iterations:
@@ -385,7 +385,7 @@ def _resume_from_path(run_dir: Path) -> None:
             )
 
             # Update config with new limit
-            config = RalphConfig(
+            config = NelsonConfig(
                 max_iterations=new_limit,
                 max_iterations_explicit=False,
                 cost_limit=config.cost_limit,

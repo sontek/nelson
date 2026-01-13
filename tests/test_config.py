@@ -14,9 +14,9 @@ class TestNelsonConfig:
 
     def test_default_configuration(self, monkeypatch: MonkeyPatch) -> None:
         """Test loading configuration with all defaults."""
-        # Clear all RALPH_ environment variables
+        # Clear all NELSON_ environment variables
         for key in list(os.environ.keys()):
-            if key.startswith("RALPH_"):
+            if key.startswith("NELSON_"):
                 monkeypatch.delenv(key, raising=False)
 
         config = NelsonConfig.from_environment()
@@ -35,7 +35,7 @@ class TestNelsonConfig:
 
     def test_explicit_max_iterations(self, monkeypatch: MonkeyPatch) -> None:
         """Test that max_iterations_explicit is set when user provides value."""
-        monkeypatch.setenv("RALPH_MAX_ITERATIONS", "100")
+        monkeypatch.setenv("NELSON_MAX_ITERATIONS", "100")
 
         config = NelsonConfig.from_environment()
 
@@ -44,14 +44,14 @@ class TestNelsonConfig:
 
     def test_environment_override(self, monkeypatch: MonkeyPatch) -> None:
         """Test that environment variables override defaults."""
-        monkeypatch.setenv("RALPH_MAX_ITERATIONS", "30")
-        monkeypatch.setenv("RALPH_COST_LIMIT", "25.50")
-        monkeypatch.setenv("RALPH_DIR", ".custom-ralph")
-        monkeypatch.setenv("RALPH_AUDIT_DIR", ".custom-audit")
-        monkeypatch.setenv("RALPH_RUNS_DIR", ".custom-runs")
-        monkeypatch.setenv("RALPH_CLAUDE_COMMAND", "claude")
-        monkeypatch.setenv("RALPH_MODEL", "opus")
-        monkeypatch.setenv("RALPH_AUTO_APPROVE_PUSH", "true")
+        monkeypatch.setenv("NELSON_MAX_ITERATIONS", "30")
+        monkeypatch.setenv("NELSON_COST_LIMIT", "25.50")
+        monkeypatch.setenv("NELSON_DIR", ".custom-ralph")
+        monkeypatch.setenv("NELSON_AUDIT_DIR", ".custom-audit")
+        monkeypatch.setenv("NELSON_RUNS_DIR", ".custom-runs")
+        monkeypatch.setenv("NELSON_CLAUDE_COMMAND", "claude")
+        monkeypatch.setenv("NELSON_MODEL", "opus")
+        monkeypatch.setenv("NELSON_AUTO_APPROVE_PUSH", "true")
 
         config = NelsonConfig.from_environment()
 
@@ -62,13 +62,13 @@ class TestNelsonConfig:
         assert config.runs_dir == Path(".custom-runs")
         assert config.claude_command == "claude"
         assert config.model == "opus"
-        assert config.plan_model == "opus"  # Inherits from RALPH_MODEL
-        assert config.review_model == "opus"  # Inherits from RALPH_MODEL
+        assert config.plan_model == "opus"  # Inherits from NELSON_MODEL
+        assert config.review_model == "opus"  # Inherits from NELSON_MODEL
         assert config.auto_approve_push is True
 
     def test_model_cascading(self, monkeypatch: MonkeyPatch) -> None:
         """Test that plan_model and review_model cascade from model if not set."""
-        monkeypatch.setenv("RALPH_MODEL", "haiku")
+        monkeypatch.setenv("NELSON_MODEL", "haiku")
 
         config = NelsonConfig.from_environment()
 
@@ -78,9 +78,9 @@ class TestNelsonConfig:
 
     def test_model_override(self, monkeypatch: MonkeyPatch) -> None:
         """Test that plan_model and review_model can be overridden independently."""
-        monkeypatch.setenv("RALPH_MODEL", "sonnet")
-        monkeypatch.setenv("RALPH_PLAN_MODEL", "opus")
-        monkeypatch.setenv("RALPH_REVIEW_MODEL", "sonnet")
+        monkeypatch.setenv("NELSON_MODEL", "sonnet")
+        monkeypatch.setenv("NELSON_PLAN_MODEL", "opus")
+        monkeypatch.setenv("NELSON_REVIEW_MODEL", "sonnet")
 
         config = NelsonConfig.from_environment()
 
@@ -92,13 +92,13 @@ class TestNelsonConfig:
         """Test various true/false values for auto_approve_push."""
         # Test true variants
         for value in ["true", "TRUE", "True", "1", "yes", "YES"]:
-            monkeypatch.setenv("RALPH_AUTO_APPROVE_PUSH", value)
+            monkeypatch.setenv("NELSON_AUTO_APPROVE_PUSH", value)
             config = NelsonConfig.from_environment()
             assert config.auto_approve_push is True, f"Failed for value: {value}"
 
         # Test false variants
         for value in ["false", "FALSE", "False", "0", "no", "NO", ""]:
-            monkeypatch.setenv("RALPH_AUTO_APPROVE_PUSH", value)
+            monkeypatch.setenv("NELSON_AUTO_APPROVE_PUSH", value)
             config = NelsonConfig.from_environment()
             assert config.auto_approve_push is False, f"Failed for value: {value}"
 
@@ -106,7 +106,7 @@ class TestNelsonConfig:
         """Test claude-jail path resolution with script_dir."""
         # Clear environment
         for key in list(os.environ.keys()):
-            if key.startswith("RALPH_"):
+            if key.startswith("NELSON_"):
                 monkeypatch.delenv(key, raising=False)
 
         script_dir = tmp_path / "bin"
@@ -119,7 +119,7 @@ class TestNelsonConfig:
 
     def test_claude_native_path_resolution(self, monkeypatch: MonkeyPatch) -> None:
         """Test that native claude command has no explicit path."""
-        monkeypatch.setenv("RALPH_CLAUDE_COMMAND", "claude")
+        monkeypatch.setenv("NELSON_CLAUDE_COMMAND", "claude")
 
         config = NelsonConfig.from_environment()
 
@@ -128,7 +128,7 @@ class TestNelsonConfig:
 
     def test_custom_claude_path_resolution(self, monkeypatch: MonkeyPatch) -> None:
         """Test custom claude command path resolution."""
-        monkeypatch.setenv("RALPH_CLAUDE_COMMAND", "/custom/path/to/claude")
+        monkeypatch.setenv("NELSON_CLAUDE_COMMAND", "/custom/path/to/claude")
 
         config = NelsonConfig.from_environment()
 
@@ -139,19 +139,19 @@ class TestNelsonConfig:
         """Test that validate passes with valid configuration."""
         # Clear environment
         for key in list(os.environ.keys()):
-            if key.startswith("RALPH_"):
+            if key.startswith("NELSON_"):
                 monkeypatch.delenv(key, raising=False)
 
         # Use native claude to avoid path validation
-        monkeypatch.setenv("RALPH_CLAUDE_COMMAND", "claude")
+        monkeypatch.setenv("NELSON_CLAUDE_COMMAND", "claude")
 
         config = NelsonConfig.from_environment()
         config.validate()  # Should not raise
 
     def test_validate_negative_max_iterations(self, monkeypatch: MonkeyPatch) -> None:
         """Test validation fails with negative max_iterations."""
-        monkeypatch.setenv("RALPH_MAX_ITERATIONS", "-5")
-        monkeypatch.setenv("RALPH_CLAUDE_COMMAND", "claude")
+        monkeypatch.setenv("NELSON_MAX_ITERATIONS", "-5")
+        monkeypatch.setenv("NELSON_CLAUDE_COMMAND", "claude")
 
         config = NelsonConfig.from_environment()
 
@@ -160,8 +160,8 @@ class TestNelsonConfig:
 
     def test_validate_zero_cost_limit(self, monkeypatch: MonkeyPatch) -> None:
         """Test validation fails with zero cost_limit."""
-        monkeypatch.setenv("RALPH_COST_LIMIT", "0")
-        monkeypatch.setenv("RALPH_CLAUDE_COMMAND", "claude")
+        monkeypatch.setenv("NELSON_COST_LIMIT", "0")
+        monkeypatch.setenv("NELSON_CLAUDE_COMMAND", "claude")
 
         config = NelsonConfig.from_environment()
 
@@ -173,7 +173,7 @@ class TestNelsonConfig:
     ) -> None:
         """Test validation fails with non-existent claude path."""
         nonexistent_path = tmp_path / "nonexistent" / "claude"
-        monkeypatch.setenv("RALPH_CLAUDE_COMMAND", str(nonexistent_path))
+        monkeypatch.setenv("NELSON_CLAUDE_COMMAND", str(nonexistent_path))
 
         config = NelsonConfig.from_environment()
 
@@ -187,10 +187,10 @@ class TestNelsonConfig:
         audit_dir = tmp_path / ".ralph" / "audit"
         runs_dir = tmp_path / ".ralph" / "runs"
 
-        monkeypatch.setenv("RALPH_DIR", str(nelson_dir))
-        monkeypatch.setenv("RALPH_AUDIT_DIR", str(audit_dir))
-        monkeypatch.setenv("RALPH_RUNS_DIR", str(runs_dir))
-        monkeypatch.setenv("RALPH_CLAUDE_COMMAND", "claude")
+        monkeypatch.setenv("NELSON_DIR", str(nelson_dir))
+        monkeypatch.setenv("NELSON_AUDIT_DIR", str(audit_dir))
+        monkeypatch.setenv("NELSON_RUNS_DIR", str(runs_dir))
+        monkeypatch.setenv("NELSON_CLAUDE_COMMAND", "claude")
 
         config = NelsonConfig.from_environment()
 
@@ -213,8 +213,8 @@ class TestNelsonConfig:
     def test_ensure_directories_idempotent(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Test that ensure_directories can be called multiple times safely."""
         nelson_dir = tmp_path / ".ralph"
-        monkeypatch.setenv("RALPH_DIR", str(nelson_dir))
-        monkeypatch.setenv("RALPH_CLAUDE_COMMAND", "claude")
+        monkeypatch.setenv("NELSON_DIR", str(nelson_dir))
+        monkeypatch.setenv("NELSON_CLAUDE_COMMAND", "claude")
 
         config = NelsonConfig.from_environment()
 
@@ -228,7 +228,7 @@ class TestNelsonConfig:
 
     def test_config_immutability(self, monkeypatch: MonkeyPatch) -> None:
         """Test that config is immutable (frozen dataclass)."""
-        monkeypatch.setenv("RALPH_CLAUDE_COMMAND", "claude")
+        monkeypatch.setenv("NELSON_CLAUDE_COMMAND", "claude")
         config = NelsonConfig.from_environment()
 
         # Should not be able to modify attributes
@@ -237,8 +237,8 @@ class TestNelsonConfig:
 
     def test_config_equality(self, monkeypatch: MonkeyPatch) -> None:
         """Test that configs with same values are equal."""
-        monkeypatch.setenv("RALPH_MODEL", "opus")
-        monkeypatch.setenv("RALPH_CLAUDE_COMMAND", "claude")
+        monkeypatch.setenv("NELSON_MODEL", "opus")
+        monkeypatch.setenv("NELSON_CLAUDE_COMMAND", "claude")
 
         config1 = NelsonConfig.from_environment()
         config2 = NelsonConfig.from_environment()
@@ -247,7 +247,7 @@ class TestNelsonConfig:
 
     def test_config_repr(self, monkeypatch: MonkeyPatch) -> None:
         """Test that config has a useful repr."""
-        monkeypatch.setenv("RALPH_CLAUDE_COMMAND", "claude")
+        monkeypatch.setenv("NELSON_CLAUDE_COMMAND", "claude")
         config = NelsonConfig.from_environment()
 
         repr_str = repr(config)

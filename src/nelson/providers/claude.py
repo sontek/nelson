@@ -312,7 +312,7 @@ class ClaudeProvider(AIProvider):
         """Extract Nelson status block from response.
 
         The status block format:
-            ---RALPH_STATUS---
+            ---NELSON_STATUS---
             STATUS: IN_PROGRESS|COMPLETE|BLOCKED
             TASKS_COMPLETED_THIS_LOOP: N
             FILES_MODIFIED: N
@@ -320,7 +320,7 @@ class ClaudeProvider(AIProvider):
             WORK_TYPE: IMPLEMENTATION|TESTING|DOCUMENTATION|REFACTORING
             EXIT_SIGNAL: true|false
             RECOMMENDATION: one-line text
-            ---END_RALPH_STATUS---
+            ---END_NELSON_STATUS---
 
         Args:
             response: AIResponse containing status block
@@ -334,8 +334,8 @@ class ClaudeProvider(AIProvider):
         content = response.content
 
         # Find status block
-        start_marker = "---RALPH_STATUS---"
-        end_marker = "---END_RALPH_STATUS---"
+        start_marker = "---NELSON_STATUS---"
+        end_marker = "---END_NELSON_STATUS---"
 
         if start_marker not in content or end_marker not in content:
             raise ProviderError(

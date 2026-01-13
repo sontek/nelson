@@ -41,10 +41,10 @@ class TestSystemPrompt:
         """System prompt should define status block format."""
         prompt = get_system_prompt(Path(".ralph/decisions.md"))
         assert "STATUS BLOCK (REQUIRED):" in prompt
-        assert "---RALPH_STATUS---" in prompt
+        assert "---NELSON_STATUS---" in prompt
         assert "STATUS:" in prompt
         assert "EXIT_SIGNAL:" in prompt
-        assert "---END_RALPH_STATUS---" in prompt
+        assert "---END_NELSON_STATUS---" in prompt
 
     def test_system_prompt_contains_exit_signal_conditions(self) -> None:
         """System prompt should define EXIT_SIGNAL conditions."""

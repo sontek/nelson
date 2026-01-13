@@ -52,7 +52,7 @@ def mock_provider() -> MagicMock:
     provider = MagicMock()
     provider.execute.return_value = AIResponse(
         content="Response with status block\n"
-        "---RALPH_STATUS---\n"
+        "---NELSON_STATUS---\n"
         "STATUS: COMPLETE\n"
         "TASKS_COMPLETED_THIS_LOOP: 1\n"
         "FILES_MODIFIED: 2\n"
@@ -60,7 +60,7 @@ def mock_provider() -> MagicMock:
         "WORK_TYPE: IMPLEMENTATION\n"
         "EXIT_SIGNAL: true\n"
         "RECOMMENDATION: All done\n"
-        "---END_RALPH_STATUS---",
+        "---END_NELSON_STATUS---",
         raw_output="raw",
         metadata={},
         is_error=False,
@@ -434,7 +434,7 @@ class TestWorkflowRun:
         # Verify last_output.txt was created
         assert orchestrator.last_output_file.exists()
         content = orchestrator.last_output_file.read_text()
-        assert "RALPH_STATUS" in content
+        assert "NELSON_STATUS" in content
 
 
 class TestWorkflowError:

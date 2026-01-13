@@ -192,7 +192,7 @@ class TestAIProvider:
                 return AIResponse(content="test", raw_output="test", metadata={})
 
             def validate_response(self, response: AIResponse) -> bool:
-                return "---RALPH_STATUS---" in response.content
+                return "---NELSON_STATUS---" in response.content
 
             def extract_status_block(self, response: AIResponse) -> dict[str, Any]:
                 return {}
@@ -206,7 +206,7 @@ class TestAIProvider:
         provider = TestProvider()
 
         valid_response = AIResponse(
-            content="---RALPH_STATUS---\nSTATUS: COMPLETE\n---END_RALPH_STATUS---",
+            content="---NELSON_STATUS---\nSTATUS: COMPLETE\n---END_NELSON_STATUS---",
             raw_output="",
             metadata={},
         )

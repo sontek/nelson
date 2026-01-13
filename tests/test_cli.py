@@ -144,8 +144,8 @@ class TestEnvironmentVariables:
         self, cli_runner: CliRunner, mock_workflow: Any, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Test that environment variables are loaded."""
-        monkeypatch.setenv("RALPH_MAX_ITERATIONS", "100")
-        monkeypatch.setenv("RALPH_MODEL", "opus")
+        monkeypatch.setenv("NELSON_MAX_ITERATIONS", "100")
+        monkeypatch.setenv("NELSON_MODEL", "opus")
 
         result = cli_runner.invoke(main, ["Test task"])
         assert result.exit_code == 0
@@ -154,8 +154,8 @@ class TestEnvironmentVariables:
         self, cli_runner: CliRunner, mock_workflow: Any, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Test that CLI flags override environment variables."""
-        monkeypatch.setenv("RALPH_MAX_ITERATIONS", "100")
-        monkeypatch.setenv("RALPH_MODEL", "opus")
+        monkeypatch.setenv("NELSON_MAX_ITERATIONS", "100")
+        monkeypatch.setenv("NELSON_MODEL", "opus")
 
         result = cli_runner.invoke(
             main, ["--max-iterations", "25", "--model", "haiku", "Test task"]
@@ -187,8 +187,8 @@ class TestBuildConfig:
 
     def test_build_config_no_overrides(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test building config without CLI overrides uses defaults."""
-        monkeypatch.setenv("RALPH_MAX_ITERATIONS", "50")
-        monkeypatch.setenv("RALPH_MODEL", "sonnet")
+        monkeypatch.setenv("NELSON_MAX_ITERATIONS", "50")
+        monkeypatch.setenv("NELSON_MODEL", "sonnet")
 
         config = _build_config(
             max_iterations=None,
@@ -205,8 +205,8 @@ class TestBuildConfig:
 
     def test_build_config_with_overrides(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test building config with CLI overrides."""
-        monkeypatch.setenv("RALPH_MAX_ITERATIONS", "50")
-        monkeypatch.setenv("RALPH_MODEL", "sonnet")
+        monkeypatch.setenv("NELSON_MAX_ITERATIONS", "50")
+        monkeypatch.setenv("NELSON_MODEL", "sonnet")
 
         config = _build_config(
             max_iterations=30,
@@ -226,7 +226,7 @@ class TestBuildConfig:
 
     def test_build_config_model_cascading(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test that plan_model and review_model cascade from model."""
-        monkeypatch.setenv("RALPH_MODEL", "sonnet")
+        monkeypatch.setenv("NELSON_MODEL", "sonnet")
 
         config = _build_config(
             max_iterations=None,
@@ -247,7 +247,7 @@ class TestBuildConfig:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Test explicit plan_model and review_model override cascading."""
-        monkeypatch.setenv("RALPH_MODEL", "sonnet")
+        monkeypatch.setenv("NELSON_MODEL", "sonnet")
 
         config = _build_config(
             max_iterations=None,

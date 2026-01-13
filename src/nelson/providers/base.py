@@ -127,13 +127,13 @@ class AIProvider(ABC):
 
     @abstractmethod
     def extract_status_block(self, response: AIResponse) -> dict[str, Any]:
-        """Extract the RALPH_STATUS block from the response.
+        """Extract the NELSON_STATUS block from the response.
 
         Parses the response content to find and extract the status block
-        delimited by ---RALPH_STATUS--- and ---END_RALPH_STATUS---.
+        delimited by ---NELSON_STATUS--- and ---END_NELSON_STATUS---.
 
         Expected format:
-            ---RALPH_STATUS---
+            ---NELSON_STATUS---
             STATUS: IN_PROGRESS|COMPLETE|BLOCKED
             TASKS_COMPLETED_THIS_LOOP: N
             FILES_MODIFIED: N
@@ -141,7 +141,7 @@ class AIProvider(ABC):
             WORK_TYPE: IMPLEMENTATION|TESTING|DOCUMENTATION|REFACTORING
             EXIT_SIGNAL: true|false
             RECOMMENDATION: one-line text
-            ---END_RALPH_STATUS---
+            ---END_NELSON_STATUS---
 
         Args:
             response: The AIResponse containing the status block

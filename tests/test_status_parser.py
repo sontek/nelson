@@ -86,10 +86,10 @@ class TestExtractStatusBlockText:
         """Test extracting status block with valid delimiters."""
         content = """
 Some text before
----RALPH_STATUS---
+---NELSON_STATUS---
 STATUS: IN_PROGRESS
 TASKS_COMPLETED_THIS_LOOP: 1
----END_RALPH_STATUS---
+---END_NELSON_STATUS---
 Some text after
         """
 
@@ -101,14 +101,14 @@ Some text after
 
     def test_extract_missing_start_marker(self) -> None:
         """Test error when start marker is missing."""
-        content = "STATUS: IN_PROGRESS\n---END_RALPH_STATUS---"
+        content = "STATUS: IN_PROGRESS\n---END_NELSON_STATUS---"
 
         with pytest.raises(StatusBlockError, match="start marker not found"):
             extract_status_block_text(content)
 
     def test_extract_missing_end_marker(self) -> None:
         """Test error when end marker is missing."""
-        content = "---RALPH_STATUS---\nSTATUS: IN_PROGRESS"
+        content = "---NELSON_STATUS---\nSTATUS: IN_PROGRESS"
 
         with pytest.raises(StatusBlockError, match="end marker not found"):
             extract_status_block_text(content)
@@ -125,7 +125,7 @@ class TestParseStatusBlock:
     def test_parse_valid_in_progress_block(self) -> None:
         """Test parsing a valid IN_PROGRESS status block."""
         content = """
----RALPH_STATUS---
+---NELSON_STATUS---
 STATUS: IN_PROGRESS
 TASKS_COMPLETED_THIS_LOOP: 2
 FILES_MODIFIED: 3
@@ -133,7 +133,7 @@ TESTS_STATUS: PASSING
 WORK_TYPE: IMPLEMENTATION
 EXIT_SIGNAL: false
 RECOMMENDATION: Continue with next Phase 2 task
----END_RALPH_STATUS---
+---END_NELSON_STATUS---
         """
 
         block = parse_status_block(content)
@@ -150,7 +150,7 @@ RECOMMENDATION: Continue with next Phase 2 task
     def test_parse_valid_complete_block(self) -> None:
         """Test parsing a COMPLETE status block with EXIT_SIGNAL."""
         content = """
----RALPH_STATUS---
+---NELSON_STATUS---
 STATUS: COMPLETE
 TASKS_COMPLETED_THIS_LOOP: 1
 FILES_MODIFIED: 1
@@ -158,7 +158,7 @@ TESTS_STATUS: PASSING
 WORK_TYPE: IMPLEMENTATION
 EXIT_SIGNAL: true
 RECOMMENDATION: All tasks complete, tests passing, workflow finished
----END_RALPH_STATUS---
+---END_NELSON_STATUS---
         """
 
         block = parse_status_block(content)
@@ -174,7 +174,7 @@ RECOMMENDATION: All tasks complete, tests passing, workflow finished
     def test_parse_blocked_status(self) -> None:
         """Test parsing a BLOCKED status block."""
         content = """
----RALPH_STATUS---
+---NELSON_STATUS---
 STATUS: BLOCKED
 TASKS_COMPLETED_THIS_LOOP: 0
 FILES_MODIFIED: 0
@@ -182,7 +182,7 @@ TESTS_STATUS: FAILING
 WORK_TYPE: DEBUGGING
 EXIT_SIGNAL: false
 RECOMMENDATION: Same import error 3x, needs investigation
----END_RALPH_STATUS---
+---END_NELSON_STATUS---
         """
 
         # Note: DEBUGGING is not a valid WorkType, this should raise an error
@@ -192,7 +192,7 @@ RECOMMENDATION: Same import error 3x, needs investigation
     def test_parse_testing_work_type(self) -> None:
         """Test parsing TESTING work type."""
         content = """
----RALPH_STATUS---
+---NELSON_STATUS---
 STATUS: IN_PROGRESS
 TASKS_COMPLETED_THIS_LOOP: 0
 FILES_MODIFIED: 0
@@ -200,7 +200,7 @@ TESTS_STATUS: PASSING
 WORK_TYPE: TESTING
 EXIT_SIGNAL: false
 RECOMMENDATION: Running test suite
----END_RALPH_STATUS---
+---END_NELSON_STATUS---
         """
 
         block = parse_status_block(content)
@@ -211,7 +211,7 @@ RECOMMENDATION: Running test suite
     def test_parse_failing_tests(self) -> None:
         """Test parsing with failing tests."""
         content = """
----RALPH_STATUS---
+---NELSON_STATUS---
 STATUS: IN_PROGRESS
 TASKS_COMPLETED_THIS_LOOP: 1
 FILES_MODIFIED: 2
@@ -219,7 +219,7 @@ TESTS_STATUS: FAILING
 WORK_TYPE: IMPLEMENTATION
 EXIT_SIGNAL: false
 RECOMMENDATION: Fix test failures
----END_RALPH_STATUS---
+---END_NELSON_STATUS---
         """
 
         block = parse_status_block(content)
@@ -230,7 +230,7 @@ RECOMMENDATION: Fix test failures
     def test_parse_not_run_tests(self) -> None:
         """Test parsing with tests not run."""
         content = """
----RALPH_STATUS---
+---NELSON_STATUS---
 STATUS: IN_PROGRESS
 TASKS_COMPLETED_THIS_LOOP: 1
 FILES_MODIFIED: 1
@@ -238,7 +238,7 @@ TESTS_STATUS: NOT_RUN
 WORK_TYPE: IMPLEMENTATION
 EXIT_SIGNAL: false
 RECOMMENDATION: Tests not required for this phase
----END_RALPH_STATUS---
+---END_NELSON_STATUS---
         """
 
         block = parse_status_block(content)
@@ -249,7 +249,7 @@ RECOMMENDATION: Tests not required for this phase
         """Test parsing different EXIT_SIGNAL values."""
         # Test 'true'
         content_true = """
----RALPH_STATUS---
+---NELSON_STATUS---
 STATUS: COMPLETE
 TASKS_COMPLETED_THIS_LOOP: 1
 FILES_MODIFIED: 1
@@ -257,7 +257,7 @@ TESTS_STATUS: PASSING
 WORK_TYPE: IMPLEMENTATION
 EXIT_SIGNAL: true
 RECOMMENDATION: Done
----END_RALPH_STATUS---
+---END_NELSON_STATUS---
         """
         assert parse_status_block(content_true).exit_signal is True
 
@@ -280,7 +280,7 @@ RECOMMENDATION: Done
     def test_parse_invalid_numeric_fields(self) -> None:
         """Test parsing with invalid numeric values defaults to 0."""
         content = """
----RALPH_STATUS---
+---NELSON_STATUS---
 STATUS: IN_PROGRESS
 TASKS_COMPLETED_THIS_LOOP: invalid
 FILES_MODIFIED: not_a_number
@@ -288,7 +288,7 @@ TESTS_STATUS: PASSING
 WORK_TYPE: IMPLEMENTATION
 EXIT_SIGNAL: false
 RECOMMENDATION: Numbers were invalid
----END_RALPH_STATUS---
+---END_NELSON_STATUS---
         """
 
         block = parse_status_block(content)
@@ -300,14 +300,14 @@ RECOMMENDATION: Numbers were invalid
     def test_parse_missing_required_field(self) -> None:
         """Test error when required field is missing."""
         content = """
----RALPH_STATUS---
+---NELSON_STATUS---
 STATUS: IN_PROGRESS
 FILES_MODIFIED: 1
 TESTS_STATUS: PASSING
 WORK_TYPE: IMPLEMENTATION
 EXIT_SIGNAL: false
 RECOMMENDATION: Missing tasks_completed_this_loop
----END_RALPH_STATUS---
+---END_NELSON_STATUS---
         """
 
         with pytest.raises(
@@ -318,7 +318,7 @@ RECOMMENDATION: Missing tasks_completed_this_loop
     def test_parse_invalid_status_value(self) -> None:
         """Test error when status value is invalid."""
         content = """
----RALPH_STATUS---
+---NELSON_STATUS---
 STATUS: UNKNOWN
 TASKS_COMPLETED_THIS_LOOP: 1
 FILES_MODIFIED: 1
@@ -326,7 +326,7 @@ TESTS_STATUS: PASSING
 WORK_TYPE: IMPLEMENTATION
 EXIT_SIGNAL: false
 RECOMMENDATION: Invalid status
----END_RALPH_STATUS---
+---END_NELSON_STATUS---
         """
 
         with pytest.raises(StatusBlockError, match="Invalid status value"):
@@ -335,7 +335,7 @@ RECOMMENDATION: Invalid status
     def test_parse_invalid_tests_status_value(self) -> None:
         """Test error when tests_status value is invalid."""
         content = """
----RALPH_STATUS---
+---NELSON_STATUS---
 STATUS: IN_PROGRESS
 TASKS_COMPLETED_THIS_LOOP: 1
 FILES_MODIFIED: 1
@@ -343,7 +343,7 @@ TESTS_STATUS: UNKNOWN
 WORK_TYPE: IMPLEMENTATION
 EXIT_SIGNAL: false
 RECOMMENDATION: Invalid test status
----END_RALPH_STATUS---
+---END_NELSON_STATUS---
         """
 
         with pytest.raises(StatusBlockError, match="Invalid tests_status value"):
@@ -352,7 +352,7 @@ RECOMMENDATION: Invalid test status
     def test_parse_with_extra_whitespace(self) -> None:
         """Test parsing with extra whitespace is handled correctly."""
         content = """
----RALPH_STATUS---
+---NELSON_STATUS---
 STATUS:    IN_PROGRESS
 TASKS_COMPLETED_THIS_LOOP:   2
 FILES_MODIFIED:  3
@@ -360,7 +360,7 @@ TESTS_STATUS:     PASSING
 WORK_TYPE:   IMPLEMENTATION
 EXIT_SIGNAL:    false
 RECOMMENDATION:   Continue with next task
----END_RALPH_STATUS---
+---END_NELSON_STATUS---
         """
 
         block = parse_status_block(content)
@@ -376,7 +376,7 @@ This is some output from the AI.
 
 Here are my thoughts about the task...
 
----RALPH_STATUS---
+---NELSON_STATUS---
 STATUS: IN_PROGRESS
 TASKS_COMPLETED_THIS_LOOP: 1
 FILES_MODIFIED: 2
@@ -384,7 +384,7 @@ TESTS_STATUS: PASSING
 WORK_TYPE: IMPLEMENTATION
 EXIT_SIGNAL: false
 RECOMMENDATION: Continue implementation
----END_RALPH_STATUS---
+---END_NELSON_STATUS---
 
 And here is some more text after the status block.
         """

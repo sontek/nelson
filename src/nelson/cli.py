@@ -36,40 +36,40 @@ logger = get_logger()
 @click.option(
     "--max-iterations",
     type=int,
-    envvar="RALPH_MAX_ITERATIONS",
-    help="Max total iterations (env: RALPH_MAX_ITERATIONS)",
+    envvar="NELSON_MAX_ITERATIONS",
+    help="Max total iterations (env: NELSON_MAX_ITERATIONS)",
 )
 @click.option(
     "--cost-limit",
     type=float,
-    envvar="RALPH_COST_LIMIT",
-    help="Max cost in USD (env: RALPH_COST_LIMIT)",
+    envvar="NELSON_COST_LIMIT",
+    help="Max cost in USD (env: NELSON_COST_LIMIT)",
 )
 @click.option(
     "--model",
-    envvar="RALPH_MODEL",
-    help="Model to use for all phases (env: RALPH_MODEL). Options: opus, sonnet, haiku",
+    envvar="NELSON_MODEL",
+    help="Model to use for all phases (env: NELSON_MODEL). Options: opus, sonnet, haiku",
 )
 @click.option(
     "--plan-model",
-    envvar="RALPH_PLAN_MODEL",
-    help="Model for Phase 1 planning (env: RALPH_PLAN_MODEL). Defaults to --model",
+    envvar="NELSON_PLAN_MODEL",
+    help="Model for Phase 1 planning (env: NELSON_PLAN_MODEL). Defaults to --model",
 )
 @click.option(
     "--review-model",
-    envvar="RALPH_REVIEW_MODEL",
-    help="Model for Phase 3 & 5 reviews (env: RALPH_REVIEW_MODEL). Defaults to --model",
+    envvar="NELSON_REVIEW_MODEL",
+    help="Model for Phase 3 & 5 reviews (env: NELSON_REVIEW_MODEL). Defaults to --model",
 )
 @click.option(
     "--claude-command",
-    envvar="RALPH_CLAUDE_COMMAND",
-    help='Claude command (env: RALPH_CLAUDE_COMMAND). Options: "claude", "claude-jail", or path',
+    envvar="NELSON_CLAUDE_COMMAND",
+    help='Claude command (env: NELSON_CLAUDE_COMMAND). Options: "claude", "claude-jail", or path',
 )
 @click.option(
     "--auto-approve-push",
     is_flag=True,
-    envvar="RALPH_AUTO_APPROVE_PUSH",
-    help="Skip push approval prompt (env: RALPH_AUTO_APPROVE_PUSH)",
+    envvar="NELSON_AUTO_APPROVE_PUSH",
+    help="Skip push approval prompt (env: NELSON_AUTO_APPROVE_PUSH)",
 )
 @click.version_option(version="0.1.0", prog_name="nelson")
 def main(
@@ -104,13 +104,13 @@ def main(
 
     \b
     Environment Variables:
-      RALPH_MAX_ITERATIONS      Max total iterations (default: 50)
-      RALPH_COST_LIMIT          Max cost in USD (default: 10.00)
-      RALPH_AUTO_APPROVE_PUSH   Skip push approval (default: false)
-      RALPH_CLAUDE_COMMAND      Claude command (default: claude-jail)
-      RALPH_MODEL               Model for all phases (default: sonnet)
-      RALPH_PLAN_MODEL          Model for Phase 1 (default: RALPH_MODEL)
-      RALPH_REVIEW_MODEL        Model for Phase 3 & 5 (default: RALPH_MODEL)
+      NELSON_MAX_ITERATIONS      Max total iterations (default: 50)
+      NELSON_COST_LIMIT          Max cost in USD (default: 10.00)
+      NELSON_AUTO_APPROVE_PUSH   Skip push approval (default: false)
+      NELSON_CLAUDE_COMMAND      Claude command (default: claude-jail)
+      NELSON_MODEL               Model for all phases (default: sonnet)
+      NELSON_PLAN_MODEL          Model for Phase 1 (default: NELSON_MODEL)
+      NELSON_REVIEW_MODEL        Model for Phase 3 & 5 (default: NELSON_MODEL)
     """
     # Validate that we have either a prompt or --resume
     if not prompt and resume_path is None:
@@ -381,7 +381,7 @@ def _resume_from_path(run_dir: Path) -> None:
             )
             logger.info(f"Auto-extending cycle limit to {new_limit}")
             logger.info(
-                "To set a custom limit, use: RALPH_MAX_ITERATIONS=<number> nelson --resume"
+                "To set a custom limit, use: NELSON_MAX_ITERATIONS=<number> nelson --resume"
             )
 
             # Update config with new limit
@@ -407,7 +407,7 @@ def _resume_from_path(run_dir: Path) -> None:
             )
             logger.error(
                 f"Increase the limit to continue: "
-                f"RALPH_MAX_ITERATIONS={state.cycle_iterations + 10} nelson --resume"
+                f"NELSON_MAX_ITERATIONS={state.cycle_iterations + 10} nelson --resume"
             )
             raise click.Abort()
     elif state.cycle_iterations > config.max_iterations - 3:

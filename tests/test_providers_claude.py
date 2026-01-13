@@ -21,7 +21,7 @@ def _create_status_block(
 ) -> str:
     """Helper to create a status block string."""
     return (
-        f"---RALPH_STATUS---\n"
+        f"---NELSON_STATUS---\n"
         f"STATUS: {status}\n"
         f"TASKS_COMPLETED_THIS_LOOP: {tasks}\n"
         f"FILES_MODIFIED: {files}\n"
@@ -29,7 +29,7 @@ def _create_status_block(
         f"WORK_TYPE: {work}\n"
         f"EXIT_SIGNAL: {str(exit_signal).lower()}\n"
         f"RECOMMENDATION: {recommendation}\n"
-        f"---END_RALPH_STATUS---"
+        f"---END_NELSON_STATUS---"
     )
 
 
@@ -360,7 +360,7 @@ class TestExtractStatusBlock:
         content = """
 Response text here.
 
----RALPH_STATUS---
+---NELSON_STATUS---
 STATUS: COMPLETE
 TASKS_COMPLETED_THIS_LOOP: 3
 FILES_MODIFIED: 5
@@ -368,7 +368,7 @@ TESTS_STATUS: PASSING
 WORK_TYPE: IMPLEMENTATION
 EXIT_SIGNAL: true
 RECOMMENDATION: All tasks complete
----END_RALPH_STATUS---
+---END_NELSON_STATUS---
 
 More text after.
 """
@@ -387,7 +387,7 @@ More text after.
         """Test extracting in-progress status block."""
         provider = ClaudeProvider()
         content = """
----RALPH_STATUS---
+---NELSON_STATUS---
 STATUS: IN_PROGRESS
 TASKS_COMPLETED_THIS_LOOP: 1
 FILES_MODIFIED: 2
@@ -395,7 +395,7 @@ TESTS_STATUS: NOT_RUN
 WORK_TYPE: TESTING
 EXIT_SIGNAL: false
 RECOMMENDATION: Continue testing
----END_RALPH_STATUS---
+---END_NELSON_STATUS---
 """
         response = AIResponse(content=content, raw_output="", metadata={})
         status = provider.extract_status_block(response)
@@ -422,10 +422,10 @@ RECOMMENDATION: Continue testing
         """Test extraction when status block is missing required fields."""
         provider = ClaudeProvider()
         content = """
----RALPH_STATUS---
+---NELSON_STATUS---
 STATUS: COMPLETE
 TASKS_COMPLETED_THIS_LOOP: 1
----END_RALPH_STATUS---
+---END_NELSON_STATUS---
 """
         response = AIResponse(content=content, raw_output="", metadata={})
 
@@ -439,7 +439,7 @@ TASKS_COMPLETED_THIS_LOOP: 1
         """Test extraction with invalid numeric values."""
         provider = ClaudeProvider()
         content = """
----RALPH_STATUS---
+---NELSON_STATUS---
 STATUS: COMPLETE
 TASKS_COMPLETED_THIS_LOOP: not_a_number
 FILES_MODIFIED: also_not_a_number
@@ -447,7 +447,7 @@ TESTS_STATUS: PASSING
 WORK_TYPE: IMPLEMENTATION
 EXIT_SIGNAL: true
 RECOMMENDATION: Done
----END_RALPH_STATUS---
+---END_NELSON_STATUS---
 """
         response = AIResponse(content=content, raw_output="", metadata={})
         status = provider.extract_status_block(response)

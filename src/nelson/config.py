@@ -54,29 +54,29 @@ class NelsonConfig:
         Returns:
             Immutable NelsonConfig instance.
         """
-        # Detect if RALPH_MAX_ITERATIONS was explicitly set
-        max_iterations_str = os.getenv("RALPH_MAX_ITERATIONS")
+        # Detect if NELSON_MAX_ITERATIONS was explicitly set
+        max_iterations_str = os.getenv("NELSON_MAX_ITERATIONS")
         max_iterations_explicit = max_iterations_str is not None
         max_iterations = int(max_iterations_str) if max_iterations_str else 50
 
         # Cost limit in USD
-        cost_limit = float(os.getenv("RALPH_COST_LIMIT", "10.00"))
+        cost_limit = float(os.getenv("NELSON_COST_LIMIT", "10.00"))
 
         # Directory configuration
-        nelson_dir = Path(os.getenv("RALPH_DIR", ".nelson"))
-        audit_dir = Path(os.getenv("RALPH_AUDIT_DIR", ".nelson/audit"))
-        runs_dir = Path(os.getenv("RALPH_RUNS_DIR", ".nelson/runs"))
+        nelson_dir = Path(os.getenv("NELSON_DIR", ".nelson"))
+        audit_dir = Path(os.getenv("NELSON_AUDIT_DIR", ".nelson/audit"))
+        runs_dir = Path(os.getenv("NELSON_RUNS_DIR", ".nelson/runs"))
 
         # Claude command configuration
-        claude_command = os.getenv("RALPH_CLAUDE_COMMAND", "claude-jail")
+        claude_command = os.getenv("NELSON_CLAUDE_COMMAND", "claude-jail")
 
         # Model selection with cascading defaults
-        model = os.getenv("RALPH_MODEL", "sonnet")
-        plan_model = os.getenv("RALPH_PLAN_MODEL", model)
-        review_model = os.getenv("RALPH_REVIEW_MODEL", model)
+        model = os.getenv("NELSON_MODEL", "sonnet")
+        plan_model = os.getenv("NELSON_PLAN_MODEL", model)
+        review_model = os.getenv("NELSON_REVIEW_MODEL", model)
 
         # Git configuration
-        auto_approve_push = os.getenv("RALPH_AUTO_APPROVE_PUSH", "false").lower() in (
+        auto_approve_push = os.getenv("NELSON_AUTO_APPROVE_PUSH", "false").lower() in (
             "true",
             "1",
             "yes",

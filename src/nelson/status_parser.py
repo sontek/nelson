@@ -1,11 +1,11 @@
 """Status block parser for Nelson's execution output.
 
-This module provides utilities to parse the RALPH_STATUS block from AI provider
+This module provides utilities to parse the NELSON_STATUS block from AI provider
 responses. The status block contains critical information about execution progress,
 including task completion, file modifications, test status, and the EXIT_SIGNAL.
 
 Example status block format:
-    ---RALPH_STATUS---
+    ---NELSON_STATUS---
     STATUS: IN_PROGRESS|COMPLETE|BLOCKED
     TASKS_COMPLETED_THIS_LOOP: N
     FILES_MODIFIED: N
@@ -13,7 +13,7 @@ Example status block format:
     WORK_TYPE: IMPLEMENTATION|TESTING|DOCUMENTATION|REFACTORING
     EXIT_SIGNAL: true|false
     RECOMMENDATION: one-line next step
-    ---END_RALPH_STATUS---
+    ---END_NELSON_STATUS---
 """
 
 from dataclasses import dataclass
@@ -50,7 +50,7 @@ class WorkType(str, Enum):
 class StatusBlock:
     """Parsed status block from Nelson execution.
 
-    This represents the structured data extracted from the RALPH_STATUS block
+    This represents the structured data extracted from the NELSON_STATUS block
     in the AI provider's response.
 
     Attributes:
@@ -92,8 +92,8 @@ def extract_status_block_text(content: str) -> str:
     Raises:
         StatusBlockError: If status block delimiters not found
     """
-    start_marker = "---RALPH_STATUS---"
-    end_marker = "---END_RALPH_STATUS---"
+    start_marker = "---NELSON_STATUS---"
+    end_marker = "---END_NELSON_STATUS---"
 
     if start_marker not in content:
         raise StatusBlockError("Status block start marker not found")

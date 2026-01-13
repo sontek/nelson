@@ -22,7 +22,7 @@ class NelsonConfig:
     """
 
     # Iteration and cost limits
-    max_iterations: int
+    max_iterations: int  # Max complete 6-phase cycles (not total phase executions)
     max_iterations_explicit: bool  # True if user explicitly set max_iterations
     cost_limit: float
 

@@ -30,7 +30,6 @@ class NelsonConfig:
     nelson_dir: Path
     audit_dir: Path
     runs_dir: Path
-    target_path: Path | None = None  # Optional target repository path (None = current directory)
 
     # Claude command configuration
     claude_command: str  # "claude", "claude-jail", or custom path
@@ -43,6 +42,9 @@ class NelsonConfig:
 
     # Git/Push configuration
     auto_approve_push: bool
+
+    # Optional target repository path (None = current directory)
+    target_path: Path | None = None
 
     @classmethod
     def from_environment(

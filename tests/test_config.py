@@ -168,7 +168,9 @@ class TestRalphConfig:
         with pytest.raises(ValueError, match="cost_limit must be > 0"):
             config.validate()
 
-    def test_validate_nonexistent_claude_path(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+    def test_validate_nonexistent_claude_path(
+        self, tmp_path: Path, monkeypatch: MonkeyPatch
+    ) -> None:
         """Test validation fails with non-existent claude path."""
         nonexistent_path = tmp_path / "nonexistent" / "claude"
         monkeypatch.setenv("RALPH_CLAUDE_COMMAND", str(nonexistent_path))

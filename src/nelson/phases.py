@@ -1,4 +1,4 @@
-"""Phase definitions and metadata for Ralph's 6-phase workflow.
+"""Phase definitions and metadata for Nelson's 6-phase workflow.
 
 Phases:
 1. PLAN: Analyze task and create implementation plan
@@ -23,7 +23,7 @@ from typing import Literal
 
 
 class Phase(IntEnum):
-    """6-phase workflow for Ralph orchestration.
+    """6-phase workflow for Nelson orchestration.
 
     Each phase has a specific purpose and completion criteria.
     Phases can loop (REVIEW, TEST, FINAL_REVIEW) or always advance (PLAN, IMPLEMENT, COMMIT).

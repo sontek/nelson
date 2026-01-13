@@ -1,7 +1,7 @@
-"""Plan file parser for tracking task status in Ralph's plan.md files.
+"""Plan file parser for tracking task status in Nelson's plan.md files.
 
 This module provides utilities to parse plan.md files, extract tasks by phase,
-and track task completion status. It supports the markdown format used by Ralph:
+and track task completion status. It supports the markdown format used by Nelson:
 
     ## Phase N: PHASE_NAME
     - [x] Completed task
@@ -69,7 +69,7 @@ class PhaseTaskSummary:
 
 
 class PlanParser:
-    """Parser for Ralph's plan.md files."""
+    """Parser for Nelson's plan.md files."""
 
     # Regex patterns for parsing
     PHASE_HEADER_PATTERN = re.compile(r"^##\s+Phase\s+(\d+):\s+(.+)$")

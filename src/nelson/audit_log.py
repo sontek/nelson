@@ -2,7 +2,7 @@
 
 This module provides a context manager that captures all stdout/stderr to both
 the console and a log file, similar to the Unix tee command. This provides a
-complete audit trail of Ralph's execution.
+complete audit trail of Nelson's execution.
 """
 
 import sys

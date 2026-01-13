@@ -1,4 +1,4 @@
-"""State file archiving for Ralph runs.
+"""State file archiving for Nelson runs.
 
 This module handles archiving old state files from previous runs before starting
 a new run. This prevents state file conflicts and preserves history.
@@ -19,7 +19,7 @@ def archive_old_state(config: NelsonConfig) -> None:
     "ralph-previous-TIMESTAMP" archive directory if no runs exist yet.
 
     Args:
-        config: Ralph configuration with directory paths
+        config: Nelson configuration with directory paths
     """
     logger = get_logger()
 

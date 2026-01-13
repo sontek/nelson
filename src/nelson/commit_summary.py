@@ -1,6 +1,6 @@
-"""Commit summary generation for Ralph workflow.
+"""Commit summary generation for Nelson workflow.
 
-This module generates formatted summaries of git commits made during a Ralph session.
+This module generates formatted summaries of git commits made during a Nelson session.
 """
 
 import subprocess
@@ -15,7 +15,7 @@ logger = get_logger()
 
 @dataclass(frozen=True)
 class CommitSummary:
-    """Summary of commits made during a Ralph session."""
+    """Summary of commits made during a Nelson session."""
 
     starting_commit: str
     current_commit: str
@@ -132,13 +132,13 @@ def display_commit_summary(summary: CommitSummary | None) -> None:
         return
 
     if not summary.has_commits:
-        logger.info("No commits made during this Ralph session")
+        logger.info("No commits made during this Nelson session")
         return
 
     # Display header
     print()
     print("━" * 60)
-    logger.success("Commits made during this Ralph session:")
+    logger.success("Commits made during this Nelson session:")
     print("━" * 60)
     print()
 

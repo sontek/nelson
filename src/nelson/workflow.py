@@ -1,4 +1,4 @@
-"""Workflow orchestrator for Ralph.
+"""Workflow orchestrator for Nelson.
 
 This module implements the main execution loop that coordinates:
 - Phase transitions
@@ -32,7 +32,7 @@ class CircuitBreakerResult(Enum):
 
 
 class WorkflowOrchestrator:
-    """Main workflow orchestrator that coordinates Ralph's execution loop.
+    """Main workflow orchestrator that coordinates Nelson's execution loop.
 
     The orchestrator follows the bash ralph's approach:
     1. Load state and context from previous iteration
@@ -45,7 +45,7 @@ class WorkflowOrchestrator:
     8. Repeat until EXIT_SIGNAL or circuit breaker triggers
 
     Attributes:
-        config: Ralph configuration
+        config: Nelson configuration
         state: Current execution state
         provider: AI provider (Claude)
         run_dir: Directory for current run
@@ -61,7 +61,7 @@ class WorkflowOrchestrator:
         """Initialize workflow orchestrator.
 
         Args:
-            config: Ralph configuration
+            config: Nelson configuration
             state: Initial state
             provider: AI provider instance
             run_dir: Run directory for plan.md, decisions.md, etc.
@@ -85,7 +85,7 @@ class WorkflowOrchestrator:
         Raises:
             WorkflowError: If workflow fails due to limits or errors
         """
-        logger.info("Starting Ralph autonomous workflow...")
+        logger.info("Starting Nelson autonomous workflow...")
         logger.info(f"Prompt: {prompt}")
         logger.info("")
 

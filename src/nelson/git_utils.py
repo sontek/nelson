@@ -1,6 +1,6 @@
-"""Git utilities for Ralph workflow integration.
+"""Git utilities for Nelson workflow integration.
 
-This module provides git operations needed by Ralph:
+This module provides git operations needed by Nelson:
 - Check if we're in a git repository
 - Get current branch name
 - Get starting commit for run tracking
@@ -271,7 +271,7 @@ def unstage_files(patterns: list[str], path: Path | None = None) -> int:
 def unstage_ralph_files(path: Path | None = None) -> int:
     """Unstage .claude/ and .ralph/ files if they were accidentally staged.
 
-    This is a convenience wrapper around unstage_files() for Ralph's specific use case.
+    This is a convenience wrapper around unstage_files() for Nelson's specific use case.
 
     Args:
         path: Repository path. Defaults to current directory.

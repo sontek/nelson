@@ -1,6 +1,6 @@
-"""Circuit breaker detection for Ralph workflow.
+"""Circuit breaker detection for Nelson workflow.
 
-This module provides circuit breaker logic to prevent runaway loops in the Ralph
+This module provides circuit breaker logic to prevent runaway loops in the Nelson
 workflow. It detects various stagnation conditions and signals when to halt execution.
 
 Circuit breaker conditions:
@@ -28,7 +28,7 @@ class CircuitBreaker:
     """Circuit breaker for detecting workflow stagnation.
 
     The circuit breaker monitors progress and error patterns to detect when
-    Ralph is stuck in an unproductive loop. It tracks:
+    Nelson is stuck in an unproductive loop. It tracks:
     - Progress (tasks completed, files modified)
     - Test-only loops (TESTING work with no file changes)
     - Repeated errors (same error pattern multiple times)
@@ -38,7 +38,7 @@ class CircuitBreaker:
         """Initialize circuit breaker.
 
         Args:
-            state: Ralph state for tracking metrics
+            state: Nelson state for tracking metrics
         """
         self.state = state
 

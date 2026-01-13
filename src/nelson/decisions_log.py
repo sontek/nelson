@@ -1,8 +1,8 @@
 """
-Decisions log writer for Ralph workflow.
+Decisions log writer for Nelson workflow.
 
 This module provides utilities for appending structured decision entries to the decisions.md
-file that tracks Ralph's autonomous decision-making process.
+file that tracks Nelson's autonomous decision-making process.
 """
 
 from pathlib import Path
@@ -10,7 +10,7 @@ from typing import TextIO
 
 
 class DecisionsLog:
-    """Writer for Ralph's decisions log file (decisions.md)."""
+    """Writer for Nelson's decisions log file (decisions.md)."""
 
     def __init__(self, log_path: Path) -> None:
         """
@@ -172,7 +172,7 @@ class DecisionsLog:
         Args:
             f: File handle to write to
         """
-        f.write("# Ralph Decisions Log\n\n")
+        f.write("# Nelson Decisions Log\n\n")
 
 
 def append_decision(

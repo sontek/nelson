@@ -1,4 +1,4 @@
-"""Status block parser for Ralph's execution output.
+"""Status block parser for Nelson's execution output.
 
 This module provides utilities to parse the RALPH_STATUS block from AI provider
 responses. The status block contains critical information about execution progress,
@@ -48,7 +48,7 @@ class WorkType(str, Enum):
 
 @dataclass(frozen=True)
 class StatusBlock:
-    """Parsed status block from Ralph execution.
+    """Parsed status block from Nelson execution.
 
     This represents the structured data extracted from the RALPH_STATUS block
     in the AI provider's response.

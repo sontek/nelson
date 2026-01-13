@@ -1,6 +1,6 @@
-"""Prompt generation for Ralph's AI orchestration system.
+"""Prompt generation for Nelson's AI orchestration system.
 
-This module provides the system prompt (generic Ralph instructions) and phase-specific
+This module provides the system prompt (generic Nelson instructions) and phase-specific
 prompts that guide the AI through the 6-phase autonomous workflow.
 """
 
@@ -10,7 +10,7 @@ from nelson.phases import Phase
 
 
 def get_system_prompt(decisions_file: Path) -> str:
-    """Generate the system-level prompt with generic Ralph instructions.
+    """Generate the system-level prompt with generic Nelson instructions.
 
     This prompt is sent to Claude for ALL phases and contains:
     - Workflow overview
@@ -28,14 +28,14 @@ def get_system_prompt(decisions_file: Path) -> str:
         System prompt string for Claude
     """
     workflow_line = (
-        "Ralph: 6-phase autonomous workflow - PLAN, IMPLEMENT, REVIEW(loops), "
+        "Nelson: 6-phase autonomous workflow - PLAN, IMPLEMENT, REVIEW(loops), "
         "TEST(loops), FINAL-REVIEW(→4 if fixes), COMMIT"
     )
     return f"""{workflow_line}
 
 STATELESS OPERATION:
 Complete ONE task per call. Rebuild context from {decisions_file}, git status, and plan.md.
-Mark task [x] in plan, log to {decisions_file}, STOP. Ralph controls phases.
+Mark task [x] in plan, log to {decisions_file}, STOP. Nelson controls phases.
 
 CORE RULES:
 - Execute commands, verify results - don't just document
@@ -47,7 +47,7 @@ CORE RULES:
 - ONLY stage: source code, tests, config files
 
 ERROR HANDLING:
-Log error details to {decisions_file} and STOP. Ralph handles recovery.
+Log error details to {decisions_file} and STOP. Nelson handles recovery.
 
 STATUS BLOCK (REQUIRED):
 ---RALPH_STATUS---
@@ -200,7 +200,7 @@ IF issues found:
 
 IF no issues:
   - Mark task [x]
-  - STOP (Ralph advances to Phase 4)
+  - STOP (Nelson advances to Phase 4)
 
 Note: Phase 2 commits already made. Review fixes also get committed.
 """
@@ -220,7 +220,7 @@ IF task is "Fix: X":
   - Stage and commit the fix
   - Mark [x], STOP
 
-When all Phase 4 tasks [x]: Ralph advances to Phase 5
+When all Phase 4 tasks [x]: Nelson advances to Phase 5
 """
 
 
@@ -244,7 +244,7 @@ IF issues found:
 
 IF no issues:
   - Mark task [x]
-  - STOP (Ralph advances to Phase 6)
+  - STOP (Nelson advances to Phase 6)
 """
 
 

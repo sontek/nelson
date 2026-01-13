@@ -1,8 +1,8 @@
-"""Claude provider implementation for Ralph.
+"""Claude provider implementation for Nelson.
 
 This module implements the Claude provider, supporting both native and jail (Docker) modes.
 It handles calling the Claude command-line tool, parsing JSON output, and extracting
-the Ralph status block from responses.
+the Nelson status block from responses.
 """
 
 import json
@@ -62,7 +62,7 @@ class ClaudeProvider(AIProvider):
         """Execute Claude call with retry logic.
 
         Args:
-            system_prompt: System-level prompt with Ralph instructions
+            system_prompt: System-level prompt with Nelson instructions
             user_prompt: User/task-specific prompt
             model: Model identifier (sonnet, opus, haiku)
             max_retries: Maximum retry attempts for transient errors
@@ -294,7 +294,7 @@ class ClaudeProvider(AIProvider):
         return ansi_pattern.sub("", text)
 
     def validate_response(self, response: AIResponse) -> bool:
-        """Validate that response contains required Ralph status block.
+        """Validate that response contains required Nelson status block.
 
         Args:
             response: AIResponse to validate
@@ -309,7 +309,7 @@ class ClaudeProvider(AIProvider):
             return False
 
     def extract_status_block(self, response: AIResponse) -> dict[str, Any]:
-        """Extract Ralph status block from response.
+        """Extract Nelson status block from response.
 
         The status block format:
             ---RALPH_STATUS---

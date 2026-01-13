@@ -1,7 +1,7 @@
 """Abstract base class for AI provider implementations.
 
 This module defines the interface that all AI providers (Claude, OpenAI Codex, etc.)
-must implement to work with Ralph's workflow engine.
+must implement to work with Nelson's workflow engine.
 """
 
 from abc import ABC, abstractmethod
@@ -60,7 +60,7 @@ class AIProvider(ABC):
     """Abstract base class for AI provider implementations.
 
     Each provider (Claude, OpenAI Codex, etc.) must implement this interface
-    to integrate with Ralph's workflow engine. The provider is responsible for:
+    to integrate with Nelson's workflow engine. The provider is responsible for:
 
     - Executing AI calls with system and user prompts
     - Parsing provider-specific output formats
@@ -96,7 +96,7 @@ class AIProvider(ABC):
         5. Validate the response format
 
         Args:
-            system_prompt: The system-level prompt (Ralph's instructions)
+            system_prompt: The system-level prompt (Nelson's instructions)
             user_prompt: The user/task-specific prompt
             model: Model identifier (e.g., "sonnet", "opus", "gpt-4")
             max_retries: Maximum number of retry attempts for transient errors
@@ -115,7 +115,7 @@ class AIProvider(ABC):
         """Validate that the response contains required elements.
 
         Different providers may have different validation requirements.
-        For Ralph, this typically means checking for the status block.
+        For Nelson, this typically means checking for the status block.
 
         Args:
             response: The AIResponse to validate

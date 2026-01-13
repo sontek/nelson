@@ -1,4 +1,4 @@
-"""Run directory management for Ralph.
+"""Run directory management for Nelson.
 
 This module handles creation and management of unique run directories in .ralph/runs/.
 Each run gets a unique timestamped directory containing its state, plan, decisions, and audit log.
@@ -17,7 +17,7 @@ from nelson.config import (
 
 
 class RunManager:
-    """Manages unique run directories for Ralph execution.
+    """Manages unique run directories for Nelson execution.
 
     Each run gets a unique directory like .ralph/runs/ralph-20260113-101253/
     containing state.json, plan.md, decisions.md, and audit.log.
@@ -27,7 +27,7 @@ class RunManager:
         """Initialize run manager.
 
         Args:
-            config: Ralph configuration
+            config: Nelson configuration
             run_id: Optional explicit run ID (for resume).
                    If None, generates new timestamp-based ID.
         """
@@ -85,7 +85,7 @@ class RunManager:
         """Find the most recent run directory.
 
         Args:
-            config: Ralph configuration
+            config: Nelson configuration
 
         Returns:
             RunManager for most recent run, or None if no runs exist
@@ -114,7 +114,7 @@ class RunManager:
         """Create RunManager from an existing run directory path.
 
         Args:
-            config: Ralph configuration
+            config: Nelson configuration
             run_path: Path to existing run directory
 
         Returns:

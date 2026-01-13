@@ -1,4 +1,4 @@
-"""Phase transition logic and completion detection for Ralph workflow.
+"""Phase transition logic and completion detection for Nelson workflow.
 
 This module handles determining when to advance phases vs loop, based on:
 - Current phase

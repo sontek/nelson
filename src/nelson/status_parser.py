@@ -29,7 +29,7 @@ class ExecutionStatus(str, Enum):
     BLOCKED = "BLOCKED"
 
 
-class TestsStatus(str, Enum):
+class RunTestsStatus(str, Enum):
     """Test status values from status block."""
 
     PASSING = "PASSING"
@@ -67,7 +67,7 @@ class StatusBlock:
     status: ExecutionStatus
     tasks_completed_this_loop: int
     files_modified: int
-    tests_status: TestsStatus
+    tests_status: RunTestsStatus
     work_type: WorkType
     exit_signal: bool
     recommendation: str
@@ -168,7 +168,7 @@ def parse_status_block(content: str) -> StatusBlock:
         files_modified = 0
 
     try:
-        tests_status = TestsStatus(status_dict["tests_status"])
+        tests_status = RunTestsStatus(status_dict["tests_status"])
     except ValueError as e:
         raise StatusBlockError(f"Invalid tests_status value: {status_dict['tests_status']}") from e
 

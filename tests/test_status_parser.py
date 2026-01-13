@@ -6,7 +6,7 @@ from nelson.status_parser import (
     ExecutionStatus,
     StatusBlock,
     StatusBlockError,
-    TestsStatus,
+    RunTestsStatus,
     WorkType,
     extract_status_block_text,
     parse_status_block,
@@ -25,9 +25,9 @@ class TestEnums:
 
     def test_test_status_values(self) -> None:
         """Test TestStatus enum has correct values."""
-        assert TestsStatus.PASSING == "PASSING"
-        assert TestsStatus.FAILING == "FAILING"
-        assert TestsStatus.NOT_RUN == "NOT_RUN"
+        assert RunTestsStatus.PASSING == "PASSING"
+        assert RunTestsStatus.FAILING == "FAILING"
+        assert RunTestsStatus.NOT_RUN == "NOT_RUN"
 
     def test_work_type_values(self) -> None:
         """Test WorkType enum has correct values."""
@@ -46,7 +46,7 @@ class TestStatusBlockDataclass:
             status=ExecutionStatus.IN_PROGRESS,
             tasks_completed_this_loop=2,
             files_modified=3,
-            tests_status=TestsStatus.PASSING,
+            tests_status=RunTestsStatus.PASSING,
             work_type=WorkType.IMPLEMENTATION,
             exit_signal=False,
             recommendation="Continue with next task",
@@ -56,7 +56,7 @@ class TestStatusBlockDataclass:
         assert block.status == ExecutionStatus.IN_PROGRESS
         assert block.tasks_completed_this_loop == 2
         assert block.files_modified == 3
-        assert block.tests_status == TestsStatus.PASSING
+        assert block.tests_status == RunTestsStatus.PASSING
         assert block.work_type == WorkType.IMPLEMENTATION
         assert block.exit_signal is False
         assert block.recommendation == "Continue with next task"
@@ -68,7 +68,7 @@ class TestStatusBlockDataclass:
             status=ExecutionStatus.COMPLETE,
             tasks_completed_this_loop=1,
             files_modified=1,
-            tests_status=TestsStatus.PASSING,
+            tests_status=RunTestsStatus.PASSING,
             work_type=WorkType.IMPLEMENTATION,
             exit_signal=True,
             recommendation="Done",
@@ -141,7 +141,7 @@ RECOMMENDATION: Continue with next Phase 2 task
         assert block.status == ExecutionStatus.IN_PROGRESS
         assert block.tasks_completed_this_loop == 2
         assert block.files_modified == 3
-        assert block.tests_status == TestsStatus.PASSING
+        assert block.tests_status == RunTestsStatus.PASSING
         assert block.work_type == WorkType.IMPLEMENTATION
         assert block.exit_signal is False
         assert block.recommendation == "Continue with next Phase 2 task"
@@ -166,7 +166,7 @@ RECOMMENDATION: All tasks complete, tests passing, workflow finished
         assert block.status == ExecutionStatus.COMPLETE
         assert block.tasks_completed_this_loop == 1
         assert block.files_modified == 1
-        assert block.tests_status == TestsStatus.PASSING
+        assert block.tests_status == RunTestsStatus.PASSING
         assert block.work_type == WorkType.IMPLEMENTATION
         assert block.exit_signal is True
         assert "All tasks complete" in block.recommendation
@@ -206,7 +206,7 @@ RECOMMENDATION: Running test suite
         block = parse_status_block(content)
 
         assert block.work_type == WorkType.TESTING
-        assert block.tests_status == TestsStatus.PASSING
+        assert block.tests_status == RunTestsStatus.PASSING
 
     def test_parse_failing_tests(self) -> None:
         """Test parsing with failing tests."""
@@ -224,7 +224,7 @@ RECOMMENDATION: Fix test failures
 
         block = parse_status_block(content)
 
-        assert block.tests_status == TestsStatus.FAILING
+        assert block.tests_status == RunTestsStatus.FAILING
         assert block.exit_signal is False
 
     def test_parse_not_run_tests(self) -> None:
@@ -243,7 +243,7 @@ RECOMMENDATION: Tests not required for this phase
 
         block = parse_status_block(content)
 
-        assert block.tests_status == TestsStatus.NOT_RUN
+        assert block.tests_status == RunTestsStatus.NOT_RUN
 
     def test_parse_exit_signal_variants(self) -> None:
         """Test parsing different EXIT_SIGNAL values."""
@@ -404,7 +404,7 @@ class TestStatusBlockToDict:
             status=ExecutionStatus.IN_PROGRESS,
             tasks_completed_this_loop=2,
             files_modified=3,
-            tests_status=TestsStatus.PASSING,
+            tests_status=RunTestsStatus.PASSING,
             work_type=WorkType.IMPLEMENTATION,
             exit_signal=False,
             recommendation="Continue",
@@ -429,7 +429,7 @@ class TestStatusBlockToDict:
             status=ExecutionStatus.COMPLETE,
             tasks_completed_this_loop=1,
             files_modified=1,
-            tests_status=TestsStatus.PASSING,
+            tests_status=RunTestsStatus.PASSING,
             work_type=WorkType.IMPLEMENTATION,
             exit_signal=True,
             recommendation="All done",

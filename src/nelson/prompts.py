@@ -64,7 +64,11 @@ EXIT_SIGNAL=true ONLY when ALL conditions met:
 1. All plan tasks marked [x] or [~]
 2. Tests passing (or NOT_RUN if before Phase 5)
 3. No errors in last execution
-4. No meaningful work remaining
+4. No meaningful work remaining IN THIS CYCLE
+
+NOTE: EXIT_SIGNAL=true means "this cycle is complete" not "workflow is done".
+Nelson will archive the plan, loop back to Phase 1, and check for more work.
+The workflow continues until max_iterations cycles or no new work found.
 
 EXAMPLES:
 
@@ -79,7 +83,7 @@ EXIT_SIGNAL: false
 RECOMMENDATION: Continue with next Phase 2 task from plan
 ---END_NELSON_STATUS---
 
-Example 2 - All Done (Phase 9 complete):
+Example 2 - Cycle Complete (will loop to Phase 1):
 ---NELSON_STATUS---
 STATUS: COMPLETE
 TASKS_COMPLETED_THIS_LOOP: 1
@@ -87,7 +91,7 @@ FILES_MODIFIED: 1
 TESTS_STATUS: PASSING
 WORK_TYPE: IMPLEMENTATION
 EXIT_SIGNAL: true
-RECOMMENDATION: All tasks complete, tests passing, workflow finished
+RECOMMENDATION: All tasks in current plan complete, cycle will restart at Phase 1
 ---END_NELSON_STATUS---
 
 Example 3 - Blocked:

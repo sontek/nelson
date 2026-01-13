@@ -161,9 +161,16 @@ def main(
             )
 
     # Get prompt from file if it's a path
-    if prompt and Path(prompt).is_file():
-        logger.info(f"Reading prompt from file: {prompt}")
-        prompt = Path(prompt).read_text().strip()
+    # Check if prompt is a file path (handle OSError for long text prompts)
+    if prompt:
+        try:
+            prompt_path = Path(prompt)
+            if prompt_path.is_file():
+                logger.info(f"Reading prompt from file: {prompt}")
+                prompt = prompt_path.read_text().strip()
+        except (OSError, ValueError):
+            # Not a valid file path (too long, invalid chars, etc.) - treat as text
+            pass
 
     # Handle resume mode
     if resume_path is not None:

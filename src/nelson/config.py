@@ -74,7 +74,7 @@ class NelsonConfig:
         runs_dir = Path(os.getenv("NELSON_RUNS_DIR", ".nelson/runs"))
 
         # Claude command configuration
-        claude_command = os.getenv("NELSON_CLAUDE_COMMAND", "claude-jail")
+        claude_command = os.getenv("NELSON_CLAUDE_COMMAND", "claude")
 
         # Model selection with cascading defaults
         model = os.getenv("NELSON_MODEL", "sonnet")

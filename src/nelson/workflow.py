@@ -12,10 +12,17 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+from rich.panel import Panel
+
 from nelson.config import NelsonConfig
 from nelson.logging_config import get_logger
 from nelson.phases import Phase
-from nelson.prompts import build_full_prompt, build_loop_context
+from nelson.prompts import (
+    build_full_prompt,
+    build_loop_context,
+    get_phase_prompt,
+    get_system_prompt,
+)
 from nelson.providers.base import AIProvider, ProviderError
 from nelson.state import NelsonState
 from nelson.transitions import determine_next_phase, should_transition_phase
@@ -86,8 +93,35 @@ class WorkflowOrchestrator:
             WorkflowError: If workflow fails due to limits or errors
         """
         logger.info("Starting Nelson autonomous workflow...")
-        logger.info(f"Prompt: {prompt}")
         logger.info("")
+
+        # Display prompt with rich Panel
+        prompt_preview = prompt[:200] + "..." if len(prompt) > 200 else prompt
+        logger.console.print(
+            Panel(
+                prompt_preview,
+                title="[bold blue]Task",
+                border_style="blue",
+                padding=(1, 2),
+            )
+        )
+        logger.console.print("")
+
+        # Display system prompt summary at startup
+        system_prompt = get_system_prompt(self.decisions_file)
+        system_lines = system_prompt.split("\n")[:5]
+        system_summary = (
+            "\n".join(system_lines) + "\n\n[dim](Full system prompt sent to Claude)[/dim]"
+        )
+        logger.console.print(
+            Panel(
+                system_summary,
+                title="[bold cyan]System Prompt",
+                border_style="cyan",
+                padding=(1, 2),
+            )
+        )
+        logger.console.print("")
 
         # Main loop - continues until EXIT_SIGNAL or circuit breaker
         while True:
@@ -105,14 +139,32 @@ class WorkflowOrchestrator:
             current_phase = Phase(self.state.current_phase)
             phase_name = current_phase.name_str
 
-            logger.info(
-                f"Iteration {self.state.total_iterations} - "
-                f"Phase {current_phase.value}: {phase_name}"
+            # Show clear cycle/phase/iteration info with rich Rule
+            display_cycle = self.state.cycle_iterations + 1
+            logger.console.rule(
+                f"[bold yellow]Cycle {display_cycle} | "
+                f"Phase {current_phase.value}: {phase_name} | "
+                f"API Call #{self.state.total_iterations}[/bold yellow]",
+                style="yellow"
             )
-            logger.info("")
+            logger.console.print("")
 
             # Build loop context (recent activity, task count)
             loop_context = self._build_loop_context()
+
+            # Display loop context if this is not the first iteration
+            if self.state.total_iterations > 1 and loop_context:
+                lines = loop_context.split("\n")
+                context_preview = "\n".join(lines[:8]) if len(lines) > 8 else loop_context
+                logger.console.print(
+                    Panel(
+                        f"[dim]{context_preview}[/dim]",
+                        title="[bold cyan]Context",
+                        border_style="cyan",
+                        padding=(0, 1),
+                    )
+                )
+                logger.console.print("")
 
             # Build full prompt with phase instructions
             full_prompt = build_full_prompt(
@@ -122,6 +174,19 @@ class WorkflowOrchestrator:
                 decisions_file=self.decisions_file,
                 loop_context=loop_context,
             )
+
+            # Display phase prompt being used
+            phase_prompt = get_phase_prompt(current_phase, self.plan_file, self.decisions_file)
+            prompt_preview = phase_prompt[:300] + "..." if len(phase_prompt) > 300 else phase_prompt
+            logger.console.print(
+                Panel(
+                    f"[dim]{prompt_preview}[/dim]",
+                    title=f"[bold magenta]Phase {current_phase.value} Instructions",
+                    border_style="magenta",
+                    padding=(0, 1),
+                )
+            )
+            logger.console.print("")
 
             # Execute Claude with retry logic
             try:

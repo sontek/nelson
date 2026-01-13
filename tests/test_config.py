@@ -27,7 +27,7 @@ class TestNelsonConfig:
         assert config.nelson_dir == Path(".nelson")
         assert config.audit_dir == Path(".nelson/audit")
         assert config.runs_dir == Path(".nelson/runs")
-        assert config.claude_command == "claude-jail"
+        assert config.claude_command == "claude"
         assert config.model == "sonnet"
         assert config.plan_model == "sonnet"
         assert config.review_model == "sonnet"
@@ -108,6 +108,9 @@ class TestNelsonConfig:
         for key in list(os.environ.keys()):
             if key.startswith("NELSON_"):
                 monkeypatch.delenv(key, raising=False)
+
+        # Explicitly set claude-jail for this test
+        monkeypatch.setenv("NELSON_CLAUDE_COMMAND", "claude-jail")
 
         script_dir = tmp_path / "bin"
         script_dir.mkdir()

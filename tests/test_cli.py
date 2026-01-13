@@ -77,6 +77,14 @@ class TestPromptHandling:
         assert result.exit_code != 0
         assert "No prompt provided" in result.output
 
+    def test_long_prompt_string(self, cli_runner: CliRunner, mock_workflow: Any) -> None:
+        """Test that very long prompt strings don't crash (OSError handling)."""
+        # Create a prompt longer than typical filesystem path limits (usually 255 chars)
+        long_prompt = "Implement " + "a very complex feature " * 50
+        result = cli_runner.invoke(main, [long_prompt])
+        # Should not crash with OSError: File name too long
+        assert result.exit_code == 0
+
 
 class TestConfigurationFlags:
     """Test CLI flags for configuration."""

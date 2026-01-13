@@ -358,17 +358,10 @@ class WorkflowOrchestrator:
         Args:
             status_block: Parsed status block
         """
-        # Cost tracking would go here if provider supported it
-        cost = self.provider.get_cost(
-            self.provider.execute(
-                system_prompt="",
-                user_prompt="",
-                model=self.config.model,
-                max_retries=1,
-            )
-        )
-        if cost > 0:
-            self.state.update_cost(cost)
+        # Cost tracking placeholder - would extract from actual response
+        # when provider supports cost reporting
+        # For now, no cost tracking implemented
+        pass
 
     def _log_phase_transition(self, from_phase: Phase, to_phase: Phase) -> None:
         """Log phase transition to decisions file.

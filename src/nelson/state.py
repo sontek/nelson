@@ -1,7 +1,7 @@
-"""State management for Ralph orchestration.
+"""State management for Nelson orchestration.
 
 This module handles JSON state persistence for tracking iterations, cost, phase,
-and circuit breaker metrics across Ralph runs. State is saved to disk after each
+and circuit breaker metrics across Nelson runs. State is saved to disk after each
 iteration to enable resumption.
 """
 
@@ -13,8 +13,8 @@ from typing import Any
 
 
 @dataclass
-class RalphState:
-    """State for Ralph orchestration session.
+class NelsonState:
+    """State for Nelson orchestration session.
 
     This state is persisted to disk after each iteration and can be loaded
     to resume a previous run.
@@ -143,14 +143,14 @@ class RalphState:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "RalphState":
+    def from_dict(cls, data: dict[str, Any]) -> "NelsonState":
         """Create state from dictionary.
 
         Args:
             data: Dictionary from JSON deserialization
 
         Returns:
-            RalphState instance
+            NelsonState instance
         """
         # Filter out any keys that aren't valid fields
         valid_keys = {f.name for f in cls.__dataclass_fields__.values()}
@@ -169,14 +169,14 @@ class RalphState:
             json.dump(self.to_dict(), f, indent=2)
 
     @classmethod
-    def load(cls, path: Path) -> "RalphState":
+    def load(cls, path: Path) -> "NelsonState":
         """Load state from JSON file.
 
         Args:
             path: Path to state file
 
         Returns:
-            RalphState instance
+            NelsonState instance
 
         Raises:
             FileNotFoundError: If state file doesn't exist
@@ -187,14 +187,14 @@ class RalphState:
         return cls.from_dict(data)
 
     @classmethod
-    def load_or_create(cls, path: Path) -> "RalphState":
+    def load_or_create(cls, path: Path) -> "NelsonState":
         """Load state from file, or create new state if file doesn't exist.
 
         Args:
             path: Path to state file
 
         Returns:
-            RalphState instance (loaded or newly created)
+            NelsonState instance (loaded or newly created)
         """
         if path.exists():
             return cls.load(path)

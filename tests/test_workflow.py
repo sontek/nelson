@@ -686,6 +686,111 @@ class TestCycleLoopBehavior:
         # Should still pass because cycle_iterations (1) < max_iterations (3)
         assert orchestrator._check_limits() is True
 
+    def test_multiple_complete_cycles_with_phase_progression(
+        self,
+        mock_run_dir: Path,
+        tmp_path: Path,
+    ) -> None:
+        """Test that workflow completes multiple full cycles through all phases.
+
+        This demonstrates the "nelson" pattern: repeatedly loop through all 6 phases
+        until max_iterations complete cycles are reached. Each cycle should:
+        1. Start at Phase 1 (PLAN)
+        2. Progress through phases 1-6
+        3. Archive the plan file
+        4. Loop back to Phase 1 to start next cycle
+        """
+        # Create config with max_iterations=2 for 2 complete cycles
+        config = NelsonConfig(
+            max_iterations=2,
+            max_iterations_explicit=True,
+            cost_limit=100.0,  # High cost limit to avoid hitting it
+            nelson_dir=tmp_path / ".nelson",
+            audit_dir=tmp_path / ".nelson" / "audit",
+            runs_dir=tmp_path / ".nelson" / "runs",
+            claude_command="claude",
+            claude_command_path=Path("claude"),
+            model="sonnet",
+            plan_model="sonnet",
+            review_model="sonnet",
+            auto_approve_push=False,
+        )
+
+        # Start at Phase 2 (IMPLEMENT) to avoid PLAN phase complexity
+        state = NelsonState(
+            prompt="Test prompt",
+            current_phase=Phase.IMPLEMENT.value,
+            total_iterations=0,
+            phase_iterations=0,
+            cycle_iterations=0,
+        )
+
+        # Create mock provider that triggers EXIT_SIGNAL immediately each cycle
+        mock_provider = MagicMock()
+
+        # Always return EXIT_SIGNAL to trigger quick cycle completion
+        response = AIResponse(
+            content="Work complete\n"
+            "---NELSON_STATUS---\n"
+            "STATUS: COMPLETE\n"
+            "TASKS_COMPLETED_THIS_LOOP: 1\n"
+            "FILES_MODIFIED: 1\n"
+            "TESTS_STATUS: PASSING\n"
+            "WORK_TYPE: IMPLEMENTATION\n"
+            "EXIT_SIGNAL: true\n"
+            "RECOMMENDATION: All done\n"
+            "---END_NELSON_STATUS---",
+            raw_output="raw",
+            metadata={},
+            is_error=False,
+        )
+        mock_provider.execute.return_value = response
+
+        mock_provider.extract_status_block.return_value = {
+            "status": "COMPLETE",
+            "tasks_completed": 1,
+            "files_modified": 1,
+            "tests_status": "PASSING",
+            "work_type": "IMPLEMENTATION",
+            "exit_signal": True,
+            "recommendation": "All done",
+        }
+        mock_provider.get_cost.return_value = 0.01
+
+        orchestrator = WorkflowOrchestrator(
+            config=config,
+            state=state,
+            provider=mock_provider,
+            run_dir=mock_run_dir,
+        )
+
+        # Create initial plan file
+        orchestrator.plan_file.write_text(
+            "# Plan\n- [x] Task 1\n- [x] Task 2\n- [x] Task 3"
+        )
+
+        # Run workflow - should complete 2 cycles then hit max_iterations limit
+        # Each iteration triggers EXIT_SIGNAL which completes cycle and loops back
+        with pytest.raises(WorkflowError, match="Stopping due to limits"):
+            orchestrator.run("Test prompt")
+
+        # Verify exactly 2 cycles completed
+        # Note: cycle_iterations tracks completed cycles, so 2 means cycles 0 and 1 completed
+        assert orchestrator.state.cycle_iterations == 2
+
+        # Verify multiple provider calls happened (one per cycle minimum)
+        assert mock_provider.execute.call_count >= 2
+
+        # Verify plan was archived for cycle 0
+        # Note: Cycle 1's plan may not be archived if limit was hit before archival
+        archived_plan_0 = mock_run_dir / "plan-cycle-0.md"
+        assert archived_plan_0.exists(), "Plan should be archived after cycle 0"
+
+        # Verify decisions file contains cycle completion logs
+        decisions_content = orchestrator.decisions_file.read_text()
+        assert "Cycle 0 complete" in decisions_content or "Cycle 0 Complete" in decisions_content
+        assert "cycle 1" in decisions_content.lower()
+
 
 class TestWorkflowError:
     """Tests for WorkflowError exception."""

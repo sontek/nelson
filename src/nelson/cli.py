@@ -24,6 +24,7 @@ logger = get_logger()
 
 @click.command()
 @click.argument("prompt", required=False)
+@click.argument("path", required=False, type=click.Path(exists=True, file_okay=False, path_type=Path))
 @click.option(
     "--resume",
     "resume_path",
@@ -74,6 +75,7 @@ logger = get_logger()
 @click.version_option(version="0.1.0", prog_name="nelson")
 def main(
     prompt: str | None,
+    path: Path | None,
     resume_path: Path | str | None,
     max_iterations: int | None,
     cost_limit: float | None,

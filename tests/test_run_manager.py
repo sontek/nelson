@@ -22,9 +22,9 @@ def config(tmp_path: Path) -> NelsonConfig:
         max_iterations=50,
         max_iterations_explicit=False,
         cost_limit=10.0,
-        nelson_dir=tmp_path / ".ralph",
-        audit_dir=tmp_path / ".ralph/audit",
-        runs_dir=tmp_path / ".ralph/runs",
+        nelson_dir=tmp_path / ".nelson",
+        audit_dir=tmp_path / ".nelson/audit",
+        runs_dir=tmp_path / ".nelson/runs",
         claude_command="claude",
         claude_command_path=None,
         model="sonnet",
@@ -45,7 +45,7 @@ class TestRunManager:
         assert len(manager.run_id) == 15  # YYYYMMDD-HHMMSS
         assert manager.run_id[8] == "-"  # Date-time separator
 
-        # Run directory should be .ralph/runs/nelson-{run_id}
+        # Run directory should be .nelson/runs/nelson-{run_id}
         expected_dir = config.runs_dir / f"nelson-{manager.run_id}"
         assert manager.run_dir == expected_dir
 

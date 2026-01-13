@@ -339,7 +339,7 @@ class TestUnstageFiles:
             check=True,
         )
         staged = result.stdout.strip().split("\n")
-        assert ".ralph/state.json" not in staged
+        assert ".nelson/state.json" not in staged
         assert "source.py" in staged
 
     def test_unstage_files_no_matches(self, tmp_path: Path) -> None:
@@ -370,8 +370,8 @@ class TestUnstageFiles:
         (tmp_path / "source.py").write_text("code")
         subprocess.run(["git", "add", "."], cwd=tmp_path, check=True, capture_output=True)
 
-        # Try to unstage .ralph/ files (none exist)
-        count = unstage_files([".ralph/"], tmp_path)
+        # Try to unstage .nelson/ files (none exist)
+        count = unstage_files([".nelson/"], tmp_path)
         assert count == 0
 
     @patch("subprocess.run")
@@ -379,18 +379,18 @@ class TestUnstageFiles:
         """Test error handling when git command fails."""
         # First call succeeds (diff --cached), second call fails (reset)
         mock_run.side_effect = [
-            MagicMock(stdout=".ralph/state.json\n", returncode=0),
+            MagicMock(stdout=".nelson/state.json\n", returncode=0),
             subprocess.CalledProcessError(1, "git", stderr="error"),
         ]
         with pytest.raises(GitError, match="Failed to unstage files"):
-            unstage_files([".ralph/"])
+            unstage_files([".nelson/"])
 
 
 class TestUnstageRalphFiles:
     """Tests for unstage_ralph_files()."""
 
     def test_unstage_ralph_files_success(self, tmp_path: Path) -> None:
-        """Test unstaging .claude/ and .ralph/ files."""
+        """Test unstaging .claude/ and .nelson/ files."""
         # Initialize git repo
         subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
         subprocess.run(
@@ -437,7 +437,7 @@ class TestUnstageRalphFiles:
             check=True,
         )
         staged = result.stdout.strip()
-        assert ".ralph/state.json" not in staged
+        assert ".nelson/state.json" not in staged
         assert ".claude/config.json" not in staged
 
 

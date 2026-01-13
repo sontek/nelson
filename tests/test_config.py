@@ -183,9 +183,9 @@ class TestNelsonConfig:
     def test_ensure_directories(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Test that ensure_directories creates necessary directories."""
         # Set custom paths in temporary directory
-        nelson_dir = tmp_path / ".ralph"
-        audit_dir = tmp_path / ".ralph" / "audit"
-        runs_dir = tmp_path / ".ralph" / "runs"
+        nelson_dir = tmp_path / ".nelson"
+        audit_dir = tmp_path / ".nelson" / "audit"
+        runs_dir = tmp_path / ".nelson" / "runs"
 
         monkeypatch.setenv("NELSON_DIR", str(nelson_dir))
         monkeypatch.setenv("NELSON_AUDIT_DIR", str(audit_dir))
@@ -212,7 +212,7 @@ class TestNelsonConfig:
 
     def test_ensure_directories_idempotent(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Test that ensure_directories can be called multiple times safely."""
-        nelson_dir = tmp_path / ".ralph"
+        nelson_dir = tmp_path / ".nelson"
         monkeypatch.setenv("NELSON_DIR", str(nelson_dir))
         monkeypatch.setenv("NELSON_CLAUDE_COMMAND", "claude")
 

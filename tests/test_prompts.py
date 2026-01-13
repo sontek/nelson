@@ -18,20 +18,20 @@ class TestSystemPrompt:
 
     def test_system_prompt_contains_workflow_overview(self) -> None:
         """System prompt should include the 6-phase workflow overview."""
-        prompt = get_system_prompt(Path(".ralph/decisions.md"))
+        prompt = get_system_prompt(Path(".nelson/decisions.md"))
         assert "6-phase autonomous workflow" in prompt
         assert "PLAN, IMPLEMENT, REVIEW(loops), TEST(loops), FINAL-REVIEW" in prompt
 
     def test_system_prompt_contains_stateless_operation(self) -> None:
         """System prompt should explain stateless operation model."""
-        prompt = get_system_prompt(Path(".ralph/decisions.md"))
+        prompt = get_system_prompt(Path(".nelson/decisions.md"))
         assert "STATELESS OPERATION:" in prompt
         assert "Complete ONE task per call" in prompt
         assert "Rebuild context" in prompt
 
     def test_system_prompt_contains_core_rules(self) -> None:
         """System prompt should include core rules."""
-        prompt = get_system_prompt(Path(".ralph/decisions.md"))
+        prompt = get_system_prompt(Path(".nelson/decisions.md"))
         assert "CORE RULES:" in prompt
         assert "Execute commands, verify results" in prompt
         assert "Commit after each implementation task (Phase 2)" in prompt
@@ -39,7 +39,7 @@ class TestSystemPrompt:
 
     def test_system_prompt_contains_status_block_format(self) -> None:
         """System prompt should define status block format."""
-        prompt = get_system_prompt(Path(".ralph/decisions.md"))
+        prompt = get_system_prompt(Path(".nelson/decisions.md"))
         assert "STATUS BLOCK (REQUIRED):" in prompt
         assert "---NELSON_STATUS---" in prompt
         assert "STATUS:" in prompt
@@ -48,7 +48,7 @@ class TestSystemPrompt:
 
     def test_system_prompt_contains_exit_signal_conditions(self) -> None:
         """System prompt should define EXIT_SIGNAL conditions."""
-        prompt = get_system_prompt(Path(".ralph/decisions.md"))
+        prompt = get_system_prompt(Path(".nelson/decisions.md"))
         assert "EXIT_SIGNAL=true ONLY when ALL conditions met:" in prompt
         assert "All plan tasks marked [x] or [~]" in prompt
         assert "Tests passing" in prompt
@@ -56,20 +56,20 @@ class TestSystemPrompt:
 
     def test_system_prompt_contains_examples(self) -> None:
         """System prompt should include example status blocks."""
-        prompt = get_system_prompt(Path(".ralph/decisions.md"))
+        prompt = get_system_prompt(Path(".nelson/decisions.md"))
         assert "Example 1 - Making Progress:" in prompt
         assert "Example 2 - All Done" in prompt
         assert "Example 3 - Blocked:" in prompt
 
     def test_system_prompt_includes_decisions_file_path(self) -> None:
         """System prompt should reference the decisions file path."""
-        decisions_file = Path(".ralph/runs/test-123/decisions.md")
+        decisions_file = Path(".nelson/runs/test-123/decisions.md")
         prompt = get_system_prompt(decisions_file)
         assert str(decisions_file) in prompt
 
     def test_system_prompt_contains_decisions_log_format(self) -> None:
         """System prompt should define decisions log format."""
-        prompt = get_system_prompt(Path(".ralph/decisions.md"))
+        prompt = get_system_prompt(Path(".nelson/decisions.md"))
         assert "DECISIONS LOG FORMAT:" in prompt
         assert "## [Iteration N] Phase X: Task Name" in prompt
         assert "**Task:**" in prompt
@@ -83,8 +83,8 @@ class TestPhasePrompts:
         """Phase 1 prompt should include planning instructions."""
         prompt = get_phase_prompt(
             Phase.PLAN,
-            Path(".ralph/plan.md"),
-            Path(".ralph/decisions.md"),
+            Path(".nelson/plan.md"),
+            Path(".nelson/decisions.md"),
         )
         assert "Create a plan" in prompt
         assert "6 phases" in prompt
@@ -96,8 +96,8 @@ class TestPhasePrompts:
         """Phase 2 prompt should include implementation instructions."""
         prompt = get_phase_prompt(
             Phase.IMPLEMENT,
-            Path(".ralph/plan.md"),
-            Path(".ralph/decisions.md"),
+            Path(".nelson/plan.md"),
+            Path(".nelson/decisions.md"),
         )
         assert "Find FIRST unchecked Phase 2 task" in prompt
         assert "git add" in prompt
@@ -109,8 +109,8 @@ class TestPhasePrompts:
         """Phase 3 prompt should include review instructions."""
         prompt = get_phase_prompt(
             Phase.REVIEW,
-            Path(".ralph/plan.md"),
-            Path(".ralph/decisions.md"),
+            Path(".nelson/plan.md"),
+            Path(".nelson/decisions.md"),
         )
         assert "Review Phase 2 commits" in prompt
         assert "git log" in prompt
@@ -121,8 +121,8 @@ class TestPhasePrompts:
         """Phase 4 prompt should include testing instructions."""
         prompt = get_phase_prompt(
             Phase.TEST,
-            Path(".ralph/plan.md"),
-            Path(".ralph/decisions.md"),
+            Path(".nelson/plan.md"),
+            Path(".nelson/decisions.md"),
         )
         assert "Find FIRST unchecked Phase 4 task" in prompt
         assert 'IF task is "run tests"' in prompt
@@ -133,20 +133,20 @@ class TestPhasePrompts:
         """Phase 5 prompt should include final review instructions."""
         prompt = get_phase_prompt(
             Phase.FINAL_REVIEW,
-            Path(".ralph/plan.md"),
-            Path(".ralph/decisions.md"),
+            Path(".nelson/plan.md"),
+            Path(".nelson/decisions.md"),
         )
         assert "VERIFY Phase 4 tests passed" in prompt
         assert "unwanted files" in prompt
-        assert ".claude/ or .ralph/" in prompt
+        assert ".claude/ or .nelson/" in prompt
         assert "returns to Phase 4" in prompt
 
     def test_commit_phase_prompt(self) -> None:
         """Phase 6 prompt should include commit instructions."""
         prompt = get_phase_prompt(
             Phase.COMMIT,
-            Path(".ralph/plan.md"),
-            Path(".ralph/decisions.md"),
+            Path(".nelson/plan.md"),
+            Path(".nelson/decisions.md"),
         )
         assert "Check git status" in prompt
         assert "NO uncommitted changes" in prompt
@@ -155,8 +155,8 @@ class TestPhasePrompts:
 
     def test_phase_prompts_include_file_paths(self) -> None:
         """All phase prompts should reference plan and decisions files."""
-        plan_file = Path(".ralph/runs/test-123/plan.md")
-        decisions_file = Path(".ralph/runs/test-123/decisions.md")
+        plan_file = Path(".nelson/runs/test-123/plan.md")
+        decisions_file = Path(".nelson/runs/test-123/decisions.md")
 
         for phase in Phase:
             prompt = get_phase_prompt(phase, plan_file, decisions_file)
@@ -170,8 +170,8 @@ class TestPhasePrompts:
             # This would fail type checking, but test runtime behavior
             get_phase_prompt(
                 999,  # type: ignore[arg-type]
-                Path(".ralph/plan.md"),
-                Path(".ralph/decisions.md"),
+                Path(".nelson/plan.md"),
+                Path(".nelson/decisions.md"),
             )
 
 
@@ -183,8 +183,8 @@ class TestFullPromptBuilding:
         prompt = build_full_prompt(
             original_task="Implement feature X",
             phase=Phase.PLAN,
-            plan_file=Path(".ralph/plan.md"),
-            decisions_file=Path(".ralph/decisions.md"),
+            plan_file=Path(".nelson/plan.md"),
+            decisions_file=Path(".nelson/decisions.md"),
             loop_context=None,
         )
 
@@ -199,12 +199,12 @@ class TestFullPromptBuilding:
         prompt = build_full_prompt(
             original_task="Implement feature X",
             phase=Phase.IMPLEMENT,
-            plan_file=Path(".ralph/plan.md"),
-            decisions_file=Path(".ralph/decisions.md"),
+            plan_file=Path(".nelson/plan.md"),
+            decisions_file=Path(".nelson/decisions.md"),
             loop_context=None,
         )
 
-        assert "Plan document: .ralph/plan.md" in prompt
+        assert "Plan document: .nelson/plan.md" in prompt
         assert "Current phase: Phase 2" in prompt
 
     def test_full_prompt_with_loop_context(self) -> None:
@@ -213,8 +213,8 @@ class TestFullPromptBuilding:
         prompt = build_full_prompt(
             original_task="Implement feature X",
             phase=Phase.IMPLEMENT,
-            plan_file=Path(".ralph/plan.md"),
-            decisions_file=Path(".ralph/decisions.md"),
+            plan_file=Path(".nelson/plan.md"),
+            decisions_file=Path(".nelson/decisions.md"),
             loop_context=loop_ctx,
         )
 
@@ -227,8 +227,8 @@ class TestFullPromptBuilding:
         prompt = build_full_prompt(
             original_task="Task X",
             phase=Phase.REVIEW,
-            plan_file=Path(".ralph/plan.md"),
-            decisions_file=Path(".ralph/decisions.md"),
+            plan_file=Path(".nelson/plan.md"),
+            decisions_file=Path(".nelson/decisions.md"),
             loop_context=loop_ctx,
         )
 
@@ -311,8 +311,8 @@ class TestPromptIntegration:
 
     def test_complete_workflow_prompts(self) -> None:
         """Test generating prompts for a complete workflow."""
-        plan_file = Path(".ralph/runs/test/plan.md")
-        decisions_file = Path(".ralph/runs/test/decisions.md")
+        plan_file = Path(".nelson/runs/test/plan.md")
+        decisions_file = Path(".nelson/runs/test/decisions.md")
         task = "Implement authentication system"
 
         # Phase 1: Planning

@@ -20,7 +20,7 @@ from nelson.workflow import WorkflowError, WorkflowOrchestrator
 @pytest.fixture
 def mock_config(tmp_path: Path) -> NelsonConfig:
     """Create test configuration with temp directories."""
-    nelson_dir = tmp_path / ".ralph"
+    nelson_dir = tmp_path / ".nelson"
     return NelsonConfig(
         max_iterations=10,
         max_iterations_explicit=True,

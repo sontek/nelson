@@ -231,7 +231,7 @@ def _get_final_review_prompt(plan_file: Path, decisions_file: Path) -> str:
 VERIFY Phase 4 tests passed.
 Check git status for unwanted files:
   - No docs (README, SUMMARY.md, guides)
-  - No .claude/ or .ralph/ files
+  - No .claude/ or .nelson/ files
   - No sensitive data
 Check code quality:
   - No TODO/FIXME/XXX comments or placeholder stubs
@@ -260,7 +260,7 @@ NO uncommitted changes:
 
 HAS uncommitted changes:
   - Stage ONLY: source code, tests, config files
-  - NO docs, .claude/, .ralph/ files
+  - NO docs, .claude/, .nelson/ files
   - Create commit with descriptive message
   - Mark task [x], STOP
 

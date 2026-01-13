@@ -105,7 +105,8 @@ def main(
     \b
     Environment Variables:
       NELSON_MAX_ITERATIONS      Max complete cycles through all 6 phases (default: 50)
-                                 One cycle = PLAN → IMPLEMENT → REVIEW → TEST → FINAL-REVIEW → COMMIT
+                                 One cycle = PLAN → IMPLEMENT → REVIEW → TEST →
+                                 FINAL-REVIEW → COMMIT
       NELSON_COST_LIMIT          Max cost in USD (default: 10.00)
       NELSON_AUTO_APPROVE_PUSH   Skip push approval (default: false)
       NELSON_CLAUDE_COMMAND      Claude command (default: claude-jail)

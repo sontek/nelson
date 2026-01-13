@@ -6,7 +6,6 @@ import pytest
 
 from nelson.prd_parser import PRDParser, PRDTaskStatus, parse_prd_file
 
-
 # Sample PRD content
 VALID_PRD = """# My PRD
 

@@ -1,9 +1,6 @@
 """Tests for prd_task_state module."""
 
-import json
 from pathlib import Path
-
-import pytest
 
 from nelson.prd_task_state import TaskState, TaskStatus, _utc_timestamp
 

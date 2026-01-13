@@ -1,6 +1,5 @@
 """Tests for prd_branch module."""
 
-import pytest
 
 from nelson.prd_branch import (
     generate_branch_name,

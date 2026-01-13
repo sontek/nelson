@@ -2,8 +2,6 @@
 
 from pathlib import Path
 
-import pytest
-
 from nelson.prd_state import PRDState, PRDStateManager
 from nelson.prd_task_state import TaskState, TaskStatus
 

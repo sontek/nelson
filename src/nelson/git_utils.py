@@ -241,9 +241,7 @@ def unstage_files(patterns: list[str], path: Path | None = None) -> int:
         staged_files = [f for f in result.stdout.strip().split("\n") if f]
 
         # Filter to only files matching our patterns
-        files_to_unstage = [
-            f for f in staged_files if any(f.startswith(p) for p in patterns)
-        ]
+        files_to_unstage = [f for f in staged_files if any(f.startswith(p) for p in patterns)]
 
         if not files_to_unstage:
             return 0

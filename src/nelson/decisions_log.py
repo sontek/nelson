@@ -43,14 +43,10 @@ class DecisionsLog:
             why: Why this approach was chosen
             result: Outcome of the task
         """
-        entry = self._format_decision(
-            iteration, phase, phase_name, task, what_i_did, why, result
-        )
+        entry = self._format_decision(iteration, phase, phase_name, task, what_i_did, why, result)
         self._append_to_file(entry)
 
-    def append_phase_transition(
-        self, iteration: int, from_phase: int, to_phase: int
-    ) -> None:
+    def append_phase_transition(self, iteration: int, from_phase: int, to_phase: int) -> None:
         """
         Append a phase transition entry to the log.
 
@@ -116,9 +112,7 @@ class DecisionsLog:
 ---
 """
 
-    def _format_phase_transition(
-        self, iteration: int, from_phase: int, to_phase: int
-    ) -> str:
+    def _format_phase_transition(self, iteration: int, from_phase: int, to_phase: int) -> str:
         """
         Format a phase transition entry.
 
@@ -202,9 +196,7 @@ def append_decision(
     log.append_decision(iteration, phase, phase_name, task, what_i_did, why, result)
 
 
-def append_phase_transition(
-    log_path: Path, iteration: int, from_phase: int, to_phase: int
-) -> None:
+def append_phase_transition(log_path: Path, iteration: int, from_phase: int, to_phase: int) -> None:
     """
     Convenience function to append a phase transition entry.
 

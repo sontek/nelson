@@ -126,9 +126,7 @@ DECISIONS LOG FORMAT:
 """
 
 
-def get_phase_prompt(
-    phase: Phase, plan_file: Path, decisions_file: Path
-) -> str:
+def get_phase_prompt(phase: Phase, plan_file: Path, decisions_file: Path) -> str:
     """Generate phase-specific prompt for the given phase.
 
     Args:

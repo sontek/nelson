@@ -170,16 +170,12 @@ def parse_status_block(content: str) -> StatusBlock:
     try:
         tests_status = TestsStatus(status_dict["tests_status"])
     except ValueError as e:
-        raise StatusBlockError(
-            f"Invalid tests_status value: {status_dict['tests_status']}"
-        ) from e
+        raise StatusBlockError(f"Invalid tests_status value: {status_dict['tests_status']}") from e
 
     try:
         work_type = WorkType(status_dict["work_type"])
     except ValueError as e:
-        raise StatusBlockError(
-            f"Invalid work_type value: {status_dict['work_type']}"
-        ) from e
+        raise StatusBlockError(f"Invalid work_type value: {status_dict['work_type']}") from e
 
     exit_signal_str = status_dict["exit_signal"].lower()
     exit_signal = exit_signal_str in ("true", "1", "yes")

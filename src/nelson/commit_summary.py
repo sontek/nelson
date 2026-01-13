@@ -71,9 +71,7 @@ def get_commit_messages(
         raise GitError("git command not found") from e
 
 
-def generate_commit_summary(
-    starting_commit: str, path: Path | None = None
-) -> CommitSummary | None:
+def generate_commit_summary(starting_commit: str, path: Path | None = None) -> CommitSummary | None:
     """Generate a summary of commits made since starting_commit.
 
     Args:

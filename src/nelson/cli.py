@@ -194,9 +194,7 @@ def _execute_workflow(prompt: str, config: NelsonConfig) -> None:
     """
     # Initialize provider
     claude_command = (
-        str(config.claude_command_path)
-        if config.claude_command_path
-        else config.claude_command
+        str(config.claude_command_path) if config.claude_command_path else config.claude_command
     )
     provider = ClaudeProvider(claude_command=claude_command)
 
@@ -289,11 +287,15 @@ def _build_config(
         final_claude_command_path = config.claude_command_path
 
     # Handle model cascading: plan_model and review_model default to model
-    final_plan_model = plan_model if plan_model is not None else (
-        final_model if model is not None else config.plan_model
+    final_plan_model = (
+        plan_model
+        if plan_model is not None
+        else (final_model if model is not None else config.plan_model)
     )
-    final_review_model = review_model if review_model is not None else (
-        final_model if model is not None else config.review_model
+    final_review_model = (
+        review_model
+        if review_model is not None
+        else (final_model if model is not None else config.review_model)
     )
 
     return NelsonConfig(
@@ -379,8 +381,7 @@ def _resume_from_path(run_dir: Path) -> None:
             old_limit = config.max_iterations
             new_limit = state.cycle_iterations + 10
             logger.warning(
-                f"Current run has {state.cycle_iterations} complete cycles, "
-                f"at limit of {old_limit}"
+                f"Current run has {state.cycle_iterations} complete cycles, at limit of {old_limit}"
             )
             logger.info(f"Auto-extending cycle limit to {new_limit}")
             logger.info(
@@ -423,9 +424,7 @@ def _resume_from_path(run_dir: Path) -> None:
 
     # Initialize provider
     claude_command = (
-        str(config.claude_command_path)
-        if config.claude_command_path
-        else config.claude_command
+        str(config.claude_command_path) if config.claude_command_path else config.claude_command
     )
     provider = ClaudeProvider(claude_command=claude_command)
 

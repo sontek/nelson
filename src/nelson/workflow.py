@@ -164,12 +164,8 @@ class WorkflowOrchestrator:
                     self.state.increment_cycle()
                     new_cycle = self.state.cycle_iterations
 
-                    logger.success(
-                        f"Cycle {new_cycle - 1} complete via EXIT_SIGNAL"
-                    )
-                    logger.info(
-                        f"Starting cycle {new_cycle} - returning to Phase 1 (PLAN)"
-                    )
+                    logger.success(f"Cycle {new_cycle - 1} complete via EXIT_SIGNAL")
+                    logger.info(f"Starting cycle {new_cycle} - returning to Phase 1 (PLAN)")
 
                     # Archive the old plan.md (makes next cycle stateless)
                     if self.plan_file.exists():
@@ -211,12 +207,8 @@ class WorkflowOrchestrator:
                     self.state.increment_cycle()
                     new_cycle = self.state.cycle_iterations
 
-                    logger.success(
-                        f"Cycle {new_cycle - 1} complete - Phase 6 (COMMIT) finished"
-                    )
-                    logger.info(
-                        f"Starting cycle {new_cycle} - returning to Phase 1 (PLAN)"
-                    )
+                    logger.success(f"Cycle {new_cycle - 1} complete - Phase 6 (COMMIT) finished")
+                    logger.info(f"Starting cycle {new_cycle} - returning to Phase 1 (PLAN)")
 
                     # Archive the old plan.md (makes next cycle stateless)
                     if self.plan_file.exists():
@@ -267,16 +259,14 @@ class WorkflowOrchestrator:
         # Check cycle limit (complete 6-phase cycles)
         if self.state.cycle_iterations >= self.config.max_iterations:
             logger.error(
-                f"Reached max cycles: {self.state.cycle_iterations} "
-                f">= {self.config.max_iterations}"
+                f"Reached max cycles: {self.state.cycle_iterations} >= {self.config.max_iterations}"
             )
             return False
 
         # Check cost limit
         if self.state.cost_usd >= self.config.cost_limit:
             logger.error(
-                f"Reached cost limit: ${self.state.cost_usd:.2f} "
-                f">= ${self.config.cost_limit:.2f}"
+                f"Reached cost limit: ${self.state.cost_usd:.2f} >= ${self.config.cost_limit:.2f}"
             )
             return False
 
@@ -358,9 +348,7 @@ class WorkflowOrchestrator:
             retry_delay=3.0,
         )
 
-    def _check_circuit_breaker(
-        self, status_block: dict[str, Any]
-    ) -> "CircuitBreakerResult":
+    def _check_circuit_breaker(self, status_block: dict[str, Any]) -> "CircuitBreakerResult":
         """Check for circuit breaker conditions.
 
         Args:
@@ -382,9 +370,7 @@ class WorkflowOrchestrator:
 
         # Check for no progress (3+ iterations with 0 tasks, 0 files)
         if self.state.no_progress_iterations >= 3:
-            logger.error(
-                f"No progress detected for {self.state.no_progress_iterations} iterations"
-            )
+            logger.error(f"No progress detected for {self.state.no_progress_iterations} iterations")
             return CircuitBreakerResult.TRIGGERED
 
         # Check for test-only loops (3+ consecutive TESTING with no file changes)

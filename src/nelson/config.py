@@ -101,9 +101,7 @@ class NelsonConfig:
         )
 
     @staticmethod
-    def _resolve_claude_path(
-        claude_command: str, script_dir: Path | None
-    ) -> Path | None:
+    def _resolve_claude_path(claude_command: str, script_dir: Path | None) -> Path | None:
         """Resolve the path to the claude executable.
 
         Args:
@@ -139,9 +137,7 @@ class NelsonConfig:
             raise ValueError(f"cost_limit must be > 0, got {self.cost_limit}")
 
         if self.claude_command_path and not self.claude_command_path.exists():
-            raise ValueError(
-                f"Claude command path does not exist: {self.claude_command_path}"
-            )
+            raise ValueError(f"Claude command path does not exist: {self.claude_command_path}")
 
     def ensure_directories(self) -> None:
         """Create necessary directories if they don't exist."""

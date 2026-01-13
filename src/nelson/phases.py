@@ -92,8 +92,7 @@ PHASE_METADATA: dict[Phase, PhaseMetadata] = {
         can_loop=True,
         model_type="review",
         completion_check=(
-            "All Phase 3 tasks [x]. Loops if review adds fix tasks, "
-            "advances to TEST if clean"
+            "All Phase 3 tasks [x]. Loops if review adds fix tasks, advances to TEST if clean"
         ),
     ),
     Phase.TEST: PhaseMetadata(
@@ -103,8 +102,7 @@ PHASE_METADATA: dict[Phase, PhaseMetadata] = {
         can_loop=True,
         model_type="default",
         completion_check=(
-            "All Phase 4 tasks [x]. Loops if failures found, "
-            "advances to FINAL_REVIEW if passing"
+            "All Phase 4 tasks [x]. Loops if failures found, advances to FINAL_REVIEW if passing"
         ),
     ),
     Phase.FINAL_REVIEW: PhaseMetadata(
@@ -114,8 +112,7 @@ PHASE_METADATA: dict[Phase, PhaseMetadata] = {
         can_loop=True,
         model_type="review",
         completion_check=(
-            "All Phase 5 tasks [x]. Returns to TEST if fixes needed, "
-            "advances to COMMIT if clean"
+            "All Phase 5 tasks [x]. Returns to TEST if fixes needed, advances to COMMIT if clean"
         ),
     ),
     Phase.COMMIT: PhaseMetadata(

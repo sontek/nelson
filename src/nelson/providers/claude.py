@@ -106,9 +106,7 @@ class ClaudeProvider(AIProvider):
             is_retryable=False,
         )
 
-    def _execute_once(
-        self, system_prompt: str, user_prompt: str, model: str
-    ) -> AIResponse:
+    def _execute_once(self, system_prompt: str, user_prompt: str, model: str) -> AIResponse:
         """Execute a single Claude call (no retry logic).
 
         Args:
@@ -139,7 +137,7 @@ class ClaudeProvider(AIProvider):
 
         logger.info(
             f"Executing: {self.claude_command} -p --model {model} "
-            f"--output-format json --system-prompt \"...\" "
+            f'--output-format json --system-prompt "..." '
             f"--permission-mode bypassPermissions"
         )
 

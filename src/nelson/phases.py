@@ -3,9 +3,9 @@
 Phases:
 1. PLAN: Analyze task and create implementation plan
 2. IMPLEMENT: Execute atomic tasks from plan, one commit per task
-3. REVIEW: Review all Phase 2 commits for bugs/quality issues
+3. REVIEW: Comprehensive code review for bugs, patterns, quality, security
 4. TEST: Run tests/linter/type-checker, fix failures
-5. FINAL_REVIEW: Final verification before commit
+5. FINAL_REVIEW: Final review of all changes, patterns, quality, completeness
 6. COMMIT: Commit any remaining uncommitted changes
 
 Phase Transitions:
@@ -88,7 +88,7 @@ PHASE_METADATA: dict[Phase, PhaseMetadata] = {
     Phase.REVIEW: PhaseMetadata(
         number=3,
         name="REVIEW",
-        short_description="Review Phase 2 commits for bugs/quality",
+        short_description="Comprehensive code review: bugs, patterns, quality, security",
         can_loop=True,
         model_type="review",
         completion_check=(
@@ -108,7 +108,7 @@ PHASE_METADATA: dict[Phase, PhaseMetadata] = {
     Phase.FINAL_REVIEW: PhaseMetadata(
         number=5,
         name="FINAL-REVIEW",
-        short_description="Final verification before commit",
+        short_description="Final review: all changes, patterns, quality, completeness",
         can_loop=True,
         model_type="review",
         completion_check=(

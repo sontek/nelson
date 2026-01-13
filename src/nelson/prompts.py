@@ -164,7 +164,10 @@ Create a plan at {plan_file} with 6 phases:
 - Break large features into small, independent tasks
 - Each Phase 2 task must be committable on its own
 - Format: '- [ ] description' for unchecked, '- [x] description' for checked
-- Include Phase 3 (REVIEW), Phase 4 (TEST), Phase 5 (FINAL-REVIEW), Phase 6 (COMMIT)
+- Phase 3 (REVIEW): Add task '- [ ] Review all changes: bugs, patterns, quality, security'
+- Phase 4 (TEST): Add task(s) for running tests/linter/type-checker
+- Phase 5 (FINAL-REVIEW): Add task '- [ ] Final review: all changes, patterns, completeness'
+- Phase 6 (COMMIT): Add task '- [ ] Commit any remaining changes'
 
 Mark Phase 1 tasks [x] as you complete them, log to {decisions_file}, then STOP.
 """
@@ -192,11 +195,49 @@ def _get_review_prompt(plan_file: Path, decisions_file: Path) -> str:
     return f"""Read {decisions_file}, {plan_file}. Find FIRST unchecked Phase 3 task.
 
 Review Phase 2 commits: git log + git status
-Check for: bugs, security issues, code quality, unwanted docs, sensitive files
-ALSO check for: TODO/FIXME/XXX comments, placeholder stubs, incomplete implementations
+
+COMPREHENSIVE CODE REVIEW CHECKLIST:
+
+1. CORRECTNESS & BUGS:
+   - Logic errors, off-by-one errors, incorrect algorithms
+   - Edge cases: null/undefined, empty collections, boundary values
+   - Race conditions, concurrency issues
+   - Proper error handling and validation
+   - Return values and side effects are correct
+
+2. CODEBASE PATTERNS & CONSISTENCY:
+   - Follows existing architectural patterns in the codebase
+   - Uses same libraries/frameworks as similar features
+   - Matches naming conventions (functions, variables, files)
+   - Consistent code style with existing code
+   - Follows established project structure/organization
+
+3. CODE QUALITY:
+   - Readable and maintainable
+   - No unnecessary complexity or over-engineering
+   - Proper abstractions and separation of concerns
+   - No code duplication that should be refactored
+   - Type safety (if applicable: TypeScript, Python type hints, etc.)
+
+4. SECURITY:
+   - No SQL injection, XSS, command injection vulnerabilities
+   - Proper input validation and sanitization
+   - No hardcoded secrets or sensitive data
+   - Secure authentication/authorization checks
+
+5. COMPLETENESS:
+   - No TODO/FIXME/XXX comments or placeholder stubs
+   - All implementations are production-ready, not partial
+   - Adequate test coverage for new functionality
+   - Required edge cases are handled
+
+6. UNWANTED CHANGES:
+   - No unwanted docs (README, SUMMARY.md, guides)
+   - No .claude/ or .nelson/ files
+   - No unrelated refactoring or scope creep
 
 IF issues found:
-  - Add '- [ ] Fix: description' tasks to Phase 3
+  - Add '- [ ] Fix: description' tasks to Phase 3 (be specific about what's wrong)
   - Mark current task [x]
   - STOP
 
@@ -230,23 +271,50 @@ def _get_final_review_prompt(plan_file: Path, decisions_file: Path) -> str:
     """Generate Phase 5 (FINAL-REVIEW) prompt."""
     return f"""Read {decisions_file}, {plan_file}. Find FIRST unchecked Phase 5 task.
 
-VERIFY Phase 4 tests passed.
-Check git status for unwanted files:
-  - No docs (README, SUMMARY.md, guides)
-  - No .claude/ or .nelson/ files
-  - No sensitive data
-Check code quality:
-  - No TODO/FIXME/XXX comments or placeholder stubs
-  - All implementations complete and production-ready
+COMPREHENSIVE FINAL REVIEW - Tests passed, now verify ALL changes:
+
+1. VERIFY TESTS:
+   - Confirm Phase 4 tests/linter/type-checker all passed
+   - No test failures or warnings ignored
+
+2. FULL CODE REVIEW (entire changeset):
+   - Review ALL commits from this implementation cycle
+   - Bugs/logic errors: Check edge cases, error handling, return values
+   - Patterns: Follows existing codebase conventions and architecture
+   - Quality: Readable, maintainable, proper abstractions, no duplication
+   - Security: No vulnerabilities (injection, XSS, insecure data handling)
+   - Completeness: No TODO/FIXME/XXX, no placeholder stubs, production-ready
+   - Type safety: Proper types if applicable (TypeScript, Python hints, etc.)
+   - Performance: No obvious performance issues or inefficiencies
+
+3. CODEBASE CONSISTENCY:
+   - Naming matches existing conventions (functions, variables, files)
+   - Uses same libraries/patterns as similar features
+   - File structure follows project organization
+   - Code style consistent with existing code
+
+4. UNWANTED FILES/CHANGES:
+   - git status: No unwanted staged/unstaged files
+   - No docs (README, SUMMARY.md, guides) unless explicitly requested
+   - No .claude/ or .nelson/ files
+   - No sensitive data or credentials
+   - No unrelated refactoring or scope creep
+
+5. TEST COVERAGE:
+   - Adequate tests for new functionality
+   - Edge cases covered
+   - Critical paths tested
 
 IF issues found:
-  - Add fix tasks to Phase 5 (will be committed)
+  - Add fix tasks to Phase 5 with specific details (will be committed)
   - Mark current task [x]
   - STOP (returns to Phase 4 after fixes)
 
 IF no issues:
   - Mark task [x]
   - STOP (Nelson advances to Phase 6)
+
+This is the FINAL checkpoint before commit - be thorough.
 """
 
 

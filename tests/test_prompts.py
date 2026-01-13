@@ -114,7 +114,11 @@ class TestPhasePrompts:
         )
         assert "Review Phase 2 commits" in prompt
         assert "git log" in prompt
-        assert "bugs, security issues, code quality" in prompt
+        assert "COMPREHENSIVE CODE REVIEW CHECKLIST" in prompt
+        assert "CORRECTNESS & BUGS" in prompt
+        assert "CODEBASE PATTERNS & CONSISTENCY" in prompt
+        assert "CODE QUALITY" in prompt
+        assert "SECURITY" in prompt
         assert "'- [ ] Fix: description'" in prompt
 
     def test_test_phase_prompt(self) -> None:
@@ -136,8 +140,12 @@ class TestPhasePrompts:
             Path(".nelson/plan.md"),
             Path(".nelson/decisions.md"),
         )
-        assert "VERIFY Phase 4 tests passed" in prompt
-        assert "unwanted files" in prompt
+        assert "COMPREHENSIVE FINAL REVIEW" in prompt
+        assert "VERIFY TESTS" in prompt
+        assert "Confirm Phase 4 tests/linter/type-checker all passed" in prompt
+        assert "FULL CODE REVIEW" in prompt
+        assert "CODEBASE CONSISTENCY" in prompt
+        assert "UNWANTED FILES/CHANGES" in prompt
         assert ".claude/ or .nelson/" in prompt
         assert "returns to Phase 4" in prompt
 

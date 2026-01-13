@@ -15,6 +15,7 @@ class TestRalphState:
         """Test creating state with default values."""
         state = RalphState()
 
+        assert state.cycle_iterations == 0
         assert state.total_iterations == 0
         assert state.phase_iterations == 0
         assert state.cost_usd == 0.0
@@ -77,6 +78,23 @@ class TestRalphState:
 
         assert state.total_iterations == 10  # Unchanged
         assert state.phase_iterations == 0  # Reset
+
+    def test_increment_cycle(self) -> None:
+        """Test incrementing cycle counter."""
+        state = RalphState()
+        original_updated = state.updated_at
+
+        assert state.cycle_iterations == 0
+
+        state.increment_cycle()
+
+        assert state.cycle_iterations == 1
+        # Timestamp should be updated (will be same or later than original)
+        assert state.updated_at >= original_updated
+
+        state.increment_cycle()
+
+        assert state.cycle_iterations == 2
 
     def test_update_timestamp(self) -> None:
         """Test timestamp update."""

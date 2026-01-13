@@ -21,6 +21,7 @@ class RalphState:
     """
 
     # Iteration tracking
+    cycle_iterations: int = 0  # Complete 6-phase cycles (0 = first cycle)
     total_iterations: int = 0
     phase_iterations: int = 0  # Iterations in current phase
 
@@ -60,6 +61,11 @@ class RalphState:
     def reset_phase_iterations(self) -> None:
         """Reset phase iteration counter (called on phase transition)."""
         self.phase_iterations = 0
+
+    def increment_cycle(self) -> None:
+        """Increment cycle counter (called after Phase 6 completion)."""
+        self.cycle_iterations += 1
+        self.update_timestamp()
 
     def update_timestamp(self) -> None:
         """Update the updated_at timestamp to current UTC time."""

@@ -108,7 +108,7 @@ class TestGlobalLogger:
         # Reset global logger
         import nelson.logging_config
 
-        ralph.logging_config._logger_instance = None
+        nelson.logging_config._logger_instance = None
 
         logger1 = get_logger()
         logger2 = get_logger()
@@ -120,7 +120,7 @@ class TestGlobalLogger:
         """Test get_logger with custom parameters on first call."""
         import nelson.logging_config
 
-        ralph.logging_config._logger_instance = None
+        nelson.logging_config._logger_instance = None
 
         logger = get_logger(name="custom", level=logging.DEBUG)
         assert logger.logger.name == "custom"
@@ -130,7 +130,7 @@ class TestGlobalLogger:
         """Test changing log level on global logger."""
         import nelson.logging_config
 
-        ralph.logging_config._logger_instance = None
+        nelson.logging_config._logger_instance = None
 
         logger = get_logger(level=logging.INFO)
         assert logger.logger.level == logging.INFO

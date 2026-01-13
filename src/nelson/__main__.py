@@ -1,4 +1,4 @@
-"""Entry point for running ralph as a module (python -m ralph)."""
+"""Entry point for running nelson as a module (python -m nelson)."""
 
 from nelson.cli import main
 

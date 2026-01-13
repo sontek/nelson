@@ -134,14 +134,14 @@ class TestLimitChecking:
 
     def test_check_limits_within_limits(self, orchestrator: WorkflowOrchestrator) -> None:
         """Test limit checking when within limits."""
-        orchestrator.state.total_iterations = 10
+        orchestrator.state.cycle_iterations = 5
         orchestrator.state.cost_usd = 5.0
 
         assert orchestrator._check_limits() is True
 
     def test_check_limits_iteration_limit_reached(self, orchestrator: WorkflowOrchestrator) -> None:
-        """Test limit checking when iteration limit reached."""
-        orchestrator.state.total_iterations = 50
+        """Test limit checking when cycle limit reached."""
+        orchestrator.state.cycle_iterations = 50
 
         assert orchestrator._check_limits() is False
 

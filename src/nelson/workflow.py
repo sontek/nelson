@@ -200,10 +200,10 @@ class WorkflowOrchestrator:
         Returns:
             True if within limits, False if limits exceeded
         """
-        # Check iteration limit
-        if self.state.total_iterations >= self.config.max_iterations:
+        # Check cycle limit (complete 6-phase cycles)
+        if self.state.cycle_iterations >= self.config.max_iterations:
             logger.error(
-                f"Reached max iterations: {self.state.total_iterations} "
+                f"Reached max cycles: {self.state.cycle_iterations} "
                 f">= {self.config.max_iterations}"
             )
             return False

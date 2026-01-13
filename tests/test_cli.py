@@ -30,14 +30,14 @@ class TestCLIBasics:
         """Test --version flag shows version."""
         result = cli_runner.invoke(main, ["--version"])
         assert result.exit_code == 0
-        assert "ralph" in result.output
+        assert "nelson" in result.output
         assert "0.1.0" in result.output
 
     def test_help_flag(self, cli_runner: CliRunner) -> None:
         """Test --help flag shows usage information."""
         result = cli_runner.invoke(main, ["--help"])
         assert result.exit_code == 0
-        assert "Ralph: AI orchestration CLI" in result.output
+        assert "Nelson: AI orchestration CLI" in result.output
         assert "PROMPT" in result.output
         assert "--resume" in result.output
         assert "Environment Variables:" in result.output

@@ -185,7 +185,7 @@ class TestDecisionsLog:
         log = DecisionsLog(log_path)
 
         summary_text = (
-            "Phase 1 complete. Successfully analyzed ralph bash implementation."
+            "Phase 1 complete. Successfully analyzed nelson bash implementation."
         )
         log.append_summary(summary_text)
 

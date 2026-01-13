@@ -280,7 +280,7 @@ class TestDisplayCommitSummary:
         )
         display_commit_summary(summary)
         captured = capsys.readouterr()
-        assert "No commits made during this Ralph session" in captured.out
+        assert "No commits made during this Nelson session" in captured.out
 
     def test_display_with_commits(self, capsys):
         """Test displaying summary with commits."""
@@ -294,7 +294,7 @@ class TestDisplayCommitSummary:
         captured = capsys.readouterr()
 
         # Check for header
-        assert "Commits made during this Ralph session" in captured.out
+        assert "Commits made during this Nelson session" in captured.out
         assert "━" in captured.out
 
         # Check for commit range

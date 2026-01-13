@@ -1,5 +1,5 @@
 [project]
-name = "ralph"
+name = "nelson"
 version = "0.1.0"
 description = "AI orchestration CLI for autonomous development workflows"
 readme = "README.md"
@@ -14,7 +14,7 @@ dependencies = [
 ]
 
 [project.scripts]
-ralph = "ralph.cli:main"
+nelson = "nelson.cli:main"
 
 [project.optional-dependencies]
 dev = [
@@ -55,4 +55,4 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v --cov=ralph --cov-report=term-missing"
+addopts = "-v --cov=nelson --cov-report=term-missing"

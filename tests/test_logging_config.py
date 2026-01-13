@@ -6,35 +6,35 @@ from unittest.mock import patch
 
 from rich.console import Console
 
-from nelson.logging_config import RalphLogger, get_logger, set_log_level
+from nelson.logging_config import NelsonLogger, get_logger, set_log_level
 
 
-class TestRalphLogger:
-    """Test RalphLogger class."""
+class TestNelsonLogger:
+    """Test NelsonLogger class."""
 
     def test_logger_initialization(self) -> None:
         """Test that logger initializes with correct defaults."""
-        logger = RalphLogger()
-        assert logger.logger.name == "ralph"
+        logger = NelsonLogger()
+        assert logger.logger.name == "nelson"
         assert logger.logger.level == logging.INFO
         assert logger.console is not None
 
     def test_logger_custom_name_and_level(self) -> None:
         """Test logger with custom name and level."""
-        logger = RalphLogger(name="test_logger", level=logging.DEBUG)
+        logger = NelsonLogger(name="test_logger", level=logging.DEBUG)
         assert logger.logger.name == "test_logger"
         assert logger.logger.level == logging.DEBUG
 
     def test_info_message(self) -> None:
         """Test info message output."""
-        logger = RalphLogger()
+        logger = NelsonLogger()
         with patch.object(logger.console, "print") as mock_print:
             logger.info("Test info message")
             mock_print.assert_called_once_with("[info][INFO][/info] Test info message")
 
     def test_success_message(self) -> None:
         """Test success message output."""
-        logger = RalphLogger()
+        logger = NelsonLogger()
         with patch.object(logger.console, "print") as mock_print:
             logger.success("Test success message")
             mock_print.assert_called_once_with(
@@ -43,7 +43,7 @@ class TestRalphLogger:
 
     def test_warning_message(self) -> None:
         """Test warning message output."""
-        logger = RalphLogger()
+        logger = NelsonLogger()
         with patch.object(logger.console, "print") as mock_print:
             logger.warning("Test warning message")
             mock_print.assert_called_once_with(
@@ -52,28 +52,28 @@ class TestRalphLogger:
 
     def test_error_message(self) -> None:
         """Test error message output."""
-        logger = RalphLogger()
+        logger = NelsonLogger()
         with patch.object(logger.console, "print") as mock_print:
             logger.error("Test error message")
             mock_print.assert_called_once_with("[error][ERROR][/error] Test error message")
 
     def test_debug_message_when_debug_enabled(self) -> None:
         """Test debug message is shown when debug level is enabled."""
-        logger = RalphLogger(level=logging.DEBUG)
+        logger = NelsonLogger(level=logging.DEBUG)
         with patch.object(logger.console, "print") as mock_print:
             logger.debug("Test debug message")
             mock_print.assert_called_once_with("[debug][DEBUG][/debug] Test debug message")
 
     def test_debug_message_when_debug_disabled(self) -> None:
         """Test debug message is hidden when debug level is disabled."""
-        logger = RalphLogger(level=logging.INFO)
+        logger = NelsonLogger(level=logging.INFO)
         with patch.object(logger.console, "print") as mock_print:
             logger.debug("Test debug message")
             mock_print.assert_not_called()
 
     def test_message_with_format_args(self) -> None:
         """Test logging with additional format arguments."""
-        logger = RalphLogger()
+        logger = NelsonLogger()
         with patch.object(logger.console, "print") as mock_print:
             logger.info("Test message", style="bold")
             mock_print.assert_called_once_with(
@@ -82,10 +82,10 @@ class TestRalphLogger:
 
     def test_no_duplicate_handlers(self) -> None:
         """Test that creating multiple loggers doesn't create duplicate handlers."""
-        logger1 = RalphLogger(name="test_dup")
+        logger1 = NelsonLogger(name="test_dup")
         handler_count_1 = len(logger1.logger.handlers)
 
-        logger2 = RalphLogger(name="test_dup")
+        logger2 = NelsonLogger(name="test_dup")
         handler_count_2 = len(logger2.logger.handlers)
 
         # Should have same number of handlers (old ones cleared)
@@ -93,7 +93,7 @@ class TestRalphLogger:
 
     def test_console_theme_applied(self) -> None:
         """Test that custom theme is applied to console."""
-        logger = RalphLogger()
+        logger = NelsonLogger()
         # Console was initialized with a theme, verify by checking it exists
         # We can't directly access theme attribute, but we can verify console exists
         assert logger.console is not None
@@ -148,12 +148,12 @@ class TestRealOutput:
     def test_info_output_format(self) -> None:
         """Test that info messages produce expected format."""
         # Create logger with StringIO console to capture output
-        from nelson.logging_config import RALPH_THEME
+        from nelson.logging_config import NELSON_THEME
 
         string_io = StringIO()
-        logger = RalphLogger()
+        logger = NelsonLogger()
         logger.console = Console(
-            file=string_io, theme=RALPH_THEME, force_terminal=True, legacy_windows=False
+            file=string_io, theme=NELSON_THEME, force_terminal=True, legacy_windows=False
         )
 
         logger.info("Test message")
@@ -166,12 +166,12 @@ class TestRealOutput:
 
     def test_multiple_log_levels(self) -> None:
         """Test multiple log levels produce different prefixes."""
-        from nelson.logging_config import RALPH_THEME
+        from nelson.logging_config import NELSON_THEME
 
         string_io = StringIO()
-        logger = RalphLogger(level=logging.DEBUG)
+        logger = NelsonLogger(level=logging.DEBUG)
         logger.console = Console(
-            file=string_io, theme=RALPH_THEME, force_terminal=True, legacy_windows=False
+            file=string_io, theme=NELSON_THEME, force_terminal=True, legacy_windows=False
         )
 
         logger.info("Info test")

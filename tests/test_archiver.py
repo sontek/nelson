@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-from ralph.archiver import archive_file_if_exists, archive_old_state
-from ralph.config import STATE_FILE_NAME, RalphConfig
+from nelson.archiver import archive_file_if_exists, archive_old_state
+from nelson.config import STATE_FILE_NAME, RalphConfig
 
 
 class TestArchiveOldState:

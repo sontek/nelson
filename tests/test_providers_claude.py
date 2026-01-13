@@ -6,8 +6,8 @@ from unittest.mock import patch
 
 import pytest
 
-from ralph.providers.base import AIResponse, ProviderError
-from ralph.providers.claude import ClaudeProvider
+from nelson.providers.base import AIResponse, ProviderError
+from nelson.providers.claude import ClaudeProvider
 
 
 def _create_status_block(

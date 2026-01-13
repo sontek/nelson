@@ -2,7 +2,7 @@
 
 import pytest
 
-from ralph.status_parser import (
+from nelson.status_parser import (
     ExecutionStatus,
     StatusBlock,
     StatusBlockError,

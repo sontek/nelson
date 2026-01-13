@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from rich.console import Console
 
-from ralph.logging_config import RalphLogger, get_logger, set_log_level
+from nelson.logging_config import RalphLogger, get_logger, set_log_level
 
 
 class TestRalphLogger:
@@ -106,7 +106,7 @@ class TestGlobalLogger:
     def test_get_logger_singleton(self) -> None:
         """Test that get_logger returns singleton instance."""
         # Reset global logger
-        import ralph.logging_config
+        import nelson.logging_config
 
         ralph.logging_config._logger_instance = None
 
@@ -118,7 +118,7 @@ class TestGlobalLogger:
 
     def test_get_logger_with_custom_params(self) -> None:
         """Test get_logger with custom parameters on first call."""
-        import ralph.logging_config
+        import nelson.logging_config
 
         ralph.logging_config._logger_instance = None
 
@@ -128,7 +128,7 @@ class TestGlobalLogger:
 
     def test_set_log_level(self) -> None:
         """Test changing log level on global logger."""
-        import ralph.logging_config
+        import nelson.logging_config
 
         ralph.logging_config._logger_instance = None
 
@@ -148,7 +148,7 @@ class TestRealOutput:
     def test_info_output_format(self) -> None:
         """Test that info messages produce expected format."""
         # Create logger with StringIO console to capture output
-        from ralph.logging_config import RALPH_THEME
+        from nelson.logging_config import RALPH_THEME
 
         string_io = StringIO()
         logger = RalphLogger()
@@ -166,7 +166,7 @@ class TestRealOutput:
 
     def test_multiple_log_levels(self) -> None:
         """Test multiple log levels produce different prefixes."""
-        from ralph.logging_config import RALPH_THEME
+        from nelson.logging_config import RALPH_THEME
 
         string_io = StringIO()
         logger = RalphLogger(level=logging.DEBUG)

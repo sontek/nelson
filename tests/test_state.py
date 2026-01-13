@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from ralph.state import RalphState, _utc_timestamp
+from nelson.state import RalphState, _utc_timestamp
 
 
 class TestRalphState:

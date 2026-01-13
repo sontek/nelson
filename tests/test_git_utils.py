@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ralph.git_utils import (
+from nelson.git_utils import (
     GitError,
     GitStatus,
     get_commit_range,

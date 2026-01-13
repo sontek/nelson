@@ -5,11 +5,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from ralph.config import RalphConfig
-from ralph.phases import Phase
-from ralph.providers.base import AIResponse, ProviderError
-from ralph.state import RalphState
-from ralph.workflow import (
+from nelson.config import RalphConfig
+from nelson.phases import Phase
+from nelson.providers.base import AIResponse, ProviderError
+from nelson.state import RalphState
+from nelson.workflow import (
     CircuitBreakerResult,
     WorkflowError,
     WorkflowOrchestrator,

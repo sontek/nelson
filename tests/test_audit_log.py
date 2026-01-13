@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from ralph.audit_log import TeeOutput, audit_log, generate_audit_log_path
+from nelson.audit_log import TeeOutput, audit_log, generate_audit_log_path
 
 
 class TestTeeOutput:

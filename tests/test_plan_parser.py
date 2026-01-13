@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from ralph.plan_parser import (
+from nelson.plan_parser import (
     PhaseTaskSummary,
     PlanParser,
     Task,

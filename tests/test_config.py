@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from pytest import MonkeyPatch
 
-from ralph.config import RalphConfig
+from nelson.config import RalphConfig
 
 
 class TestRalphConfig:

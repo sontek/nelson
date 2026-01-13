@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from ralph.decisions_log import (
+from nelson.decisions_log import (
     DecisionsLog,
     append_decision,
     append_phase_transition,

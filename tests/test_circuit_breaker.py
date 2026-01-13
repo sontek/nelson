@@ -1,7 +1,7 @@
 """Tests for circuit breaker detection."""
 
-from ralph.circuit_breaker import CircuitBreaker, CircuitBreakerResult
-from ralph.state import RalphState
+from nelson.circuit_breaker import CircuitBreaker, CircuitBreakerResult
+from nelson.state import RalphState
 
 
 class TestCircuitBreakerResult:

@@ -7,7 +7,7 @@ from unittest.mock import patch
 import pytest
 from click.testing import CliRunner
 
-from ralph.cli import _build_config, main
+from nelson.cli import _build_config, main
 
 
 @pytest.fixture

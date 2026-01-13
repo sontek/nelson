@@ -9,12 +9,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from ralph.config import RalphConfig
-from ralph.phases import Phase
-from ralph.providers.base import AIProvider, AIResponse
-from ralph.run_manager import RunManager
-from ralph.state import RalphState
-from ralph.workflow import WorkflowError, WorkflowOrchestrator
+from nelson.config import RalphConfig
+from nelson.phases import Phase
+from nelson.providers.base import AIProvider, AIResponse
+from nelson.run_manager import RunManager
+from nelson.state import RalphState
+from nelson.workflow import WorkflowError, WorkflowOrchestrator
 
 
 @pytest.fixture

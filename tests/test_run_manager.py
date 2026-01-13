@@ -5,14 +5,14 @@ from pathlib import Path
 
 import pytest
 
-from ralph.config import (
+from nelson.config import (
     AUDIT_FILE_NAME,
     DECISIONS_FILE_NAME,
     PLAN_FILE_NAME,
     STATE_FILE_NAME,
     RalphConfig,
 )
-from ralph.run_manager import RunManager
+from nelson.run_manager import RunManager
 
 
 @pytest.fixture

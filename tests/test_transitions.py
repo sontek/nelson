@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from ralph.phases import Phase
-from ralph.transitions import (
+from nelson.phases import Phase
+from nelson.transitions import (
     determine_next_phase,
     has_unchecked_tasks,
     is_phase_complete,

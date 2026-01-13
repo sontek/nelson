@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from ralph.providers.base import AIProvider, AIResponse, ProviderError
+from nelson.providers.base import AIProvider, AIResponse, ProviderError
 
 
 class TestAIResponse:

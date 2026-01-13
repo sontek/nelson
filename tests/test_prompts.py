@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from ralph.phases import Phase
-from ralph.prompts import (
+from nelson.phases import Phase
+from nelson.prompts import (
     build_full_prompt,
     build_loop_context,
     get_phase_prompt,

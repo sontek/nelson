@@ -5,13 +5,13 @@ from pathlib import Path
 
 import pytest
 
-from ralph.commit_summary import (
+from nelson.commit_summary import (
     CommitSummary,
     display_commit_summary,
     generate_commit_summary,
     get_commit_messages,
 )
-from ralph.git_utils import GitError
+from nelson.git_utils import GitError
 
 
 @pytest.fixture

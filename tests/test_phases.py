@@ -2,7 +2,7 @@
 
 import pytest
 
-from ralph.phases import (
+from nelson.phases import (
     PHASE_METADATA,
     Phase,
     determine_next_phase,

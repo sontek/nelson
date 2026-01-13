@@ -71,7 +71,7 @@ logger = get_logger()
     envvar="RALPH_AUTO_APPROVE_PUSH",
     help="Skip push approval prompt (env: RALPH_AUTO_APPROVE_PUSH)",
 )
-@click.version_option(version="0.1.0", prog_name="ralph")
+@click.version_option(version="0.1.0", prog_name="nelson")
 def main(
     prompt: str | None,
     resume_path: Path | str | None,

@@ -4,13 +4,19 @@ This module provides the Click-based command-line interface for Ralph,
 matching the bash implementation's interface while adding rich formatting.
 """
 
+import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import click
 
 from nelson.config import RalphConfig
 from nelson.logging_config import get_logger
+from nelson.phases import Phase
+from nelson.providers.claude import ClaudeProvider
+from nelson.state import RalphState
+from nelson.workflow import WorkflowError, WorkflowOrchestrator
 
 logger = get_logger()
 
@@ -159,8 +165,95 @@ def main(
     logger.info(f"Max iterations: {config.max_iterations}")
     logger.info(f"Cost limit: ${config.cost_limit:.2f}")
 
-    # TODO: Call workflow.run(prompt, config) once workflow module is implemented
-    logger.warning("Workflow execution not yet implemented")
+    try:
+        _execute_workflow(prompt, config)
+    except WorkflowError as e:
+        logger.error(f"Workflow failed: {e}")
+        raise click.Abort()
+    except KeyboardInterrupt:
+        logger.warning("Workflow interrupted by user")
+        raise click.Abort()
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
+        raise
+
+
+def _execute_workflow(prompt: str, config: RalphConfig) -> None:
+    """Execute the main workflow with proper initialization and error handling.
+
+    Args:
+        prompt: User's task prompt
+        config: Ralph configuration
+
+    Raises:
+        WorkflowError: If workflow fails
+    """
+    # Initialize provider
+    claude_command = (
+        str(config.claude_command_path)
+        if config.claude_command_path
+        else config.claude_command
+    )
+    provider = ClaudeProvider(claude_command=claude_command)
+
+    # Check provider availability
+    if not provider.is_available():
+        logger.error(f"Claude command not available: {claude_command}")
+        raise WorkflowError(f"Claude command not found or not executable: {claude_command}")
+
+    logger.info(f"Using Claude command: {claude_command}")
+
+    # Get starting commit for audit trail
+    try:
+        starting_commit = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+    except subprocess.CalledProcessError:
+        logger.warning("Not in a git repository - starting_commit will be empty")
+        starting_commit = ""
+
+    # Create run directory with timestamp
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    run_dir = config.runs_dir / f"ralph-{timestamp}"
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    logger.info(f"Run directory: {run_dir}")
+
+    # Initialize files
+    decisions_file = run_dir / "decisions.md"
+    state_file = run_dir / "state.json"
+
+    # Initialize decisions log
+    decisions_file.write_text("# Nelson Implementation - Decisions Log\n\n")
+
+    # Create initial state
+    state = RalphState(
+        cycle_iterations=0,
+        total_iterations=0,
+        phase_iterations=0,
+        cost_usd=0.0,
+        prompt=prompt,
+        starting_commit=starting_commit,
+        current_phase=Phase.PLAN.value,
+        phase_name=Phase.PLAN.name_str,
+    )
+
+    # Save initial state
+    state.save(state_file)
+
+    # Create workflow orchestrator
+    orchestrator = WorkflowOrchestrator(
+        config=config,
+        state=state,
+        provider=provider,
+        run_dir=run_dir,
+    )
+
+    # Run the workflow
+    orchestrator.run(prompt)
 
 
 def _build_config(

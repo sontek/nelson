@@ -1,4 +1,4 @@
-"""Integration tests for complete Ralph workflow execution.
+"""Integration tests for complete Nelson workflow execution.
 
 Tests the full workflow components working together with mocked AI provider.
 These tests verify the workflow can be initialized and basic integration points work.

@@ -150,7 +150,7 @@ class WorkflowOrchestrator:
             if breaker_result == CircuitBreakerResult.EXIT_SIGNAL:
                 # EXIT_SIGNAL means current cycle's work is complete
                 # Complete current cycle and loop back to Phase 1 to check for more work
-                # This matches bash ralph's multi-cycle "ralph wiggum" behavior
+                # This matches bash nelson's multi-cycle behavior
                 logger.success("EXIT_SIGNAL detected - current cycle work complete")
                 self._log_completion_status(status_block)
 

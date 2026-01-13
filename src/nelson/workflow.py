@@ -148,11 +148,21 @@ class WorkflowOrchestrator:
             breaker_result = self._check_circuit_breaker(status_block)
 
             if breaker_result == CircuitBreakerResult.EXIT_SIGNAL:
-                # EXIT_SIGNAL means current cycle's work is complete
-                # Complete current cycle and loop back to Phase 1 to check for more work
-                # This matches bash nelson's multi-cycle behavior
-                logger.success("EXIT_SIGNAL detected - current cycle work complete")
+                # EXIT_SIGNAL behavior depends on current phase:
+                # - Phase 1 (PLAN): "no more work to do" → STOP workflow
+                # - Phases 2-6: "cycle complete" → loop back to Phase 1 for next cycle
+                logger.success("EXIT_SIGNAL detected")
                 self._log_completion_status(status_block)
+
+                if current_phase == Phase.PLAN:
+                    # Phase 1 EXIT_SIGNAL means no additional work needed - stop workflow
+                    logger.success("Phase 1 EXIT_SIGNAL: no additional work found")
+                    logger.success("Workflow complete - exiting")
+                    break
+
+                # For Phases 2-6: EXIT_SIGNAL means cycle work is complete
+                # Complete current cycle and loop back to Phase 1 for next cycle
+                logger.success("EXIT_SIGNAL detected - current cycle work complete")
 
                 # If we're in Phase 6 (COMMIT), let normal cycle logic handle loop-back
                 # Otherwise, trigger immediate cycle completion

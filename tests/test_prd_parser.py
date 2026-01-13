@@ -1,0 +1,380 @@
+"""Tests for prd_parser module."""
+
+from pathlib import Path
+
+import pytest
+
+from nelson.prd_parser import PRDParser, PRDTaskStatus, parse_prd_file
+
+
+# Sample PRD content
+VALID_PRD = """# My PRD
+
+## High Priority
+- [ ] PRD-001 Add user authentication
+- [~] PRD-002 Create user profile management
+- [x] PRD-003 Add payment integration
+
+## Medium Priority
+- [!] PRD-004 Add email notifications (blocked: waiting for API keys)
+- [ ] PRD-005 Implement search functionality
+
+## Low Priority
+- [ ] PRD-006 Dark mode toggle
+"""
+
+DUPLICATE_IDS_PRD = """## High Priority
+- [ ] PRD-001 Task one
+- [ ] PRD-001 Task two (duplicate!)
+"""
+
+INVALID_FORMAT_PRD = """## High Priority
+- [ ] PRD-1 Invalid format (not 3 digits)
+- [ ] PRD-ABC Invalid format (not numeric)
+"""
+
+MISSING_IDS_PRD = """## High Priority
+- [ ] Task without ID
+- [ ] PRD-001 Task with ID
+"""
+
+NO_PRIORITY_PRD = """- [ ] PRD-001 Task outside priority section"""
+
+
+def test_parse_valid_prd(tmp_path: Path):
+    """Test parsing a valid PRD file."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(VALID_PRD)
+
+    parser = PRDParser(prd_file)
+    tasks = parser.parse()
+
+    assert len(tasks) == 6
+
+    # Check first task
+    assert tasks[0].task_id == "PRD-001"
+    assert tasks[0].task_text == "Add user authentication"
+    assert tasks[0].status == PRDTaskStatus.PENDING
+    assert tasks[0].priority == "high"
+
+    # Check in-progress task
+    assert tasks[1].task_id == "PRD-002"
+    assert tasks[1].status == PRDTaskStatus.IN_PROGRESS
+
+    # Check completed task
+    assert tasks[2].task_id == "PRD-003"
+    assert tasks[2].status == PRDTaskStatus.COMPLETED
+
+    # Check blocked task with reason
+    assert tasks[3].task_id == "PRD-004"
+    assert tasks[3].status == PRDTaskStatus.BLOCKED
+    assert tasks[3].blocking_reason == "waiting for API keys"
+    assert tasks[3].task_text == "Add email notifications"  # reason removed from text
+
+
+def test_parse_duplicate_ids(tmp_path: Path):
+    """Test that duplicate IDs raise ValueError."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(DUPLICATE_IDS_PRD)
+
+    parser = PRDParser(prd_file)
+
+    with pytest.raises(ValueError, match="Duplicate task ID"):
+        parser.parse()
+
+
+def test_parse_invalid_format(tmp_path: Path):
+    """Test that invalid ID format raises ValueError."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(INVALID_FORMAT_PRD)
+
+    parser = PRDParser(prd_file)
+
+    with pytest.raises(ValueError, match="Invalid task ID format"):
+        parser.parse()
+
+
+def test_parse_no_priority_section(tmp_path: Path):
+    """Test that tasks outside priority sections raise ValueError."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(NO_PRIORITY_PRD)
+
+    parser = PRDParser(prd_file)
+
+    with pytest.raises(ValueError, match="outside priority section"):
+        parser.parse()
+
+
+def test_parse_nonexistent_file():
+    """Test that missing file raises FileNotFoundError."""
+    parser = PRDParser(Path("/nonexistent/file.md"))
+
+    with pytest.raises(FileNotFoundError):
+        parser.parse()
+
+
+def test_get_tasks_by_priority(tmp_path: Path):
+    """Test filtering tasks by priority."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(VALID_PRD)
+
+    parser = PRDParser(prd_file)
+    parser.parse()
+
+    high_tasks = parser.get_tasks_by_priority("high")
+    assert len(high_tasks) == 3
+    assert all(t.priority == "high" for t in high_tasks)
+
+    medium_tasks = parser.get_tasks_by_priority("medium")
+    assert len(medium_tasks) == 2
+
+    low_tasks = parser.get_tasks_by_priority("low")
+    assert len(low_tasks) == 1
+
+
+def test_get_tasks_by_status(tmp_path: Path):
+    """Test filtering tasks by status."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(VALID_PRD)
+
+    parser = PRDParser(prd_file)
+    parser.parse()
+
+    pending = parser.get_tasks_by_status(PRDTaskStatus.PENDING)
+    assert len(pending) == 3
+
+    in_progress = parser.get_tasks_by_status(PRDTaskStatus.IN_PROGRESS)
+    assert len(in_progress) == 1
+
+    completed = parser.get_tasks_by_status(PRDTaskStatus.COMPLETED)
+    assert len(completed) == 1
+
+    blocked = parser.get_tasks_by_status(PRDTaskStatus.BLOCKED)
+    assert len(blocked) == 1
+
+
+def test_get_task_by_id(tmp_path: Path):
+    """Test getting task by ID."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(VALID_PRD)
+
+    parser = PRDParser(prd_file)
+    parser.parse()
+
+    task = parser.get_task_by_id("PRD-003")
+    assert task is not None
+    assert task.task_id == "PRD-003"
+    assert task.task_text == "Add payment integration"
+
+    nonexistent = parser.get_task_by_id("PRD-999")
+    assert nonexistent is None
+
+
+def test_update_task_status(tmp_path: Path):
+    """Test updating task status in PRD file."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(VALID_PRD)
+
+    parser = PRDParser(prd_file)
+    parser.parse()
+
+    # Update status from pending to in-progress
+    parser.update_task_status("PRD-001", PRDTaskStatus.IN_PROGRESS)
+
+    # Re-read file to verify change
+    content = prd_file.read_text()
+    assert "[~] PRD-001 Add user authentication" in content
+
+
+def test_update_task_status_to_blocked_with_reason(tmp_path: Path):
+    """Test updating task to blocked with reason."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(VALID_PRD)
+
+    parser = PRDParser(prd_file)
+    parser.parse()
+
+    # Block task with reason
+    parser.update_task_status(
+        "PRD-001", PRDTaskStatus.BLOCKED, "Need database schema approved"
+    )
+
+    # Re-read file
+    content = prd_file.read_text()
+    assert "[!] PRD-001 Add user authentication (blocked: Need database schema approved)" in content
+
+
+def test_update_task_status_from_blocked_removes_reason(tmp_path: Path):
+    """Test that unblocking removes blocking reason."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(VALID_PRD)
+
+    parser = PRDParser(prd_file)
+    parser.parse()
+
+    # Update blocked task to pending (should remove reason)
+    parser.update_task_status("PRD-004", PRDTaskStatus.PENDING)
+
+    # Re-read file
+    content = prd_file.read_text()
+    assert "- [ ] PRD-004 Add email notifications\n" in content
+    assert "blocked:" not in content.split("PRD-004")[1].split("\n")[0]
+
+
+def test_update_task_status_nonexistent_task(tmp_path: Path):
+    """Test that updating nonexistent task raises ValueError."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(VALID_PRD)
+
+    parser = PRDParser(prd_file)
+    parser.parse()
+
+    with pytest.raises(ValueError, match="Task not found"):
+        parser.update_task_status("PRD-999", PRDTaskStatus.COMPLETED)
+
+
+def test_validate_all_tasks_valid(tmp_path: Path):
+    """Test validation passes for valid PRD."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(VALID_PRD)
+
+    parser = PRDParser(prd_file)
+    parser.parse()
+
+    issues = parser.validate_all_tasks()
+    assert len(issues) == 0
+
+
+def test_validate_all_tasks_missing_ids(tmp_path: Path):
+    """Test validation detects tasks without IDs."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(MISSING_IDS_PRD)
+
+    parser = PRDParser(prd_file)
+    # This will fail during parse, but validate_all_tasks can detect it
+
+    issues = parser.validate_all_tasks()
+    assert len(issues) > 0
+    assert any("missing explicit ID" in issue for issue in issues)
+
+
+def test_parse_prd_file_convenience_function(tmp_path: Path):
+    """Test convenience function for parsing."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(VALID_PRD)
+
+    tasks = parse_prd_file(prd_file)
+
+    assert len(tasks) == 6
+    assert tasks[0].task_id == "PRD-001"
+
+
+def test_task_id_validation():
+    """Test task ID format validation."""
+    parser = PRDParser(Path("dummy.md"))
+
+    # Valid formats
+    assert parser._is_valid_task_id("PRD-001")
+    assert parser._is_valid_task_id("PRD-999")
+    assert parser._is_valid_task_id("PRD-042")
+
+    # Invalid formats
+    assert not parser._is_valid_task_id("PRD-1")  # Too few digits
+    assert not parser._is_valid_task_id("PRD-0001")  # Too many digits
+    assert not parser._is_valid_task_id("PRD-ABC")  # Not numeric
+    assert not parser._is_valid_task_id("PR-001")  # Wrong prefix
+    assert not parser._is_valid_task_id("prd-001")  # Wrong case
+
+
+def test_blocking_reason_extraction(tmp_path: Path):
+    """Test extraction of blocking reasons from task text."""
+    content = """## High Priority
+- [!] PRD-001 Task name (blocked: very long reason with special chars @#$)
+- [!] PRD-002 Another task (Blocked: mixed case reason)
+"""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(content)
+
+    parser = PRDParser(prd_file)
+    tasks = parser.parse()
+
+    assert tasks[0].blocking_reason == "very long reason with special chars @#$"
+    assert tasks[0].task_text == "Task name"
+
+    assert tasks[1].blocking_reason == "mixed case reason"
+    assert tasks[1].task_text == "Another task"
+
+
+def test_priority_case_insensitive(tmp_path: Path):
+    """Test that priority headers are case-insensitive."""
+    content = """## high priority
+- [ ] PRD-001 Task 1
+
+## MEDIUM PRIORITY
+- [ ] PRD-002 Task 2
+
+## Low Priority
+- [ ] PRD-003 Task 3
+"""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(content)
+
+    parser = PRDParser(prd_file)
+    tasks = parser.parse()
+
+    assert len(tasks) == 3
+    assert tasks[0].priority == "high"
+    assert tasks[1].priority == "medium"
+    assert tasks[2].priority == "low"
+
+
+def test_line_number_tracking(tmp_path: Path):
+    """Test that line numbers are tracked correctly."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(VALID_PRD)
+
+    parser = PRDParser(prd_file)
+    tasks = parser.parse()
+
+    # Line numbers should be 1-indexed
+    assert all(t.line_number > 0 for t in tasks)
+
+    # Tasks should have different line numbers
+    line_numbers = [t.line_number for t in tasks]
+    assert len(set(line_numbers)) == len(line_numbers)
+
+
+def test_update_preserves_file_structure(tmp_path: Path):
+    """Test that updating status preserves file structure."""
+    original_content = """# My PRD
+
+Some intro text here.
+
+## High Priority
+- [ ] PRD-001 First task
+- [ ] PRD-002 Second task
+
+Some notes here.
+
+## Medium Priority
+- [ ] PRD-003 Third task
+"""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(original_content)
+
+    parser = PRDParser(prd_file)
+    parser.parse()
+
+    # Update one task
+    parser.update_task_status("PRD-002", PRDTaskStatus.COMPLETED)
+
+    # Read back
+    updated_content = prd_file.read_text()
+
+    # Check that structure is preserved
+    assert "# My PRD" in updated_content
+    assert "Some intro text here" in updated_content
+    assert "Some notes here" in updated_content
+    assert "[x] PRD-002 Second task" in updated_content
+    assert "[ ] PRD-001 First task" in updated_content
+    assert "[ ] PRD-003 Third task" in updated_content

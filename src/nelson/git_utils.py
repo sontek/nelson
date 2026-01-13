@@ -268,7 +268,7 @@ def unstage_files(patterns: list[str], path: Path | None = None) -> int:
         raise GitError("git command not found") from e
 
 
-def unstage_ralph_files(path: Path | None = None) -> int:
+def unstage_nelson_files(path: Path | None = None) -> int:
     """Unstage .claude/ and .nelson/ files if they were accidentally staged.
 
     This is a convenience wrapper around unstage_files() for Nelson's specific use case.

@@ -15,7 +15,7 @@ from nelson.git_utils import (
     get_git_status,
     is_git_repo,
     unstage_files,
-    unstage_ralph_files,
+    unstage_nelson_files,
 )
 
 
@@ -386,10 +386,10 @@ class TestUnstageFiles:
             unstage_files([".nelson/"])
 
 
-class TestUnstageRalphFiles:
-    """Tests for unstage_ralph_files()."""
+class TestUnstageNelsonFiles:
+    """Tests for unstage_nelson_files()."""
 
-    def test_unstage_ralph_files_success(self, tmp_path: Path) -> None:
+    def test_unstage_nelson_files_success(self, tmp_path: Path) -> None:
         """Test unstaging .claude/ and .nelson/ files."""
         # Initialize git repo
         subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
@@ -425,7 +425,7 @@ class TestUnstageRalphFiles:
         subprocess.run(["git", "add", "."], cwd=tmp_path, check=True, capture_output=True)
 
         # Unstage Nelson files
-        count = unstage_ralph_files(tmp_path)
+        count = unstage_nelson_files(tmp_path)
         assert count == 2
 
         # Verify files were unstaged

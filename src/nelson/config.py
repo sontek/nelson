@@ -1,4 +1,4 @@
-"""Configuration management for Ralph.
+"""Configuration management for Nelson.
 
 This module handles environment variables, defaults, and configuration validation.
 All configuration is immutable after creation for predictability.
@@ -14,8 +14,8 @@ ModelType = Literal["opus", "sonnet", "haiku"]
 
 
 @dataclass(frozen=True)
-class RalphConfig:
-    """Configuration for Ralph orchestration.
+class NelsonConfig:
+    """Configuration for Nelson orchestration.
 
     All configuration is immutable (frozen dataclass) to ensure consistent behavior
     throughout a run. Configuration is loaded once at startup.
@@ -44,7 +44,7 @@ class RalphConfig:
     auto_approve_push: bool
 
     @classmethod
-    def from_environment(cls, script_dir: Path | None = None) -> "RalphConfig":
+    def from_environment(cls, script_dir: Path | None = None) -> "NelsonConfig":
         """Load configuration from environment variables with defaults.
 
         Args:
@@ -52,7 +52,7 @@ class RalphConfig:
                        If None, uses parent directory of this module.
 
         Returns:
-            Immutable RalphConfig instance.
+            Immutable NelsonConfig instance.
         """
         # Detect if RALPH_MAX_ITERATIONS was explicitly set
         max_iterations_str = os.getenv("RALPH_MAX_ITERATIONS")

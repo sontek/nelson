@@ -199,7 +199,7 @@ class TestGenerateAuditLogPath:
         log_path = generate_audit_log_path(audit_dir)
 
         assert log_path.parent == audit_dir
-        assert log_path.name.startswith("ralph-")
+        assert log_path.name.startswith("nelson-")
         assert log_path.name.endswith(".log")
 
     def test_generates_unique_paths(self, tmp_path: Path) -> None:
@@ -208,11 +208,11 @@ class TestGenerateAuditLogPath:
 
         log_path = generate_audit_log_path(audit_dir)
 
-        # Check format: ralph-YYYYMMDD-HHMMSS.log
+        # Check format: nelson-YYYYMMDD-HHMMSS.log
         name = log_path.name
-        assert name.startswith("ralph-")
+        assert name.startswith("nelson-")
         assert name.endswith(".log")
-        assert len(name) == len("ralph-20260113-101253.log")
+        assert len(name) == len("nelson-20260113-101253.log")
 
     def test_respects_audit_dir(self, tmp_path: Path) -> None:
         """Test generated path is in specified audit directory."""
@@ -228,9 +228,9 @@ class TestGenerateAuditLogPath:
 
         log_path = generate_audit_log_path(audit_dir)
 
-        # Extract timestamp from ralph-YYYYMMDD-HHMMSS.log
+        # Extract timestamp from nelson-YYYYMMDD-HHMMSS.log
         name = log_path.stem  # Remove .log extension
-        timestamp = name.replace("ralph-", "")
+        timestamp = name.replace("nelson-", "")
 
         # Should be 15 characters: YYYYMMDD-HHMMSS
         assert len(timestamp) == 15

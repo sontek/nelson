@@ -15,7 +15,7 @@ class TestArchiveOldState:
             max_iterations=10,
             max_iterations_explicit=False,
             cost_limit=10.0,
-            ralph_dir=tmp_path / ".ralph",
+            nelson_dir=tmp_path / ".ralph",
             audit_dir=tmp_path / ".ralph" / "audit",
             runs_dir=tmp_path / ".ralph" / "runs",
             claude_command="claude",
@@ -27,11 +27,11 @@ class TestArchiveOldState:
         )
 
         # Create directories
-        config.ralph_dir.mkdir(parents=True)
+        config.nelson_dir.mkdir(parents=True)
         config.runs_dir.mkdir(parents=True)
 
         # No old state file exists
-        old_state = config.ralph_dir / STATE_FILE_NAME
+        old_state = config.nelson_dir / STATE_FILE_NAME
         assert not old_state.exists()
 
         # Should do nothing
@@ -46,7 +46,7 @@ class TestArchiveOldState:
             max_iterations=10,
             max_iterations_explicit=False,
             cost_limit=10.0,
-            ralph_dir=tmp_path / ".ralph",
+            nelson_dir=tmp_path / ".ralph",
             audit_dir=tmp_path / ".ralph" / "audit",
             runs_dir=tmp_path / ".ralph" / "runs",
             claude_command="claude",
@@ -58,15 +58,15 @@ class TestArchiveOldState:
         )
 
         # Create directories
-        config.ralph_dir.mkdir(parents=True)
+        config.nelson_dir.mkdir(parents=True)
         config.runs_dir.mkdir(parents=True)
 
         # Create a previous run directory
-        prev_run_dir = config.runs_dir / "ralph-20260113-100000"
+        prev_run_dir = config.runs_dir / "nelson-20260113-100000"
         prev_run_dir.mkdir()
 
         # Create old state file
-        old_state = config.ralph_dir / STATE_FILE_NAME
+        old_state = config.nelson_dir / STATE_FILE_NAME
         old_state.write_text('{"test": "data"}')
 
         # Archive it
@@ -81,12 +81,12 @@ class TestArchiveOldState:
         assert archived_state.read_text() == '{"test": "data"}'
 
     def test_archive_creates_previous_directory(self, tmp_path: Path) -> None:
-        """Test creating ralph-previous-TIMESTAMP directory when no runs exist."""
+        """Test creating nelson-previous-TIMESTAMP directory when no runs exist."""
         config = NelsonConfig(
             max_iterations=10,
             max_iterations_explicit=False,
             cost_limit=10.0,
-            ralph_dir=tmp_path / ".ralph",
+            nelson_dir=tmp_path / ".ralph",
             audit_dir=tmp_path / ".ralph" / "audit",
             runs_dir=tmp_path / ".ralph" / "runs",
             claude_command="claude",
@@ -98,11 +98,11 @@ class TestArchiveOldState:
         )
 
         # Create directories
-        config.ralph_dir.mkdir(parents=True)
+        config.nelson_dir.mkdir(parents=True)
         config.runs_dir.mkdir(parents=True)
 
         # Create old state file
-        old_state = config.ralph_dir / STATE_FILE_NAME
+        old_state = config.nelson_dir / STATE_FILE_NAME
         old_state.write_text('{"test": "data"}')
 
         # Archive it (no previous runs exist)
@@ -111,8 +111,8 @@ class TestArchiveOldState:
         # Old state should be gone
         assert not old_state.exists()
 
-        # Should have created ralph-previous-TIMESTAMP directory
-        archive_dirs = list(config.runs_dir.glob("ralph-previous-*"))
+        # Should have created nelson-previous-TIMESTAMP directory
+        archive_dirs = list(config.runs_dir.glob("nelson-previous-*"))
         assert len(archive_dirs) == 1
         archive_dir = archive_dirs[0]
 
@@ -127,7 +127,7 @@ class TestArchiveOldState:
             max_iterations=10,
             max_iterations_explicit=False,
             cost_limit=10.0,
-            ralph_dir=tmp_path / ".ralph",
+            nelson_dir=tmp_path / ".ralph",
             audit_dir=tmp_path / ".ralph" / "audit",
             runs_dir=tmp_path / ".ralph" / "runs",
             claude_command="claude",
@@ -139,17 +139,17 @@ class TestArchiveOldState:
         )
 
         # Create directories
-        config.ralph_dir.mkdir(parents=True)
+        config.nelson_dir.mkdir(parents=True)
         config.runs_dir.mkdir(parents=True)
 
         # Create a previous run directory with existing state.json
-        prev_run_dir = config.runs_dir / "ralph-20260113-100000"
+        prev_run_dir = config.runs_dir / "nelson-20260113-100000"
         prev_run_dir.mkdir()
         existing_state = prev_run_dir / STATE_FILE_NAME
         existing_state.write_text('{"existing": "state"}')
 
         # Create old state file
-        old_state = config.ralph_dir / STATE_FILE_NAME
+        old_state = config.nelson_dir / STATE_FILE_NAME
         old_state.write_text('{"test": "data"}')
 
         # Archive it
@@ -168,7 +168,7 @@ class TestArchiveOldState:
             max_iterations=10,
             max_iterations_explicit=False,
             cost_limit=10.0,
-            ralph_dir=tmp_path / ".ralph",
+            nelson_dir=tmp_path / ".ralph",
             audit_dir=tmp_path / ".ralph" / "audit",
             runs_dir=tmp_path / ".ralph" / "runs",
             claude_command="claude",
@@ -180,17 +180,17 @@ class TestArchiveOldState:
         )
 
         # Create directories
-        config.ralph_dir.mkdir(parents=True)
+        config.nelson_dir.mkdir(parents=True)
         config.runs_dir.mkdir(parents=True)
 
         # Create multiple previous run directories
-        old_run_dir = config.runs_dir / "ralph-20260113-100000"
+        old_run_dir = config.runs_dir / "nelson-20260113-100000"
         old_run_dir.mkdir()
-        recent_run_dir = config.runs_dir / "ralph-20260113-110000"
+        recent_run_dir = config.runs_dir / "nelson-20260113-110000"
         recent_run_dir.mkdir()
 
         # Create old state file
-        old_state = config.ralph_dir / STATE_FILE_NAME
+        old_state = config.nelson_dir / STATE_FILE_NAME
         old_state.write_text('{"test": "data"}')
 
         # Archive it

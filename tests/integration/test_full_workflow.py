@@ -20,14 +20,14 @@ from nelson.workflow import WorkflowError, WorkflowOrchestrator
 @pytest.fixture
 def mock_config(tmp_path: Path) -> NelsonConfig:
     """Create test configuration with temp directories."""
-    ralph_dir = tmp_path / ".ralph"
+    nelson_dir = tmp_path / ".ralph"
     return NelsonConfig(
         max_iterations=10,
         max_iterations_explicit=True,
         cost_limit=10.0,
-        ralph_dir=ralph_dir,
-        audit_dir=ralph_dir / "audit",
-        runs_dir=ralph_dir / "runs",
+        nelson_dir=nelson_dir,
+        audit_dir=nelson_dir / "audit",
+        runs_dir=nelson_dir / "runs",
         claude_command="claude",
         claude_command_path=Path("/usr/bin/claude"),
         model="claude-sonnet-4-20250514",
@@ -137,7 +137,7 @@ class TestWorkflowIntegration:
             max_iterations=1,
             max_iterations_explicit=True,
             cost_limit=mock_config.cost_limit,
-            ralph_dir=mock_config.ralph_dir,
+            nelson_dir=mock_config.nelson_dir,
             audit_dir=mock_config.audit_dir,
             runs_dir=mock_config.runs_dir,
             claude_command=mock_config.claude_command,
@@ -197,7 +197,7 @@ class TestWorkflowIntegration:
             max_iterations=1,
             max_iterations_explicit=True,
             cost_limit=mock_config.cost_limit,
-            ralph_dir=mock_config.ralph_dir,
+            nelson_dir=mock_config.nelson_dir,
             audit_dir=mock_config.audit_dir,
             runs_dir=mock_config.runs_dir,
             claude_command=mock_config.claude_command,
@@ -257,7 +257,7 @@ class TestWorkflowIntegration:
             max_iterations=1,
             max_iterations_explicit=True,
             cost_limit=mock_config.cost_limit,
-            ralph_dir=mock_config.ralph_dir,
+            nelson_dir=mock_config.nelson_dir,
             audit_dir=mock_config.audit_dir,
             runs_dir=mock_config.runs_dir,
             claude_command=mock_config.claude_command,
@@ -283,7 +283,7 @@ class TestWorkflowIntegration:
             pass  # May hit limit or circuit breaker
 
         # Verify state file was created
-        state_file = mock_config.ralph_dir / "state.json"
+        state_file = mock_config.nelson_dir / "state.json"
         assert state_file.exists()
         # Verify state was saved with some iterations
         final_state = NelsonState.load(state_file)
@@ -298,7 +298,7 @@ class TestWorkflowIntegration:
             max_iterations=1,
             max_iterations_explicit=True,
             cost_limit=mock_config.cost_limit,
-            ralph_dir=mock_config.ralph_dir,
+            nelson_dir=mock_config.nelson_dir,
             audit_dir=mock_config.audit_dir,
             runs_dir=mock_config.runs_dir,
             claude_command=mock_config.claude_command,

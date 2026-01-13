@@ -22,7 +22,7 @@ def config(tmp_path: Path) -> NelsonConfig:
         max_iterations=50,
         max_iterations_explicit=False,
         cost_limit=10.0,
-        ralph_dir=tmp_path / ".ralph",
+        nelson_dir=tmp_path / ".ralph",
         audit_dir=tmp_path / ".ralph/audit",
         runs_dir=tmp_path / ".ralph/runs",
         claude_command="claude",
@@ -45,8 +45,8 @@ class TestRunManager:
         assert len(manager.run_id) == 15  # YYYYMMDD-HHMMSS
         assert manager.run_id[8] == "-"  # Date-time separator
 
-        # Run directory should be .ralph/runs/ralph-{run_id}
-        expected_dir = config.runs_dir / f"ralph-{manager.run_id}"
+        # Run directory should be .ralph/runs/nelson-{run_id}
+        expected_dir = config.runs_dir / f"nelson-{manager.run_id}"
         assert manager.run_dir == expected_dir
 
     def test_initialization_with_explicit_id(self, config: NelsonConfig) -> None:
@@ -55,7 +55,7 @@ class TestRunManager:
         manager = RunManager(config, run_id=run_id)
 
         assert manager.run_id == run_id
-        assert manager.run_dir == config.runs_dir / f"ralph-{run_id}"
+        assert manager.run_dir == config.runs_dir / f"nelson-{run_id}"
 
     def test_generate_run_id_format(self, config: NelsonConfig) -> None:
         """Test run ID matches expected format."""
@@ -122,25 +122,25 @@ class TestFilePaths:
     def test_get_state_path(self, config: NelsonConfig) -> None:
         """Test get_state_path returns correct path."""
         manager = RunManager(config, run_id="20260113-101253")
-        expected = config.runs_dir / "ralph-20260113-101253" / STATE_FILE_NAME
+        expected = config.runs_dir / "nelson-20260113-101253" / STATE_FILE_NAME
         assert manager.get_state_path() == expected
 
     def test_get_plan_path(self, config: NelsonConfig) -> None:
         """Test get_plan_path returns correct path."""
         manager = RunManager(config, run_id="20260113-101253")
-        expected = config.runs_dir / "ralph-20260113-101253" / PLAN_FILE_NAME
+        expected = config.runs_dir / "nelson-20260113-101253" / PLAN_FILE_NAME
         assert manager.get_plan_path() == expected
 
     def test_get_decisions_path(self, config: NelsonConfig) -> None:
         """Test get_decisions_path returns correct path."""
         manager = RunManager(config, run_id="20260113-101253")
-        expected = config.runs_dir / "ralph-20260113-101253" / DECISIONS_FILE_NAME
+        expected = config.runs_dir / "nelson-20260113-101253" / DECISIONS_FILE_NAME
         assert manager.get_decisions_path() == expected
 
     def test_get_audit_path(self, config: NelsonConfig) -> None:
         """Test get_audit_path returns correct path."""
         manager = RunManager(config, run_id="20260113-101253")
-        expected = config.runs_dir / "ralph-20260113-101253" / AUDIT_FILE_NAME
+        expected = config.runs_dir / "nelson-20260113-101253" / AUDIT_FILE_NAME
         assert manager.get_audit_path() == expected
 
 
@@ -180,9 +180,9 @@ class TestFindLastRun:
         config.runs_dir.mkdir(parents=True)
 
         # Create three run directories with different timestamps
-        (config.runs_dir / "ralph-20260113-101253").mkdir()
-        (config.runs_dir / "ralph-20260113-143021").mkdir()
-        (config.runs_dir / "ralph-20260112-091532").mkdir()
+        (config.runs_dir / "nelson-20260113-101253").mkdir()
+        (config.runs_dir / "nelson-20260113-143021").mkdir()
+        (config.runs_dir / "nelson-20260112-091532").mkdir()
 
         manager = RunManager.find_last_run(config)
 
@@ -198,7 +198,7 @@ class TestFindLastRun:
         (config.runs_dir / "not-a-run").mkdir()
 
         # Create one valid run
-        (config.runs_dir / "ralph-20260113-101253").mkdir()
+        (config.runs_dir / "nelson-20260113-101253").mkdir()
 
         manager = RunManager.find_last_run(config)
 
@@ -210,10 +210,10 @@ class TestFindLastRun:
         config.runs_dir.mkdir(parents=True)
 
         # Create a file that looks like a run directory
-        (config.runs_dir / "ralph-20260113-101253").touch()
+        (config.runs_dir / "nelson-20260113-101253").touch()
 
         # Create a valid run directory
-        (config.runs_dir / "ralph-20260113-143021").mkdir()
+        (config.runs_dir / "nelson-20260113-143021").mkdir()
 
         manager = RunManager.find_last_run(config)
 
@@ -226,7 +226,7 @@ class TestFromRunPath:
 
     def test_from_run_path_with_valid_path(self, config: NelsonConfig) -> None:
         """Test from_run_path creates manager from existing directory."""
-        run_path = config.runs_dir / "ralph-20260113-101253"
+        run_path = config.runs_dir / "nelson-20260113-101253"
         run_path.mkdir(parents=True)
 
         manager = RunManager.from_run_path(config, run_path)
@@ -236,14 +236,14 @@ class TestFromRunPath:
 
     def test_from_run_path_with_nonexistent_path(self, config: NelsonConfig) -> None:
         """Test from_run_path raises error for non-existent directory."""
-        run_path = config.runs_dir / "ralph-20260113-101253"
+        run_path = config.runs_dir / "nelson-20260113-101253"
 
         with pytest.raises(ValueError, match="does not exist"):
             RunManager.from_run_path(config, run_path)
 
     def test_from_run_path_with_file_path(self, config: NelsonConfig) -> None:
         """Test from_run_path raises error when path is a file."""
-        run_path = config.runs_dir / "ralph-20260113-101253"
+        run_path = config.runs_dir / "nelson-20260113-101253"
         run_path.parent.mkdir(parents=True)
         run_path.touch()
 

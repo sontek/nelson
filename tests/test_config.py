@@ -24,9 +24,9 @@ class TestNelsonConfig:
         assert config.max_iterations == 50
         assert config.max_iterations_explicit is False
         assert config.cost_limit == 10.0
-        assert config.ralph_dir == Path(".ralph")
-        assert config.audit_dir == Path(".ralph/audit")
-        assert config.runs_dir == Path(".ralph/runs")
+        assert config.nelson_dir == Path(".nelson")
+        assert config.audit_dir == Path(".nelson/audit")
+        assert config.runs_dir == Path(".nelson/runs")
         assert config.claude_command == "claude-jail"
         assert config.model == "sonnet"
         assert config.plan_model == "sonnet"
@@ -57,7 +57,7 @@ class TestNelsonConfig:
 
         assert config.max_iterations == 30
         assert config.cost_limit == 25.50
-        assert config.ralph_dir == Path(".custom-ralph")
+        assert config.nelson_dir == Path(".custom-ralph")
         assert config.audit_dir == Path(".custom-audit")
         assert config.runs_dir == Path(".custom-runs")
         assert config.claude_command == "claude"
@@ -183,11 +183,11 @@ class TestNelsonConfig:
     def test_ensure_directories(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Test that ensure_directories creates necessary directories."""
         # Set custom paths in temporary directory
-        ralph_dir = tmp_path / ".ralph"
+        nelson_dir = tmp_path / ".ralph"
         audit_dir = tmp_path / ".ralph" / "audit"
         runs_dir = tmp_path / ".ralph" / "runs"
 
-        monkeypatch.setenv("RALPH_DIR", str(ralph_dir))
+        monkeypatch.setenv("RALPH_DIR", str(nelson_dir))
         monkeypatch.setenv("RALPH_AUDIT_DIR", str(audit_dir))
         monkeypatch.setenv("RALPH_RUNS_DIR", str(runs_dir))
         monkeypatch.setenv("RALPH_CLAUDE_COMMAND", "claude")
@@ -195,7 +195,7 @@ class TestNelsonConfig:
         config = NelsonConfig.from_environment()
 
         # Directories should not exist yet
-        assert not ralph_dir.exists()
+        assert not nelson_dir.exists()
         assert not audit_dir.exists()
         assert not runs_dir.exists()
 
@@ -203,8 +203,8 @@ class TestNelsonConfig:
         config.ensure_directories()
 
         # Now they should exist
-        assert ralph_dir.exists()
-        assert ralph_dir.is_dir()
+        assert nelson_dir.exists()
+        assert nelson_dir.is_dir()
         assert audit_dir.exists()
         assert audit_dir.is_dir()
         assert runs_dir.exists()
@@ -212,8 +212,8 @@ class TestNelsonConfig:
 
     def test_ensure_directories_idempotent(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Test that ensure_directories can be called multiple times safely."""
-        ralph_dir = tmp_path / ".ralph"
-        monkeypatch.setenv("RALPH_DIR", str(ralph_dir))
+        nelson_dir = tmp_path / ".ralph"
+        monkeypatch.setenv("RALPH_DIR", str(nelson_dir))
         monkeypatch.setenv("RALPH_CLAUDE_COMMAND", "claude")
 
         config = NelsonConfig.from_environment()
@@ -223,8 +223,8 @@ class TestNelsonConfig:
         config.ensure_directories()
 
         # Should still be fine
-        assert ralph_dir.exists()
-        assert ralph_dir.is_dir()
+        assert nelson_dir.exists()
+        assert nelson_dir.is_dir()
 
     def test_config_immutability(self, monkeypatch: MonkeyPatch) -> None:
         """Test that config is immutable (frozen dataclass)."""

@@ -62,7 +62,7 @@ def audit_log(log_path: Path) -> Generator[Path, None, None]:
     """Context manager that captures all stdout/stderr to log file and console.
 
     Usage:
-        with audit_log(Path(".ralph/audit/ralph-20260113-101253.log")):
+        with audit_log(Path(".nelson/audit/nelson-20260113-101253.log")):
             print("This goes to both console and log file")
 
     The log file is created (with parent directories) if it doesn't exist.
@@ -103,10 +103,10 @@ def generate_audit_log_path(audit_dir: Path) -> Path:
     """Generate a unique audit log path with timestamp.
 
     Args:
-        audit_dir: Directory to store audit logs (e.g., .ralph/audit)
+        audit_dir: Directory to store audit logs (e.g., .nelson/audit)
 
     Returns:
-        Path to new audit log file (e.g., .ralph/audit/ralph-20260113-101253.log)
+        Path to new audit log file (e.g., .nelson/audit/nelson-20260113-101253.log)
     """
     timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
-    return audit_dir / f"ralph-{timestamp}.log"
+    return audit_dir / f"nelson-{timestamp}.log"

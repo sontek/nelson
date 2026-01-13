@@ -43,7 +43,7 @@ CORE RULES:
 - Commit after each implementation task (Phase 2) - one task = one commit
 - Follow project conventions (justfile, package.json, etc.)
 - Use Task/Explore for codebase questions; Glob/Grep for specific searches
-- NO: unrelated bugs, refactoring, docs (README/SUMMARY), helper scripts, .claude/.ralph commits
+- NO: unrelated bugs, refactoring, docs (README/SUMMARY), helper scripts, .claude/.nelson commits
 - ONLY stage: source code, tests, config files
 
 ERROR HANDLING:

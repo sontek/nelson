@@ -27,7 +27,7 @@ class NelsonConfig:
     cost_limit: float
 
     # Directory paths
-    ralph_dir: Path
+    nelson_dir: Path
     audit_dir: Path
     runs_dir: Path
 
@@ -63,9 +63,9 @@ class NelsonConfig:
         cost_limit = float(os.getenv("RALPH_COST_LIMIT", "10.00"))
 
         # Directory configuration
-        ralph_dir = Path(os.getenv("RALPH_DIR", ".ralph"))
-        audit_dir = Path(os.getenv("RALPH_AUDIT_DIR", ".ralph/audit"))
-        runs_dir = Path(os.getenv("RALPH_RUNS_DIR", ".ralph/runs"))
+        nelson_dir = Path(os.getenv("RALPH_DIR", ".nelson"))
+        audit_dir = Path(os.getenv("RALPH_AUDIT_DIR", ".nelson/audit"))
+        runs_dir = Path(os.getenv("RALPH_RUNS_DIR", ".nelson/runs"))
 
         # Claude command configuration
         claude_command = os.getenv("RALPH_CLAUDE_COMMAND", "claude-jail")
@@ -89,7 +89,7 @@ class NelsonConfig:
             max_iterations=max_iterations,
             max_iterations_explicit=max_iterations_explicit,
             cost_limit=cost_limit,
-            ralph_dir=ralph_dir,
+            nelson_dir=nelson_dir,
             audit_dir=audit_dir,
             runs_dir=runs_dir,
             claude_command=claude_command,
@@ -145,7 +145,7 @@ class NelsonConfig:
 
     def ensure_directories(self) -> None:
         """Create necessary directories if they don't exist."""
-        self.ralph_dir.mkdir(parents=True, exist_ok=True)
+        self.nelson_dir.mkdir(parents=True, exist_ok=True)
         self.audit_dir.mkdir(parents=True, exist_ok=True)
         self.runs_dir.mkdir(parents=True, exist_ok=True)
 

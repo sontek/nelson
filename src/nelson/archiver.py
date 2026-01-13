@@ -14,17 +14,17 @@ from nelson.run_manager import RunManager
 def archive_old_state(config: NelsonConfig) -> None:
     """Archive old state files from previous run before starting new run.
 
-    Looks for state.json in the ralph_dir (from a previous non-resumed run).
+    Looks for state.json in the nelson_dir (from a previous non-resumed run).
     If found, moves it to the most recent run directory, or creates a
-    "ralph-previous-TIMESTAMP" archive directory if no runs exist yet.
+    "nelson-previous-TIMESTAMP" archive directory if no runs exist yet.
 
     Args:
         config: Nelson configuration with directory paths
     """
     logger = get_logger()
 
-    # Check for old state file in ralph_dir (from previous non-resumed run)
-    old_state_file = config.ralph_dir / STATE_FILE_NAME
+    # Check for old state file in nelson_dir (from previous non-resumed run)
+    old_state_file = config.nelson_dir / STATE_FILE_NAME
 
     if not old_state_file.exists():
         # No old state file to archive
@@ -42,7 +42,7 @@ def archive_old_state(config: NelsonConfig) -> None:
         from datetime import UTC, datetime
 
         timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
-        archive_dir = config.runs_dir / f"ralph-previous-{timestamp}"
+        archive_dir = config.runs_dir / f"nelson-previous-{timestamp}"
         archive_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"Archiving previous run state to: {archive_dir}")
 

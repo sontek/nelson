@@ -211,7 +211,7 @@ class WorkflowOrchestrator:
             time.sleep(2)
 
         # Save final state
-        state_file = self.config.ralph_dir / "state.json"
+        state_file = self.config.nelson_dir / "state.json"
         self.state.save(state_file)
 
         logger.success("All done!")

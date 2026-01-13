@@ -5,7 +5,7 @@ This module provides git operations needed by Nelson:
 - Get current branch name
 - Get starting commit for run tracking
 - Get commit range (starting → current)
-- Unstage unwanted files (.claude/, .ralph/)
+- Unstage unwanted files (.claude/, .nelson/)
 - Check for uncommitted changes
 """
 
@@ -213,7 +213,7 @@ def unstage_files(patterns: list[str], path: Path | None = None) -> int:
     """Unstage files matching the given patterns.
 
     Args:
-        patterns: List of file patterns to unstage (e.g., [".claude/", ".ralph/"]).
+        patterns: List of file patterns to unstage (e.g., [".claude/", ".nelson/"]).
         path: Repository path. Defaults to current directory.
 
     Returns:
@@ -269,7 +269,7 @@ def unstage_files(patterns: list[str], path: Path | None = None) -> int:
 
 
 def unstage_ralph_files(path: Path | None = None) -> int:
-    """Unstage .claude/ and .ralph/ files if they were accidentally staged.
+    """Unstage .claude/ and .nelson/ files if they were accidentally staged.
 
     This is a convenience wrapper around unstage_files() for Nelson's specific use case.
 
@@ -282,4 +282,4 @@ def unstage_ralph_files(path: Path | None = None) -> int:
     Raises:
         GitError: If git command fails.
     """
-    return unstage_files([".claude/", ".ralph/"], path)
+    return unstage_files([".claude/", ".nelson/"], path)

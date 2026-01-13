@@ -319,18 +319,18 @@ class TestUnstageFiles:
         )
 
         # Create and stage files
-        ralph_dir = tmp_path / ".ralph"
-        ralph_dir.mkdir()
-        (ralph_dir / "state.json").write_text("{}")
+        nelson_dir = tmp_path / ".nelson"
+        nelson_dir.mkdir()
+        (nelson_dir / "state.json").write_text("{}")
         (tmp_path / "source.py").write_text("code")
 
         subprocess.run(["git", "add", "."], cwd=tmp_path, check=True, capture_output=True)
 
-        # Unstage .ralph/ files
-        count = unstage_files([".ralph/"], tmp_path)
+        # Unstage .nelson/ files
+        count = unstage_files([".nelson/"], tmp_path)
         assert count == 1
 
-        # Verify .ralph/state.json was unstaged but source.py is still staged
+        # Verify .nelson/state.json was unstaged but source.py is still staged
         result = subprocess.run(
             ["git", "diff", "--cached", "--name-only"],
             cwd=tmp_path,
@@ -413,10 +413,10 @@ class TestUnstageRalphFiles:
             ["git", "commit", "-m", "initial"], cwd=tmp_path, check=True, capture_output=True
         )
 
-        # Create and stage Ralph files
-        ralph_dir = tmp_path / ".ralph"
-        ralph_dir.mkdir()
-        (ralph_dir / "state.json").write_text("{}")
+        # Create and stage Nelson files
+        nelson_dir = tmp_path / ".nelson"
+        nelson_dir.mkdir()
+        (nelson_dir / "state.json").write_text("{}")
 
         claude_dir = tmp_path / ".claude"
         claude_dir.mkdir()
@@ -424,7 +424,7 @@ class TestUnstageRalphFiles:
 
         subprocess.run(["git", "add", "."], cwd=tmp_path, check=True, capture_output=True)
 
-        # Unstage Ralph files
+        # Unstage Nelson files
         count = unstage_ralph_files(tmp_path)
         assert count == 2
 

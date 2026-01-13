@@ -95,7 +95,7 @@ def main(
       nelson "Add user authentication"
       nelson docs/implementation.md
       nelson --resume                                    # Resume from last run
-      nelson --resume .ralph/runs/ralph-20260112-120125  # Resume from specific run
+      nelson --resume .nelson/runs/nelson-20260112-120125  # Resume from specific run
       nelson --max-iterations 30 "complex task"
       nelson --claude-command claude "use native claude"
       nelson --model opus "complex planning task"
@@ -297,7 +297,7 @@ def _build_config(
         max_iterations=final_max_iterations,
         max_iterations_explicit=final_max_iterations_explicit,
         cost_limit=final_cost_limit,
-        ralph_dir=config.ralph_dir,
+        nelson_dir=config.nelson_dir,
         audit_dir=config.audit_dir,
         runs_dir=config.runs_dir,
         claude_command=final_claude_command,
@@ -389,7 +389,7 @@ def _resume_from_path(run_dir: Path) -> None:
                 max_iterations=new_limit,
                 max_iterations_explicit=False,
                 cost_limit=config.cost_limit,
-                ralph_dir=config.ralph_dir,
+                nelson_dir=config.nelson_dir,
                 audit_dir=config.audit_dir,
                 runs_dir=config.runs_dir,
                 claude_command=config.claude_command,

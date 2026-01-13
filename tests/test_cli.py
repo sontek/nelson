@@ -174,7 +174,7 @@ class TestResumeMode:
 
     def test_resume_flag_with_path(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         """Test --resume with specific run directory."""
-        run_dir = tmp_path / "ralph-20260112-120125"
+        run_dir = tmp_path / "nelson-20260112-120125"
         run_dir.mkdir(parents=True)
 
         result = cli_runner.invoke(main, ["--resume", str(run_dir)])

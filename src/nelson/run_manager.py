@@ -1,6 +1,6 @@
 """Run directory management for Nelson.
 
-This module handles creation and management of unique run directories in .ralph/runs/.
+This module handles creation and management of unique run directories in .nelson/runs/.
 Each run gets a unique timestamped directory containing its state, plan, decisions, and audit log.
 """
 
@@ -19,7 +19,7 @@ from nelson.config import (
 class RunManager:
     """Manages unique run directories for Nelson execution.
 
-    Each run gets a unique directory like .ralph/runs/ralph-20260113-101253/
+    Each run gets a unique directory like .nelson/runs/nelson-20260113-101253/
     containing state.json, plan.md, decisions.md, and audit.log.
     """
 
@@ -33,7 +33,7 @@ class RunManager:
         """
         self.config = config
         self.run_id = run_id or self._generate_run_id()
-        self.run_dir = config.runs_dir / f"ralph-{self.run_id}"
+        self.run_dir = config.runs_dir / f"nelson-{self.run_id}"
 
     def _generate_run_id(self) -> str:
         """Generate unique run ID from current timestamp.
@@ -94,8 +94,8 @@ class RunManager:
         if not runs_dir.exists():
             return None
 
-        # Find all run directories (format: ralph-YYYYMMDD-HHMMSS)
-        run_dirs = [d for d in runs_dir.iterdir() if d.is_dir() and d.name.startswith("ralph-")]
+        # Find all run directories (format: nelson-YYYYMMDD-HHMMSS)
+        run_dirs = [d for d in runs_dir.iterdir() if d.is_dir() and d.name.startswith("nelson-")]
 
         if not run_dirs:
             return None
@@ -104,8 +104,8 @@ class RunManager:
         run_dirs.sort(reverse=True)
         last_run_dir = run_dirs[0]
 
-        # Extract run ID from directory name (remove "ralph-" prefix)
-        run_id = last_run_dir.name.replace("ralph-", "")
+        # Extract run ID from directory name (remove "nelson-" prefix)
+        run_id = last_run_dir.name.replace("nelson-", "")
 
         return cls(config, run_id=run_id)
 
@@ -130,12 +130,12 @@ class RunManager:
             raise ValueError(f"Run path is not a directory: {run_path}")
 
         # Extract run ID from directory name
-        if not run_path.name.startswith("ralph-"):
+        if not run_path.name.startswith("nelson-"):
             raise ValueError(
                 f"Invalid run directory name: {run_path.name} "
-                "(expected format: ralph-YYYYMMDD-HHMMSS)"
+                "(expected format: nelson-YYYYMMDD-HHMMSS)"
             )
 
-        run_id = run_path.name.replace("ralph-", "")
+        run_id = run_path.name.replace("nelson-", "")
 
         return cls(config, run_id=run_id)

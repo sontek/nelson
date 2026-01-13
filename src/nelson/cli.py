@@ -4,6 +4,7 @@ This module provides the Click-based command-line interface for Ralph,
 matching the bash implementation's interface while adding rich formatting.
 """
 
+import json
 import subprocess
 import sys
 from datetime import datetime
@@ -311,24 +312,147 @@ def _build_config(
 def _resume_from_last() -> None:
     """Resume from the most recent run."""
     logger.info("Resuming from last checkpoint...")
-    # TODO: Implement resume logic
-    # 1. Find most recent run directory in .ralph/runs/
-    # 2. Load state.json from that directory
-    # 3. Load plan.md and decisions.md
-    # 4. Continue workflow from current phase
-    logger.warning("Resume functionality not yet implemented")
-    raise click.Abort()
+
+    # Load base config to get runs_dir
+    config = RalphConfig.from_environment()
+
+    # Find most recent run directory
+    if not config.runs_dir.exists():
+        logger.error(f"No runs directory found at: {config.runs_dir}")
+        raise click.Abort()
+
+    run_dirs = sorted(
+        [d for d in config.runs_dir.iterdir() if d.is_dir()],
+        key=lambda d: d.stat().st_mtime,
+        reverse=True,
+    )
+
+    if not run_dirs:
+        logger.error("No previous runs found to resume from")
+        raise click.Abort()
+
+    last_run = run_dirs[0]
+    logger.info(f"Found last run: {last_run.name}")
+
+    _resume_from_path(last_run)
 
 
 def _resume_from_path(run_dir: Path) -> None:
-    """Resume from a specific run directory."""
+    """Resume from a specific run directory.
+
+    Args:
+        run_dir: Path to run directory containing state.json
+
+    Raises:
+        click.Abort: If validation fails or workflow error occurs
+    """
     logger.info(f"Resuming from run: {run_dir}")
-    # TODO: Implement resume logic
-    # 1. Validate run directory exists and has required files
-    # 2. Load state.json, plan.md, decisions.md
-    # 3. Continue workflow from current phase
-    logger.warning("Resume functionality not yet implemented")
-    raise click.Abort()
+
+    # Validate run directory and required files
+    state_file = run_dir / "state.json"
+    if not state_file.exists():
+        logger.error(f"No state file found at: {state_file}")
+        raise click.Abort()
+
+    # Load state from the run directory
+    try:
+        state = RalphState.load(state_file)
+    except (json.JSONDecodeError, ValueError) as e:
+        logger.error(f"Failed to load state file: {e}")
+        raise click.Abort()
+
+    logger.info(f"Loaded state: Phase {state.current_phase} ({state.phase_name})")
+    logger.info(f"Completed cycles: {state.cycle_iterations}")
+    logger.info(f"Total iterations: {state.total_iterations}")
+    logger.info(f"Current cost: ${state.cost_usd:.2f}")
+
+    # Load base config from environment
+    config = RalphConfig.from_environment()
+
+    # Check if we're at or past the cycle limit
+    if state.cycle_iterations >= config.max_iterations:
+        if not config.max_iterations_explicit:
+            # User didn't explicitly set limit - auto-extend by 10 cycles
+            old_limit = config.max_iterations
+            new_limit = state.cycle_iterations + 10
+            logger.warning(
+                f"Current run has {state.cycle_iterations} complete cycles, "
+                f"at limit of {old_limit}"
+            )
+            logger.info(f"Auto-extending cycle limit to {new_limit}")
+            logger.info(
+                "To set a custom limit, use: RALPH_MAX_ITERATIONS=<number> nelson --resume"
+            )
+
+            # Update config with new limit
+            config = RalphConfig(
+                max_iterations=new_limit,
+                max_iterations_explicit=False,
+                cost_limit=config.cost_limit,
+                ralph_dir=config.ralph_dir,
+                audit_dir=config.audit_dir,
+                runs_dir=config.runs_dir,
+                claude_command=config.claude_command,
+                claude_command_path=config.claude_command_path,
+                model=config.model,
+                plan_model=config.plan_model,
+                review_model=config.review_model,
+                auto_approve_push=config.auto_approve_push,
+            )
+        else:
+            # User explicitly set limit but it's still too low
+            logger.error(
+                f"Current run has {state.cycle_iterations} complete cycles, "
+                f"but limit is {config.max_iterations}"
+            )
+            logger.error(
+                f"Increase the limit to continue: "
+                f"RALPH_MAX_ITERATIONS={state.cycle_iterations + 10} nelson --resume"
+            )
+            raise click.Abort()
+    elif state.cycle_iterations > config.max_iterations - 3:
+        # Within 3 cycles of the limit - warn them
+        remaining = config.max_iterations - state.cycle_iterations
+        logger.warning(
+            f"Approaching cycle limit: {state.cycle_iterations}/{config.max_iterations} "
+            f"({remaining} remaining)"
+        )
+
+    # Initialize provider
+    claude_command = (
+        str(config.claude_command_path)
+        if config.claude_command_path
+        else config.claude_command
+    )
+    provider = ClaudeProvider(claude_command=claude_command)
+
+    # Check provider availability
+    if not provider.is_available():
+        logger.error(f"Claude command not available: {claude_command}")
+        raise WorkflowError(f"Claude command not found or not executable: {claude_command}")
+
+    logger.info(f"Using Claude command: {claude_command}")
+
+    # Create workflow orchestrator with loaded state
+    orchestrator = WorkflowOrchestrator(
+        config=config,
+        state=state,
+        provider=provider,
+        run_dir=run_dir,
+    )
+
+    # Resume the workflow from where it left off
+    try:
+        orchestrator.run(state.prompt)
+    except WorkflowError as e:
+        logger.error(f"Workflow failed: {e}")
+        raise click.Abort()
+    except KeyboardInterrupt:
+        logger.warning("Workflow interrupted by user")
+        raise click.Abort()
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
+        raise
 
 
 if __name__ == "__main__":

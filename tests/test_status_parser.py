@@ -4,9 +4,9 @@ import pytest
 
 from nelson.status_parser import (
     ExecutionStatus,
+    RunTestsStatus,
     StatusBlock,
     StatusBlockError,
-    RunTestsStatus,
     WorkType,
     extract_status_block_text,
     parse_status_block,

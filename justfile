@@ -10,31 +10,31 @@ install:
 
 # Run all tests with coverage
 test:
-    pytest
+    .venv/bin/pytest
 
 # Run tests without coverage report
 test-fast:
-    pytest --no-cov
+    .venv/bin/pytest --no-cov
 
 # Run tests in watch mode (requires pytest-watch)
 test-watch:
-    pytest-watch
+    .venv/bin/pytest-watch
 
 # Run type checking with mypy
 typecheck:
-    mypy src/nelson tests
+    .venv/bin/mypy src/nelson tests
 
 # Run linter (check only, no fixes)
 lint:
-    ruff check src tests
+    .venv/bin/ruff check src tests
 
 # Run linter and fix issues automatically
 lint-fix:
-    ruff check --fix src tests
+    .venv/bin/ruff check --fix src tests
 
 # Format code with ruff
 format:
-    ruff format src tests
+    .venv/bin/ruff format src tests
 
 # Run all quality checks (lint, typecheck, test)
 check: lint typecheck test

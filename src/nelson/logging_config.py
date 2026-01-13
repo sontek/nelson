@@ -1,4 +1,4 @@
-"""Logging configuration for Ralph using rich for colored console output.
+"""Logging configuration for Nelson using rich for colored console output.
 
 This module provides structured logging with colored output levels matching
 the bash implementation's log_info, log_success, log_warning, log_error.
@@ -11,8 +11,8 @@ from rich.console import Console
 from rich.logging import RichHandler
 from rich.theme import Theme
 
-# Custom theme matching bash ralph color scheme
-RALPH_THEME = Theme(
+# Custom theme matching bash nelson color scheme
+NELSON_THEME = Theme(
     {
         "info": "blue",
         "success": "green",
@@ -23,24 +23,24 @@ RALPH_THEME = Theme(
 )
 
 
-class RalphLogger:
+class NelsonLogger:
     """Logger with colored console output using rich.
 
-    Provides methods matching the bash ralph logging interface:
+    Provides methods matching the bash nelson logging interface:
     - log_info()
     - log_success()
     - log_warning()
     - log_error()
     """
 
-    def __init__(self, name: str = "ralph", level: int = logging.INFO) -> None:
+    def __init__(self, name: str = "nelson", level: int = logging.INFO) -> None:
         """Initialize logger with rich console handler.
 
         Args:
-            name: Logger name (default: "ralph")
+            name: Logger name (default: "nelson")
             level: Logging level (default: INFO)
         """
-        self.console = Console(theme=RALPH_THEME)
+        self.console = Console(theme=NELSON_THEME)
         self.logger = logging.getLogger(name)
         self.logger.setLevel(level)
 
@@ -111,22 +111,22 @@ class RalphLogger:
 
 
 # Global logger instance (singleton pattern)
-_logger_instance: RalphLogger | None = None
+_logger_instance: NelsonLogger | None = None
 
 
-def get_logger(name: str = "ralph", level: int = logging.INFO) -> RalphLogger:
-    """Get or create the global Ralph logger instance.
+def get_logger(name: str = "nelson", level: int = logging.INFO) -> NelsonLogger:
+    """Get or create the global Nelson logger instance.
 
     Args:
-        name: Logger name (default: "ralph")
+        name: Logger name (default: "nelson")
         level: Logging level (default: INFO)
 
     Returns:
-        RalphLogger instance
+        NelsonLogger instance
     """
     global _logger_instance
     if _logger_instance is None:
-        _logger_instance = RalphLogger(name=name, level=level)
+        _logger_instance = NelsonLogger(name=name, level=level)
     return _logger_instance
 
 

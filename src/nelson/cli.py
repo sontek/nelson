@@ -92,10 +92,16 @@ def main(
       - A file path: nelson tasks/task1.md
       - Stdin: echo "task" | nelson
 
+    PATH is an optional target repository directory. If not provided, nelson
+    works in the current directory. When provided, all git operations and
+    commands execute in the target directory.
+
     \b
     Examples:
       nelson "Add user authentication"
+      nelson "Fix bug in tests" /path/to/repo
       nelson docs/implementation.md
+      nelson docs/task.md ~/projects/myrepo
       nelson --resume                                    # Resume from last run
       nelson --resume .nelson/runs/nelson-20260112-120125  # Resume from specific run
       nelson --max-iterations 30 "complex task"

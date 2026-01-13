@@ -101,6 +101,12 @@ EXIT_SIGNAL: false
 RECOMMENDATION: Same import error 3x, needs investigation
 ---END_RALPH_STATUS---
 
+IMPLEMENTATION REQUIREMENTS:
+- Complete all work fully - do not leave TODO, FIXME, or XXX comments
+- If you cannot complete something, explain why in {decisions_file}
+- Partial implementations are not acceptable - do it right or defer to future task
+- Write production-ready code, not placeholder stubs
+
 AVOID:
 - Busy work when done
 - Test-only loops

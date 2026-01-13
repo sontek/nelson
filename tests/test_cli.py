@@ -182,6 +182,106 @@ class TestResumeMode:
         assert result.exit_code == 1  # Click.Abort returns 1
 
 
+class TestPathArgument:
+    """Test path argument functionality."""
+
+    def test_path_argument_with_valid_repo(
+        self, cli_runner: CliRunner, mock_workflow: Any, tmp_path: Path
+    ) -> None:
+        """Test path argument with valid git repository."""
+        # Create a temporary git repository
+        repo_path = tmp_path / "test_repo"
+        repo_path.mkdir()
+        git_dir = repo_path / ".git"
+        git_dir.mkdir()
+
+        result = cli_runner.invoke(main, ["Test task", str(repo_path)])
+        assert result.exit_code == 0
+
+    def test_path_argument_with_nonexistent_path(
+        self, cli_runner: CliRunner, tmp_path: Path
+    ) -> None:
+        """Test path argument with nonexistent path."""
+        nonexistent = tmp_path / "nonexistent"
+
+        result = cli_runner.invoke(main, ["Test task", str(nonexistent)])
+        assert result.exit_code != 0
+        # Click validates path exists before our code runs
+
+    def test_path_argument_with_file_not_directory(
+        self, cli_runner: CliRunner, tmp_path: Path
+    ) -> None:
+        """Test path argument with file instead of directory."""
+        test_file = tmp_path / "test.txt"
+        test_file.write_text("content")
+
+        result = cli_runner.invoke(main, ["Test task", str(test_file)])
+        assert result.exit_code != 0
+        # Click validates path is a directory (file_okay=False)
+
+    def test_path_argument_with_non_git_directory(
+        self, cli_runner: CliRunner, tmp_path: Path
+    ) -> None:
+        """Test path argument with directory that's not a git repository."""
+        non_git_dir = tmp_path / "not_a_repo"
+        non_git_dir.mkdir()
+
+        result = cli_runner.invoke(main, ["Test task", str(non_git_dir)])
+        assert result.exit_code != 0
+        assert "not a git repository" in result.output
+
+    def test_path_argument_with_relative_path(
+        self, cli_runner: CliRunner, mock_workflow: Any, tmp_path: Path
+    ) -> None:
+        """Test path argument with relative path gets resolved to absolute."""
+        # Create a temporary git repository
+        repo_path = tmp_path / "test_repo"
+        repo_path.mkdir()
+        git_dir = repo_path / ".git"
+        git_dir.mkdir()
+
+        # Use relative path (../<dir_name>)
+        result = cli_runner.invoke(
+            main, ["Test task", str(repo_path)], catch_exceptions=False
+        )
+        assert result.exit_code == 0
+
+    def test_path_argument_stored_in_config(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """Test that path argument is stored in config."""
+        # Create a temporary git repository
+        repo_path = tmp_path / "test_repo"
+        repo_path.mkdir()
+
+        config = _build_config(
+            max_iterations=None,
+            cost_limit=None,
+            model=None,
+            plan_model=None,
+            review_model=None,
+            claude_command=None,
+            auto_approve_push=False,
+            target_path=repo_path,
+        )
+
+        assert config.target_path == repo_path
+
+    def test_path_argument_none_by_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test that target_path is None by default (current directory)."""
+        config = _build_config(
+            max_iterations=None,
+            cost_limit=None,
+            model=None,
+            plan_model=None,
+            review_model=None,
+            claude_command=None,
+            auto_approve_push=False,
+        )
+
+        assert config.target_path is None
+
+
 class TestBuildConfig:
     """Test configuration building with CLI overrides."""
 

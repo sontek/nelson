@@ -160,10 +160,11 @@ def main(
 
     # Run the workflow
     logger.info("Starting Nelson workflow")
+    # At this point, prompt must be a string (validated above or resume returned early)
+    assert prompt is not None, "Prompt should not be None at this point"
     # Safely truncate prompt for display
-    if prompt:
-        prompt_display = prompt[:100] + ("..." if len(prompt) > 100 else "")
-        logger.info(f"Prompt: {prompt_display}")
+    prompt_display = prompt[:100] + ("..." if len(prompt) > 100 else "")
+    logger.info(f"Prompt: {prompt_display}")
     logger.info(f"Model: {config.model}")
     logger.info(f"Max iterations: {config.max_iterations}")
     logger.info(f"Cost limit: ${config.cost_limit:.2f}")

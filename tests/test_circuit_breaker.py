@@ -499,3 +499,237 @@ class TestCircuitBreakerGetTriggerReason:
 
         reason = breaker.get_trigger_reason()
         assert "unknown reason" in reason
+
+
+class TestCircuitBreakerMultiCycle:
+    """Tests for circuit breaker behavior across multiple cycles."""
+
+    def test_circuit_breaker_resets_between_cycles(self) -> None:
+        """Test that circuit breaker counters reset when cycle completes.
+
+        When EXIT_SIGNAL completes a cycle and starts a new one, the circuit
+        breaker's internal counters should reset to allow fresh progress tracking
+        in the new cycle.
+        """
+        state = NelsonState()
+        breaker = CircuitBreaker(state)
+
+        # Cycle 0: Make some progress, then hit EXIT_SIGNAL
+        # Two iterations with no progress (not enough to trigger)
+        for _ in range(2):
+            result = breaker.check(
+                exit_signal=False,
+                tasks_completed=0,
+                files_modified=0,
+                work_type="IMPLEMENTATION",
+                status="IN_PROGRESS",
+                recommendation="Working",
+            )
+            assert result == CircuitBreakerResult.OK
+
+        # Cycle completes with EXIT_SIGNAL
+        result = breaker.check(
+            exit_signal=True,
+            tasks_completed=1,
+            files_modified=2,
+            work_type="IMPLEMENTATION",
+            status="COMPLETE",
+            recommendation="Cycle complete",
+        )
+        assert result == CircuitBreakerResult.EXIT_SIGNAL
+
+        # Simulate cycle completion (increment cycle counter)
+        state.cycle_iterations += 1
+
+        # Cycle 1: Circuit breaker should have reset counters
+        # If counters didn't reset, this third no-progress iteration would trigger stagnation
+        result = breaker.check(
+            exit_signal=False,
+            tasks_completed=0,
+            files_modified=0,
+            work_type="IMPLEMENTATION",
+            status="IN_PROGRESS",
+            recommendation="Working",
+        )
+        # Should NOT trigger stagnation because counters reset after EXIT_SIGNAL
+        assert result == CircuitBreakerResult.OK
+
+        # Verify we can accumulate fresh no-progress iterations in new cycle
+        result = breaker.check(
+            exit_signal=False,
+            tasks_completed=0,
+            files_modified=0,
+            work_type="IMPLEMENTATION",
+            status="IN_PROGRESS",
+            recommendation="Working",
+        )
+        assert result == CircuitBreakerResult.OK
+
+        # Third no-progress in THIS cycle should trigger
+        result = breaker.check(
+            exit_signal=False,
+            tasks_completed=0,
+            files_modified=0,
+            work_type="IMPLEMENTATION",
+            status="IN_PROGRESS",
+            recommendation="Working",
+        )
+        assert result == CircuitBreakerResult.TRIGGERED
+
+    def test_test_only_loop_resets_across_cycles(self) -> None:
+        """Test that test-only loop detection resets between cycles."""
+        state = NelsonState()
+        breaker = CircuitBreaker(state)
+
+        # Cycle 0: Two test-only iterations (not enough to trigger)
+        for _ in range(2):
+            result = breaker.check(
+                exit_signal=False,
+                tasks_completed=0,
+                files_modified=0,
+                work_type="TESTING",
+                status="IN_PROGRESS",
+                recommendation="Running tests",
+            )
+            assert result == CircuitBreakerResult.OK
+
+        # Cycle completes with EXIT_SIGNAL
+        result = breaker.check(
+            exit_signal=True,
+            tasks_completed=0,
+            files_modified=0,
+            work_type="TESTING",
+            status="COMPLETE",
+            recommendation="Tests passed, cycle complete",
+        )
+        assert result == CircuitBreakerResult.EXIT_SIGNAL
+
+        # Simulate cycle completion
+        state.cycle_iterations += 1
+
+        # Cycle 1: Counter should have reset
+        # This third test-only iteration shouldn't trigger because we're in a new cycle
+        result = breaker.check(
+            exit_signal=False,
+            tasks_completed=0,
+            files_modified=0,
+            work_type="TESTING",
+            status="IN_PROGRESS",
+            recommendation="Running tests",
+        )
+        assert result == CircuitBreakerResult.OK
+
+    def test_error_tracking_resets_across_cycles(self) -> None:
+        """Test that repeated error detection resets between cycles."""
+        state = NelsonState()
+        breaker = CircuitBreaker(state)
+
+        error_msg = "Import error in module X"
+
+        # Cycle 0: Two iterations with same error (not enough to trigger)
+        for _ in range(2):
+            result = breaker.check(
+                exit_signal=False,
+                tasks_completed=0,
+                files_modified=0,
+                work_type="IMPLEMENTATION",
+                status="BLOCKED",
+                recommendation=error_msg,
+            )
+            assert result == CircuitBreakerResult.OK
+
+        # Cycle completes with EXIT_SIGNAL
+        result = breaker.check(
+            exit_signal=True,
+            tasks_completed=1,
+            files_modified=1,
+            work_type="IMPLEMENTATION",
+            status="COMPLETE",
+            recommendation="Fixed and cycle complete",
+        )
+        assert result == CircuitBreakerResult.EXIT_SIGNAL
+
+        # Simulate cycle completion
+        state.cycle_iterations += 1
+
+        # Cycle 1: Error tracking should have reset
+        # Same error appearing in new cycle shouldn't trigger (it's iteration 1 in new cycle)
+        result = breaker.check(
+            exit_signal=False,
+            tasks_completed=0,
+            files_modified=0,
+            work_type="IMPLEMENTATION",
+            status="BLOCKED",
+            recommendation=error_msg,
+        )
+        assert result == CircuitBreakerResult.OK
+
+    def test_multiple_cycles_with_progress_tracking(self) -> None:
+        """Test circuit breaker correctly tracks progress across multiple complete cycles."""
+        state = NelsonState()
+        breaker = CircuitBreaker(state)
+
+        # Cycle 0: Normal completion with progress
+        for i in range(5):
+            result = breaker.check(
+                exit_signal=False,
+                tasks_completed=1,
+                files_modified=1,
+                work_type="IMPLEMENTATION",
+                status="IN_PROGRESS",
+                recommendation=f"Task {i}",
+            )
+            assert result == CircuitBreakerResult.OK
+
+        # Complete Cycle 0
+        result = breaker.check(
+            exit_signal=True,
+            tasks_completed=1,
+            files_modified=0,
+            work_type="IMPLEMENTATION",
+            status="COMPLETE",
+            recommendation="Cycle 0 complete",
+        )
+        assert result == CircuitBreakerResult.EXIT_SIGNAL
+        state.cycle_iterations += 1
+
+        # Cycle 1: Normal completion with progress
+        for i in range(3):
+            result = breaker.check(
+                exit_signal=False,
+                tasks_completed=1,
+                files_modified=1,
+                work_type="IMPLEMENTATION",
+                status="IN_PROGRESS",
+                recommendation=f"Cycle 1 task {i}",
+            )
+            assert result == CircuitBreakerResult.OK
+
+        # Complete Cycle 1
+        result = breaker.check(
+            exit_signal=True,
+            tasks_completed=0,
+            files_modified=0,
+            work_type="IMPLEMENTATION",
+            status="COMPLETE",
+            recommendation="Cycle 1 complete",
+        )
+        assert result == CircuitBreakerResult.EXIT_SIGNAL
+        state.cycle_iterations += 1
+
+        # Cycle 2: Now hit stagnation within this cycle
+        for _ in range(3):
+            result = breaker.check(
+                exit_signal=False,
+                tasks_completed=0,
+                files_modified=0,
+                work_type="IMPLEMENTATION",
+                status="IN_PROGRESS",
+                recommendation="Stuck",
+            )
+            # First two should continue, third should trigger
+            if _ < 2:
+                assert result == CircuitBreakerResult.OK
+
+        # Third iteration should trigger stagnation
+        assert result == CircuitBreakerResult.TRIGGERED

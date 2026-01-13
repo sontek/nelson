@@ -66,6 +66,11 @@ class CircuitBreaker:
         """
         # Check for EXIT_SIGNAL first (normal completion)
         if exit_signal:
+            # Reset circuit breaker counters for the new cycle
+            self.state.test_only_loop_count = 0
+            self.state.no_progress_iterations = 0
+            self.state.last_error_message = ""
+            self.state.repeated_error_count = 0
             return CircuitBreakerResult.EXIT_SIGNAL
 
         # Update state tracking for all circuit breaker conditions

@@ -439,6 +439,32 @@ class TestWorkflowRun:
         content = orchestrator.last_output_file.read_text()
         assert "NELSON_STATUS" in content
 
+    def test_run_with_circuit_breaker_triggered(self, orchestrator: WorkflowOrchestrator) -> None:
+        """Test workflow run halts when circuit breaker triggers."""
+        # Create plan file
+        orchestrator.plan_file.write_text("# Plan\n- [ ] Task 1")
+
+        # Mock provider to return status blocks that trigger no-progress detection
+        no_progress_status = {
+            "status": "IN_PROGRESS",
+            "tasks_completed": 0,
+            "files_modified": 0,
+            "tests_status": "NOT_RUN",
+            "work_type": "IMPLEMENTATION",
+            "exit_signal": False,
+            "recommendation": "Still working",
+        }
+
+        orchestrator.provider.extract_status_block.return_value = no_progress_status
+
+        # Circuit breaker should trigger after 3 no-progress iterations
+        with pytest.raises(WorkflowError, match="Circuit breaker triggered"):
+            orchestrator.run("Test prompt")
+
+        # Verify state was saved when circuit breaker triggered
+        state_file = orchestrator.config.nelson_dir / "state.json"
+        assert state_file.exists()
+
 
 class TestCycleLoopBehavior:
     """Tests for cycle loop behavior with EXIT_SIGNAL."""

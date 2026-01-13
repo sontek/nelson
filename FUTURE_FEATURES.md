@@ -5,7 +5,7 @@ This document tracks features planned for future implementation in Nelson.
 ## PRD Orchestration (nelson-prd)
 
 **Status**: Planned for future implementation
-**Related Bash Script**: `~/code/sontek/homies/bin/ralph-prd`
+**Related Bash Script**: `~/code/sontek/homies/bin/nelson-prd` (originally `ralph-prd`)
 
 ### Overview
 
@@ -202,6 +202,6 @@ nelson-prd --status requirements.md
 
 ### References
 
-- Bash implementation: `~/code/sontek/homies/bin/ralph-prd`
+- Bash implementation: `~/code/sontek/homies/bin/nelson-prd` (originally `ralph-prd`)
 - PRD format based on GitHub-style task lists
 - State management follows Nelson core patterns

@@ -46,7 +46,7 @@ class TestNelsonConfig:
         """Test that environment variables override defaults."""
         monkeypatch.setenv("NELSON_MAX_ITERATIONS", "30")
         monkeypatch.setenv("NELSON_COST_LIMIT", "25.50")
-        monkeypatch.setenv("NELSON_DIR", ".custom-ralph")
+        monkeypatch.setenv("NELSON_DIR", ".custom-nelson")
         monkeypatch.setenv("NELSON_AUDIT_DIR", ".custom-audit")
         monkeypatch.setenv("NELSON_RUNS_DIR", ".custom-runs")
         monkeypatch.setenv("NELSON_CLAUDE_COMMAND", "claude")
@@ -57,7 +57,7 @@ class TestNelsonConfig:
 
         assert config.max_iterations == 30
         assert config.cost_limit == 25.50
-        assert config.nelson_dir == Path(".custom-ralph")
+        assert config.nelson_dir == Path(".custom-nelson")
         assert config.audit_dir == Path(".custom-audit")
         assert config.runs_dir == Path(".custom-runs")
         assert config.claude_command == "claude"

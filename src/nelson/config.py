@@ -48,7 +48,7 @@ class NelsonConfig:
         """Load configuration from environment variables with defaults.
 
         Args:
-            script_dir: Directory containing the ralph script (for claude-jail resolution).
+            script_dir: Directory containing the nelson script (for claude-jail resolution).
                        If None, uses parent directory of this module.
 
         Returns:
@@ -108,7 +108,7 @@ class NelsonConfig:
 
         Args:
             claude_command: Command from configuration ("claude", "claude-jail", or path)
-            script_dir: Directory containing ralph script (for claude-jail resolution)
+            script_dir: Directory containing nelson script (for claude-jail resolution)
 
         Returns:
             Resolved path to claude executable, or None if using system "claude" command

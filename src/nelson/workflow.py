@@ -34,7 +34,7 @@ class CircuitBreakerResult(Enum):
 class WorkflowOrchestrator:
     """Main workflow orchestrator that coordinates Nelson's execution loop.
 
-    The orchestrator follows the bash ralph's approach:
+    The orchestrator follows the bash script's approach:
     1. Load state and context from previous iteration
     2. Build prompt with phase-specific instructions
     3. Call AI provider (Claude)

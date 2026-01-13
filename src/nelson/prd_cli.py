@@ -274,11 +274,11 @@ def _show_task_info(orchestrator: PRDOrchestrator, task_id: str) -> None:
         click.echo(f"Blocked: {info['blocked_at']}")
 
     if info["blocking_reason"]:
-        click.echo(f"\nBlocking Reason:")
+        click.echo("\nBlocking Reason:")
         click.echo(f"  {info['blocking_reason']}")
 
     if info["resume_context"]:
-        click.echo(f"\nResume Context:")
+        click.echo("\nResume Context:")
         click.echo(f"  {info['resume_context']}")
 
     click.echo()
@@ -336,7 +336,7 @@ def _print_execution_summary(
         click.echo(f"  Failed: {failed}")
 
     click.echo(f"\nTotal cost: ${summary['total_cost']:.2f}")
-    click.echo(f"\nOverall progress:")
+    click.echo("\nOverall progress:")
     click.echo(f"  Completed: {summary['completed']}/{summary['total_tasks']}")
     click.echo(f"  Pending: {summary['pending']}")
     if summary['blocked'] > 0:

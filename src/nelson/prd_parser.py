@@ -246,7 +246,6 @@ class PRDParser:
 
         # Update the task line
         line_idx = task.line_number - 1  # Convert to 0-indexed
-        old_line = lines[line_idx].rstrip()
 
         # Build new status indicator
         status_char = self._status_to_char(new_status)

@@ -125,7 +125,7 @@ def create_branch(
     cmd.append(branch_name)
 
     try:
-        result = subprocess.run(
+        subprocess.run(
             cmd,
             capture_output=True,
             text=True,
@@ -161,7 +161,7 @@ def switch_branch(branch_name: str, path: Path | None = None) -> None:
     cmd.extend(["checkout", branch_name])
 
     try:
-        result = subprocess.run(
+        subprocess.run(
             cmd,
             capture_output=True,
             text=True,
@@ -206,7 +206,7 @@ def create_and_switch_branch(
     cmd.extend(["checkout", "-b", branch_name])
 
     try:
-        result = subprocess.run(
+        subprocess.run(
             cmd,
             capture_output=True,
             text=True,
@@ -246,7 +246,7 @@ def delete_branch(
     cmd.append(branch_name)
 
     try:
-        result = subprocess.run(
+        subprocess.run(
             cmd,
             capture_output=True,
             text=True,

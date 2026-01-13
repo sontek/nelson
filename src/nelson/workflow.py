@@ -264,6 +264,7 @@ class WorkflowOrchestrator:
         current_phase = Phase(self.state.current_phase)
 
         return build_loop_context(
+            cycle_iterations=self.state.cycle_iterations,
             total_iterations=self.state.total_iterations,
             phase_iterations=self.state.phase_iterations,
             tasks_completed=tasks_completed,

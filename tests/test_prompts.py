@@ -248,6 +248,7 @@ class TestLoopContextBuilding:
     def test_loop_context_basic_info(self) -> None:
         """Loop context should include basic iteration information."""
         context = build_loop_context(
+            cycle_iterations=1,
             total_iterations=5,
             phase_iterations=3,
             tasks_completed=7,
@@ -255,16 +256,17 @@ class TestLoopContextBuilding:
             recent_decisions=None,
         )
 
-        assert "LOOP CONTEXT (Iteration 5):" in context
-        assert "Total iterations so far: 5" in context
-        assert "Phase iterations: 3" in context
-        assert "Tasks completed: 7" in context
-        assert "Current phase: 2 (IMPLEMENT)" in context
+        assert "LOOP CONTEXT (Cycle 1, Phase Execution 5):" in context
+        assert "Complete cycles so far: 1" in context
+        assert "Phase executions so far: 5" in context
+        assert "Phase iterations in current phase: 3" in context
+        assert "Tasks completed in current plan: 7" in context
 
     def test_loop_context_with_recent_decisions(self) -> None:
         """Loop context should include recent decisions when provided."""
         recent = "## [Iteration 4] Phase 2: Task completed\n**Result:** Success"
         context = build_loop_context(
+            cycle_iterations=0,
             total_iterations=5,
             phase_iterations=2,
             tasks_completed=3,
@@ -278,6 +280,7 @@ class TestLoopContextBuilding:
     def test_loop_context_without_recent_decisions(self) -> None:
         """Loop context should work without recent decisions."""
         context = build_loop_context(
+            cycle_iterations=0,
             total_iterations=1,
             phase_iterations=1,
             tasks_completed=0,
@@ -285,13 +288,14 @@ class TestLoopContextBuilding:
             recent_decisions=None,
         )
 
-        assert "LOOP CONTEXT (Iteration 1):" in context
+        assert "LOOP CONTEXT (Cycle 0, Phase Execution 1):" in context
         assert "Recent activity" not in context
 
     def test_loop_context_all_phases(self) -> None:
         """Loop context should work for all phases."""
         for phase in Phase:
             context = build_loop_context(
+                cycle_iterations=2,
                 total_iterations=10,
                 phase_iterations=2,
                 tasks_completed=5,
@@ -299,7 +303,7 @@ class TestLoopContextBuilding:
                 recent_decisions=None,
             )
 
-            assert f"Current phase: {phase.value} ({phase.name})" in context
+            assert "LOOP CONTEXT (Cycle 2, Phase Execution 10):" in context
 
 
 class TestPromptIntegration:
@@ -322,7 +326,7 @@ class TestPromptIntegration:
         assert "Phase 1 (PLAN) instructions:" in full_prompt_p1
 
         # Phase 2: Implementation
-        loop_ctx = build_loop_context(2, 1, 1, Phase.IMPLEMENT)
+        loop_ctx = build_loop_context(0, 2, 1, 1, Phase.IMPLEMENT)
         full_prompt_p2 = build_full_prompt(
             task, Phase.IMPLEMENT, plan_file, decisions_file, loop_ctx
         )

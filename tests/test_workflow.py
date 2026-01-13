@@ -173,6 +173,7 @@ class TestPromptBuilding:
 
     def test_build_loop_context(self, orchestrator: WorkflowOrchestrator) -> None:
         """Test building loop context."""
+        orchestrator.state.cycle_iterations = 1
         orchestrator.state.total_iterations = 5
         orchestrator.state.phase_iterations = 2
         orchestrator.plan_file.write_text("- [x] Task 1\n- [x] Task 2\n- [ ] Task 3")
@@ -180,8 +181,10 @@ class TestPromptBuilding:
 
         context = orchestrator._build_loop_context()
 
-        assert "5" in context  # total_iterations
-        assert "2" in context  # phase_iterations
+        assert "Cycle 1, Phase Execution 5" in context
+        assert "Complete cycles so far: 1" in context
+        assert "Phase executions so far: 5" in context
+        assert "Phase iterations in current phase: 2" in context
 
 
 class TestProviderExecution:

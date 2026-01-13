@@ -314,6 +314,7 @@ def build_full_prompt(
 
 
 def build_loop_context(
+    cycle_iterations: int,
     total_iterations: int,
     phase_iterations: int,
     tasks_completed: int,
@@ -323,7 +324,8 @@ def build_loop_context(
     """Build loop context string for iterations after the first.
 
     Args:
-        total_iterations: Total number of iterations so far
+        cycle_iterations: Number of complete 6-phase cycles
+        total_iterations: Total number of phase executions so far
         phase_iterations: Number of iterations in current phase
         tasks_completed: Number of tasks completed so far
         current_phase: Current phase
@@ -333,11 +335,11 @@ def build_loop_context(
         Formatted loop context string
     """
     lines = [
-        f"LOOP CONTEXT (Iteration {total_iterations}):",
-        f"- Total iterations so far: {total_iterations}",
-        f"- Phase iterations: {phase_iterations}",
-        f"- Tasks completed: {tasks_completed}",
-        f"- Current phase: {current_phase.value} ({current_phase.name})",
+        f"LOOP CONTEXT (Cycle {cycle_iterations}, Phase Execution {total_iterations}):",
+        f"- Complete cycles so far: {cycle_iterations}",
+        f"- Phase executions so far: {total_iterations}",
+        f"- Phase iterations in current phase: {phase_iterations}",
+        f"- Tasks completed in current plan: {tasks_completed}",
     ]
 
     if recent_decisions:

@@ -312,14 +312,10 @@ class WorkflowOrchestrator:
         tasks_completed = status_block.get("tasks_completed", 0)
         files_modified = status_block.get("files_modified", 0)
 
+        # Record progress with cumulative completed count
+        self.state.record_progress(tasks_completed)
+
         # Check for no progress (3+ iterations with 0 tasks, 0 files)
-        if tasks_completed == 0 and files_modified == 0:
-            progress_made = False
-        else:
-            progress_made = True
-
-        self.state.record_progress(progress_made)
-
         if self.state.no_progress_iterations >= 3:
             logger.error(
                 f"No progress detected for {self.state.no_progress_iterations} iterations"

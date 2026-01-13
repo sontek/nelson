@@ -53,6 +53,7 @@ uv.lock
 
 # Nelson runtime files
 .nelson/
+.ralph/
 
 # OS
 .DS_Store

@@ -30,6 +30,7 @@ class NelsonConfig:
     nelson_dir: Path
     audit_dir: Path
     runs_dir: Path
+    target_path: Path | None  # Optional target repository path (None = current directory)
 
     # Claude command configuration
     claude_command: str  # "claude", "claude-jail", or custom path
@@ -44,12 +45,15 @@ class NelsonConfig:
     auto_approve_push: bool
 
     @classmethod
-    def from_environment(cls, script_dir: Path | None = None) -> "NelsonConfig":
+    def from_environment(
+        cls, script_dir: Path | None = None, target_path: Path | None = None
+    ) -> "NelsonConfig":
         """Load configuration from environment variables with defaults.
 
         Args:
             script_dir: Directory containing the nelson script (for claude-jail resolution).
                        If None, uses parent directory of this module.
+            target_path: Optional target repository directory. If None, uses current directory.
 
         Returns:
             Immutable NelsonConfig instance.
@@ -92,6 +96,7 @@ class NelsonConfig:
             nelson_dir=nelson_dir,
             audit_dir=audit_dir,
             runs_dir=runs_dir,
+            target_path=target_path,
             claude_command=claude_command,
             claude_command_path=claude_command_path,
             model=model,

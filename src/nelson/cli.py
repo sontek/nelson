@@ -221,7 +221,7 @@ def _execute_workflow(prompt: str, config: NelsonConfig) -> None:
 
     # Create run directory with timestamp
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    run_dir = config.runs_dir / f"ralph-{timestamp}"
+    run_dir = config.runs_dir / f"nelson-{timestamp}"
     run_dir.mkdir(parents=True, exist_ok=True)
 
     logger.info(f"Run directory: {run_dir}")

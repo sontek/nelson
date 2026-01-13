@@ -142,10 +142,43 @@ class WorkflowOrchestrator:
             breaker_result = self._check_circuit_breaker(status_block)
 
             if breaker_result == CircuitBreakerResult.EXIT_SIGNAL:
-                # Clean exit - workflow complete
-                logger.success("EXIT_SIGNAL detected - workflow complete!")
+                # EXIT_SIGNAL means current cycle's work is complete
+                # Complete current cycle and loop back to Phase 1 to check for more work
+                # This matches bash ralph's multi-cycle "ralph wiggum" behavior
+                logger.success("EXIT_SIGNAL detected - current cycle work complete")
                 self._log_completion_status(status_block)
-                break
+
+                # If we're in Phase 6 (COMMIT), let normal cycle logic handle loop-back
+                # Otherwise, trigger immediate cycle completion
+                if current_phase == Phase.COMMIT:
+                    # Let phase transition logic handle cycle completion naturally
+                    pass
+                else:
+                    # Force cycle completion: archive plan, increment cycle, reset to Phase 1
+                    self.state.increment_cycle()
+                    new_cycle = self.state.cycle_iterations
+
+                    logger.success(
+                        f"Cycle {new_cycle - 1} complete via EXIT_SIGNAL"
+                    )
+                    logger.info(
+                        f"Starting cycle {new_cycle} - returning to Phase 1 (PLAN)"
+                    )
+
+                    # Archive the old plan.md (makes next cycle stateless)
+                    if self.plan_file.exists():
+                        archived_plan = self.run_dir / f"plan-cycle-{new_cycle - 1}.md"
+                        logger.info(f"Archiving plan to: {archived_plan.name}")
+                        self.plan_file.rename(archived_plan)
+
+                    # Log cycle completion to decisions file
+                    self._log_cycle_completion(new_cycle - 1, new_cycle)
+
+                    # Reset to Phase 1
+                    self.state.transition_phase(Phase.PLAN.value, Phase.PLAN.name_str)
+
+                    # Continue loop - will start new cycle at Phase 1
+                    continue
 
             elif breaker_result == CircuitBreakerResult.TRIGGERED:
                 # Circuit breaker tripped - stagnation detected

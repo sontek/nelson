@@ -289,14 +289,14 @@ def _execute_workflow(prompt: str, config: NelsonConfig) -> None:
 
 
 def _build_config(
-    target_path: Path | None,
-    max_iterations: int | None,
-    cost_limit: float | None,
-    model: str | None,
-    plan_model: str | None,
-    review_model: str | None,
-    claude_command: str | None,
-    auto_approve_push: bool,
+    target_path: Path | None = None,
+    max_iterations: int | None = None,
+    cost_limit: float | None = None,
+    model: str | None = None,
+    plan_model: str | None = None,
+    review_model: str | None = None,
+    claude_command: str | None = None,
+    auto_approve_push: bool = False,
 ) -> NelsonConfig:
     """Build configuration with CLI overrides."""
     # Load base config from environment

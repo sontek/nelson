@@ -7,8 +7,8 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from ralph.git_utils import GitError, get_commit_range, get_current_commit, is_git_repo
-from ralph.logging_config import get_logger
+from nelson.git_utils import GitError, get_commit_range, get_current_commit, is_git_repo
+from nelson.logging_config import get_logger
 
 logger = get_logger()
 

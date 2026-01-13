@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from enum import Enum
 
-from ralph.state import RalphState
+from nelson.state import RalphState
 
 
 class CircuitBreakerResult(Enum):

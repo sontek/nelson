@@ -6,9 +6,9 @@ a new run. This prevents state file conflicts and preserves history.
 
 from pathlib import Path
 
-from ralph.config import STATE_FILE_NAME, RalphConfig
-from ralph.logging_config import get_logger
-from ralph.run_manager import RunManager
+from nelson.config import STATE_FILE_NAME, RalphConfig
+from nelson.logging_config import get_logger
+from nelson.run_manager import RunManager
 
 
 def archive_old_state(config: RalphConfig) -> None:

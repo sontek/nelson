@@ -9,7 +9,7 @@ This module handles determining when to advance phases vs loop, based on:
 
 from pathlib import Path
 
-from ralph.phases import Phase
+from nelson.phases import Phase
 
 
 def has_unchecked_tasks(phase: Phase, plan_file: Path) -> bool:

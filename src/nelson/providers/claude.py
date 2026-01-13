@@ -13,8 +13,8 @@ import time
 from pathlib import Path
 from typing import Any
 
-from ralph.logging_config import get_logger
-from ralph.providers.base import AIProvider, AIResponse, ProviderError
+from nelson.logging_config import get_logger
+from nelson.providers.base import AIProvider, AIResponse, ProviderError
 
 logger = get_logger()
 

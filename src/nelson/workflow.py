@@ -12,13 +12,13 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from ralph.config import RalphConfig
-from ralph.logging_config import get_logger
-from ralph.phases import Phase
-from ralph.prompts import build_full_prompt, build_loop_context
-from ralph.providers.base import AIProvider, ProviderError
-from ralph.state import RalphState
-from ralph.transitions import determine_next_phase, should_transition_phase
+from nelson.config import RalphConfig
+from nelson.logging_config import get_logger
+from nelson.phases import Phase
+from nelson.prompts import build_full_prompt, build_loop_context
+from nelson.providers.base import AIProvider, ProviderError
+from nelson.state import RalphState
+from nelson.transitions import determine_next_phase, should_transition_phase
 
 logger = get_logger()
 
@@ -281,7 +281,7 @@ class WorkflowOrchestrator:
         logger.info(f"Using model: {model}")
 
         # Execute with system prompt (from prompts.py)
-        from ralph.prompts import get_system_prompt
+        from nelson.prompts import get_system_prompt
 
         system_prompt = get_system_prompt(self.decisions_file)
 

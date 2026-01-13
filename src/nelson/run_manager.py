@@ -7,7 +7,7 @@ Each run gets a unique timestamped directory containing its state, plan, decisio
 from datetime import UTC, datetime
 from pathlib import Path
 
-from ralph.config import (
+from nelson.config import (
     AUDIT_FILE_NAME,
     DECISIONS_FILE_NAME,
     PLAN_FILE_NAME,

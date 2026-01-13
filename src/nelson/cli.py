@@ -9,8 +9,8 @@ from pathlib import Path
 
 import click
 
-from ralph.config import RalphConfig
-from ralph.logging_config import get_logger
+from nelson.config import RalphConfig
+from nelson.logging_config import get_logger
 
 logger = get_logger()
 

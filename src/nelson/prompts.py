@@ -6,7 +6,7 @@ prompts that guide the AI through the 6-phase autonomous workflow.
 
 from pathlib import Path
 
-from ralph.phases import Phase
+from nelson.phases import Phase
 
 
 def get_system_prompt(decisions_file: Path) -> str:

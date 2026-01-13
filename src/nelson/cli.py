@@ -24,7 +24,11 @@ logger = get_logger()
 
 @click.command()
 @click.argument("prompt", required=False)
-@click.argument("path", required=False, type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.argument(
+    "path",
+    required=False,
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+)
 @click.option(
     "--resume",
     "resume_path",
@@ -233,16 +237,13 @@ def _execute_workflow(prompt: str, config: NelsonConfig) -> None:
     # Get starting commit for audit trail
     try:
         git_cmd = ["git", "rev-parse", "HEAD"]
-        git_kwargs = {
-            "capture_output": True,
-            "text": True,
-            "check": True,
-        }
-        # If target_path is set, run git in that directory
-        if config.target_path:
-            git_kwargs["cwd"] = config.target_path
-
-        starting_commit = subprocess.run(git_cmd, **git_kwargs).stdout.strip()
+        starting_commit = subprocess.run(
+            git_cmd,
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=config.target_path,
+        ).stdout.strip()
     except subprocess.CalledProcessError:
         logger.warning("Not in a git repository - starting_commit will be empty")
         starting_commit = ""

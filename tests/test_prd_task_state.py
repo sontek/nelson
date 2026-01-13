@@ -232,9 +232,9 @@ def test_task_state_update_timestamp():
     state = TaskState(task_id="PRD-001", task_text="Test task", priority="high")
     original_timestamp = state.updated_at
 
-    # Small delay to ensure timestamp changes
+    # Small delay to ensure timestamp changes (1 second for timestamp granularity)
     import time
-    time.sleep(0.01)
+    time.sleep(1.0)
 
     state.update_cost(1.0)
     assert state.updated_at != original_timestamp

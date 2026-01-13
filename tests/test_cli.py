@@ -19,7 +19,7 @@ def cli_runner() -> CliRunner:
 @pytest.fixture
 def mock_workflow() -> Any:
     """Mock workflow execution."""
-    with patch("ralph.cli.logger") as mock_logger:
+    with patch("nelson.cli.logger") as mock_logger:
         yield mock_logger
 
 

@@ -58,7 +58,7 @@ class TestSystemPrompt:
         """System prompt should include example status blocks."""
         prompt = get_system_prompt(Path(".nelson/decisions.md"))
         assert "Example 1 - Making Progress:" in prompt
-        assert "Example 2 - All Done" in prompt
+        assert "Example 2 - Cycle Complete" in prompt
         assert "Example 3 - Blocked:" in prompt
 
     def test_system_prompt_includes_decisions_file_path(self) -> None:

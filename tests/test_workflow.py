@@ -365,8 +365,9 @@ class TestWorkflowRun:
         # Provider already set up to return EXIT_SIGNAL in fixture
         orchestrator.plan_file.write_text("# Plan\n- [x] Task 1")
 
-        # Run should complete without error
-        orchestrator.run("Test prompt")
+        # EXIT_SIGNAL now causes cycle loop-back, so will hit max_iterations limit
+        with pytest.raises(WorkflowError, match="Stopping due to limits"):
+            orchestrator.run("Test prompt")
 
         # Verify provider was called
         assert orchestrator.provider.execute.called
@@ -429,12 +430,198 @@ class TestWorkflowRun:
         """Test workflow run saves output to file."""
         orchestrator.plan_file.write_text("# Plan\n- [x] Task 1")
 
-        orchestrator.run("Test prompt")
+        # EXIT_SIGNAL causes cycle loop-back, so will hit max_iterations limit
+        with pytest.raises(WorkflowError, match="Stopping due to limits"):
+            orchestrator.run("Test prompt")
 
         # Verify last_output.txt was created
         assert orchestrator.last_output_file.exists()
         content = orchestrator.last_output_file.read_text()
         assert "NELSON_STATUS" in content
+
+
+class TestCycleLoopBehavior:
+    """Tests for cycle loop behavior with EXIT_SIGNAL."""
+
+    def test_exit_signal_triggers_phase_1_loopback(
+        self,
+        mock_run_dir: Path,
+        tmp_path: Path,
+    ) -> None:
+        """Test that EXIT_SIGNAL triggers cycle completion and Phase 1 loop-back."""
+        # Create config with low max_iterations to avoid long running test
+        config = NelsonConfig(
+            max_iterations=2,
+            max_iterations_explicit=True,
+            cost_limit=10.0,
+            nelson_dir=tmp_path / ".nelson",
+            audit_dir=tmp_path / ".nelson" / "audit",
+            runs_dir=tmp_path / ".nelson" / "runs",
+            claude_command="claude",
+            claude_command_path=Path("claude"),
+            model="sonnet",
+            plan_model="sonnet",
+            review_model="sonnet",
+            auto_approve_push=False,
+        )
+
+        # Create state starting at cycle 0
+        state = NelsonState(
+            prompt="Test prompt",
+            current_phase=Phase.IMPLEMENT.value,
+            total_iterations=0,
+            phase_iterations=0,
+            cycle_iterations=0,
+        )
+
+        # Create provider that returns EXIT_SIGNAL on first call
+        mock_provider = MagicMock()
+
+        # First response: EXIT_SIGNAL in Phase 2 (IMPLEMENT)
+        first_response = AIResponse(
+            content="Phase 2 work done\n"
+            "---NELSON_STATUS---\n"
+            "STATUS: COMPLETE\n"
+            "TASKS_COMPLETED_THIS_LOOP: 1\n"
+            "FILES_MODIFIED: 2\n"
+            "TESTS_STATUS: PASSING\n"
+            "WORK_TYPE: IMPLEMENTATION\n"
+            "EXIT_SIGNAL: true\n"
+            "RECOMMENDATION: Cycle complete\n"
+            "---END_NELSON_STATUS---",
+            raw_output="raw1",
+            metadata={},
+            is_error=False,
+        )
+
+        # Configure mock to return response
+        mock_provider.execute.return_value = first_response
+
+        # First status block has EXIT_SIGNAL
+        first_status = {
+            "status": "COMPLETE",
+            "tasks_completed": 1,
+            "files_modified": 2,
+            "tests_status": "PASSING",
+            "work_type": "IMPLEMENTATION",
+            "exit_signal": True,
+            "recommendation": "Cycle complete",
+        }
+
+        mock_provider.extract_status_block.return_value = first_status
+        mock_provider.get_cost.return_value = 0.0
+
+        orchestrator = WorkflowOrchestrator(
+            config=config,
+            state=state,
+            provider=mock_provider,
+            run_dir=mock_run_dir,
+        )
+
+        # Create plan file
+        orchestrator.plan_file.write_text("# Plan\n- [x] Task 1")
+
+        # Run workflow - should hit max cycles after looping back
+        with pytest.raises(WorkflowError, match="Stopping due to limits"):
+            orchestrator.run("Test prompt")
+
+        # Verify provider was called at least once
+        assert mock_provider.execute.call_count >= 1
+
+        # Verify cycle counter incremented at least once (EXIT_SIGNAL caused cycle completion)
+        assert orchestrator.state.cycle_iterations >= 1
+
+        # Verify plan was archived for cycle 0
+        archived_plan = mock_run_dir / "plan-cycle-0.md"
+        assert archived_plan.exists()
+
+        # Verify decisions file contains cycle completion log
+        decisions_content = orchestrator.decisions_file.read_text()
+        assert "Cycle 0 Complete" in decisions_content
+        assert "Starting cycle 1" in decisions_content
+
+    def test_exit_signal_in_phase_6_uses_natural_cycle_completion(
+        self,
+        mock_run_dir: Path,
+        tmp_path: Path,
+    ) -> None:
+        """Test that EXIT_SIGNAL in Phase 6 uses natural cycle completion path."""
+        # Create config with low max_iterations
+        config = NelsonConfig(
+            max_iterations=2,
+            max_iterations_explicit=True,
+            cost_limit=10.0,
+            nelson_dir=tmp_path / ".nelson",
+            audit_dir=tmp_path / ".nelson" / "audit",
+            runs_dir=tmp_path / ".nelson" / "runs",
+            claude_command="claude",
+            claude_command_path=Path("claude"),
+            model="sonnet",
+            plan_model="sonnet",
+            review_model="sonnet",
+            auto_approve_push=False,
+        )
+
+        # Create state starting at cycle 0, Phase 6
+        state = NelsonState(
+            prompt="Test prompt",
+            current_phase=Phase.COMMIT.value,
+            total_iterations=0,
+            phase_iterations=0,
+            cycle_iterations=0,
+        )
+
+        mock_provider = MagicMock()
+
+        # Response with EXIT_SIGNAL in Phase 6 (COMMIT)
+        response = AIResponse(
+            content="Commit complete\n"
+            "---NELSON_STATUS---\n"
+            "STATUS: COMPLETE\n"
+            "TASKS_COMPLETED_THIS_LOOP: 0\n"
+            "FILES_MODIFIED: 0\n"
+            "TESTS_STATUS: PASSING\n"
+            "WORK_TYPE: IMPLEMENTATION\n"
+            "EXIT_SIGNAL: true\n"
+            "RECOMMENDATION: All committed\n"
+            "---END_NELSON_STATUS---",
+            raw_output="raw",
+            metadata={},
+            is_error=False,
+        )
+
+        mock_provider.execute.return_value = response
+        mock_provider.extract_status_block.return_value = {
+            "status": "COMPLETE",
+            "tasks_completed": 0,
+            "files_modified": 0,
+            "tests_status": "PASSING",
+            "work_type": "IMPLEMENTATION",
+            "exit_signal": True,
+            "recommendation": "All committed",
+        }
+        mock_provider.get_cost.return_value = 0.0
+
+        orchestrator = WorkflowOrchestrator(
+            config=config,
+            state=state,
+            provider=mock_provider,
+            run_dir=mock_run_dir,
+        )
+
+        # Create plan file with all tasks complete
+        orchestrator.plan_file.write_text("# Plan\n- [x] Task 1\n- [x] Task 2")
+
+        # Run workflow - should hit max cycles after looping back
+        with pytest.raises(WorkflowError, match="Stopping due to limits"):
+            orchestrator.run("Test prompt")
+
+        # Verify cycle counter incremented (natural cycle completion)
+        assert orchestrator.state.cycle_iterations >= 1
+
+        # Verify plan was archived
+        archived_plan = mock_run_dir / "plan-cycle-0.md"
+        assert archived_plan.exists()
 
 
 class TestWorkflowError:

@@ -93,6 +93,9 @@ class WorkflowOrchestrator:
         while True:
             # Check limits before each iteration
             if not self._check_limits():
+                # Save state before raising error
+                state_file = self.config.nelson_dir / "state.json"
+                self.state.save(state_file)
                 raise WorkflowError("Stopping due to limits")
 
             # Increment iteration counters
@@ -125,6 +128,9 @@ class WorkflowOrchestrator:
                 response = self._execute_provider(full_prompt, current_phase)
             except ProviderError as e:
                 logger.error(f"Provider execution failed: {e.message}")
+                # Save state before raising error
+                state_file = self.config.nelson_dir / "state.json"
+                self.state.save(state_file)
                 raise WorkflowError(f"Claude execution failed: {e.message}")
 
             # Save raw output for circuit breaker analysis
@@ -186,6 +192,9 @@ class WorkflowOrchestrator:
                 logger.error(
                     f"Review {self.last_output_file} and {self.decisions_file} for details"
                 )
+                # Save state before raising error
+                state_file = self.config.nelson_dir / "state.json"
+                self.state.save(state_file)
                 raise WorkflowError("Circuit breaker triggered")
 
             # Update state with progress metrics

@@ -1,6 +1,6 @@
-"""CLI entry point for ralph.
+"""CLI entry point for nelson.
 
-This module provides the Click-based command-line interface for Ralph,
+This module provides the Click-based command-line interface for Nelson,
 matching the bash implementation's interface while adding rich formatting.
 """
 
@@ -83,24 +83,24 @@ def main(
     claude_command: str | None,
     auto_approve_push: bool,
 ) -> None:
-    """Ralph: AI orchestration CLI for autonomous development workflows.
+    """Nelson: AI orchestration CLI for autonomous development workflows.
 
     PROMPT can be:
-      - A string: ralph "implement feature X"
-      - A file path: ralph tasks/task1.md
-      - Stdin: echo "task" | ralph
+      - A string: nelson "implement feature X"
+      - A file path: nelson tasks/task1.md
+      - Stdin: echo "task" | nelson
 
     \b
     Examples:
-      ralph "Add user authentication"
-      ralph docs/implementation.md
-      ralph --resume                                    # Resume from last run
-      ralph --resume .ralph/runs/ralph-20260112-120125  # Resume from specific run
-      ralph --max-iterations 30 "complex task"
-      ralph --claude-command claude "use native claude"
-      ralph --model opus "complex planning task"
-      ralph --model haiku "simple refactoring"
-      ralph --plan-model opus "use opus for planning phase"
+      nelson "Add user authentication"
+      nelson docs/implementation.md
+      nelson --resume                                    # Resume from last run
+      nelson --resume .ralph/runs/ralph-20260112-120125  # Resume from specific run
+      nelson --max-iterations 30 "complex task"
+      nelson --claude-command claude "use native claude"
+      nelson --model opus "complex planning task"
+      nelson --model haiku "simple refactoring"
+      nelson --plan-model opus "use opus for planning phase"
 
     \b
     Environment Variables:
@@ -127,7 +127,7 @@ def main(
             logger.error("No prompt or --resume flag provided")
             raise click.UsageError(
                 "PROMPT is required unless using --resume. "
-                "Use 'ralph --help' for usage information."
+                "Use 'nelson --help' for usage information."
             )
 
     # Get prompt from file if it's a path
@@ -157,7 +157,7 @@ def main(
     )
 
     # Run the workflow
-    logger.info("Starting Ralph workflow")
+    logger.info("Starting Nelson workflow")
     # Safely truncate prompt for display
     if prompt:
         prompt_display = prompt[:100] + ("..." if len(prompt) > 100 else "")
@@ -184,7 +184,7 @@ def _execute_workflow(prompt: str, config: NelsonConfig) -> None:
 
     Args:
         prompt: User's task prompt
-        config: Ralph configuration
+        config: Nelson configuration
 
     Raises:
         WorkflowError: If workflow fails

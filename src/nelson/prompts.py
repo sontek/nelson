@@ -179,6 +179,9 @@ Complete ONE task: code/tests/config only. Then:
 
 NO docs (SUMMARY.md, guides). Testing: 20% effort, new features only, Phase 4 is main testing.
 Each task = one atomic commit.
+
+CRITICAL: Implement completely - no TODO/FIXME/XXX comments or placeholder stubs.
+Write production-ready code. If you cannot complete, explain why in {decisions_file}.
 """
 
 
@@ -188,6 +191,7 @@ def _get_review_prompt(plan_file: Path, decisions_file: Path) -> str:
 
 Review Phase 2 commits: git log + git status
 Check for: bugs, security issues, code quality, unwanted docs, sensitive files
+ALSO check for: TODO/FIXME/XXX comments, placeholder stubs, incomplete implementations
 
 IF issues found:
   - Add '- [ ] Fix: description' tasks to Phase 3
@@ -229,6 +233,9 @@ Check git status for unwanted files:
   - No docs (README, SUMMARY.md, guides)
   - No .claude/ or .ralph/ files
   - No sensitive data
+Check code quality:
+  - No TODO/FIXME/XXX comments or placeholder stubs
+  - All implementations complete and production-ready
 
 IF issues found:
   - Add fix tasks to Phase 5 (will be committed)

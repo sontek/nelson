@@ -57,7 +57,7 @@ class NelsonConfig:
         # Detect if NELSON_MAX_ITERATIONS was explicitly set
         max_iterations_str = os.getenv("NELSON_MAX_ITERATIONS")
         max_iterations_explicit = max_iterations_str is not None
-        max_iterations = int(max_iterations_str) if max_iterations_str else 50
+        max_iterations = int(max_iterations_str) if max_iterations_str else 10
 
         # Cost limit in USD
         cost_limit = float(os.getenv("NELSON_COST_LIMIT", "10.00"))

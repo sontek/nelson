@@ -104,7 +104,7 @@ def main(
 
     \b
     Environment Variables:
-      NELSON_MAX_ITERATIONS      Max complete cycles through all 6 phases (default: 50)
+      NELSON_MAX_ITERATIONS      Max complete cycles through all 6 phases (default: 10)
                                  One cycle = PLAN → IMPLEMENT → REVIEW → TEST →
                                  FINAL-REVIEW → COMMIT
       NELSON_COST_LIMIT          Max cost in USD (default: 10.00)

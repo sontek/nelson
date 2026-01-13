@@ -21,7 +21,7 @@ class TestNelsonConfig:
 
         config = NelsonConfig.from_environment()
 
-        assert config.max_iterations == 50
+        assert config.max_iterations == 10
         assert config.max_iterations_explicit is False
         assert config.cost_limit == 10.0
         assert config.nelson_dir == Path(".nelson")

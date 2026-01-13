@@ -51,8 +51,8 @@ dmypy.json
 .python-version
 uv.lock
 
-# Ralph runtime files
-.ralph/
+# Nelson runtime files
+.nelson/
 
 # OS
 .DS_Store

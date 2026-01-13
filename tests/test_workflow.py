@@ -623,6 +623,69 @@ class TestCycleLoopBehavior:
         archived_plan = mock_run_dir / "plan-cycle-0.md"
         assert archived_plan.exists()
 
+    def test_max_iterations_limits_complete_cycles_not_phase_executions(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Test that max_iterations limits complete cycles, not total phase executions.
+
+        The workflow should allow multiple phase executions per cycle,
+        but stop when the specified number of complete cycles is reached.
+        """
+        # Create config with low max_iterations
+        config = NelsonConfig(
+            max_iterations=3,
+            max_iterations_explicit=True,
+            cost_limit=10.0,
+            nelson_dir=tmp_path / ".nelson",
+            audit_dir=tmp_path / ".nelson" / "audit",
+            runs_dir=tmp_path / ".nelson" / "runs",
+            claude_command="claude",
+            claude_command_path=Path("claude"),
+            model="sonnet",
+            plan_model="sonnet",
+            review_model="sonnet",
+            auto_approve_push=False,
+        )
+
+        # Create state with test values
+        state = NelsonState(
+            prompt="Test prompt",
+            current_phase=Phase.IMPLEMENT.value,
+            total_iterations=8,  # 8 phase executions
+            phase_iterations=0,
+            cycle_iterations=2,  # But only 2 complete cycles
+        )
+
+        # Create minimal orchestrator just to test _check_limits
+        run_dir = tmp_path / "run"
+        run_dir.mkdir(parents=True)
+        mock_provider = MagicMock()
+
+        orchestrator = WorkflowOrchestrator(
+            config=config,
+            state=state,
+            provider=mock_provider,
+            run_dir=run_dir,
+        )
+
+        # _check_limits should return True (within limits: 2 < 3)
+        assert orchestrator._check_limits() is True
+
+        # Now set to exactly the cycle limit
+        orchestrator.state.cycle_iterations = 3  # At limit
+
+        # _check_limits should return False (at limit: 3 >= 3)
+        assert orchestrator._check_limits() is False
+
+        # Verify the check is based on cycle_iterations, not total_iterations
+        # Even with many phase executions, if cycle count is low, it should pass
+        orchestrator.state.cycle_iterations = 1  # Low cycle count
+        orchestrator.state.total_iterations = 100  # Many phase executions
+
+        # Should still pass because cycle_iterations (1) < max_iterations (3)
+        assert orchestrator._check_limits() is True
+
 
 class TestWorkflowError:
     """Tests for WorkflowError exception."""

@@ -163,30 +163,6 @@ The EXIT_SIGNAL in Claude's status block has different meanings by phase:
 
 This enables the autonomous loop while allowing clean termination.
 
-## Project Structure
-
-```
-nelson/
-├── src/nelson/
-│   ├── cli.py              # Click-based CLI
-│   ├── workflow.py         # Main orchestration loop
-│   ├── state.py            # State management
-│   ├── config.py           # Configuration
-│   ├── phases.py           # Phase definitions
-│   ├── prompts.py          # Prompt generation
-│   ├── transitions.py      # Phase transition logic
-│   ├── circuit_breaker.py  # Stagnation detection
-│   ├── status_parser.py    # Status block parsing
-│   ├── plan_parser.py      # Plan file parsing
-│   ├── providers/
-│   │   ├── base.py         # Provider interface
-│   │   └── claude.py       # Claude implementation
-│   └── ...
-├── tests/                  # Comprehensive test suite (421 tests)
-├── pyproject.toml          # Project configuration
-└── README.md               # This file
-```
-
 ## Development
 
 ### Running Tests
@@ -286,19 +262,6 @@ Nelson maintains state in `.nelson/` directory:
 ## Phase 6: COMMIT
 - [ ] Commit any remaining changes
 ```
-
-## Comparison to Bash Implementation
-
-Nelson is a Python reimplementation of the original bash script (`ralph`) with these improvements:
-
-- **Better Testing**: 421 comprehensive tests vs minimal bash testing
-- **Type Safety**: Full mypy strict mode compliance
-- **Modularity**: Clean separation of concerns
-- **Extensibility**: Provider abstraction for multiple AI backends
-- **Maintainability**: Object-oriented design, 91% test coverage
-- **Developer Experience**: Rich terminal output, better error messages
-
-Core behavior remains identical to the battle-tested bash implementation.
 
 ## Multi-Task Orchestration with nelson-prd
 

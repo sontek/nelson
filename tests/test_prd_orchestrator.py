@@ -498,6 +498,265 @@ def test_execute_task_updates_cost_from_nelson_state(
     assert task_state.phase_name == "IMPLEMENT"
 
 
+@patch("nelson.prd_orchestrator.Path")
+@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.subprocess.run")
+def test_cost_extraction_when_nelson_state_file_missing(
+    mock_run: Mock,
+    mock_ensure_branch: Mock,
+    mock_path: Mock,
+    orchestrator: PRDOrchestrator,
+):
+    """Test that task completes successfully even when Nelson state file doesn't exist."""
+    # Setup mocks
+    mock_ensure_branch.return_value = "feature/PRD-001-test-task"
+    mock_run.return_value = Mock(returncode=0)
+
+    # Mock Path.exists() to return False (state file doesn't exist)
+    mock_nelson_state_path = MagicMock()
+    mock_nelson_state_path.exists.return_value = False
+    mock_path.return_value.__truediv__.return_value.__truediv__.return_value = mock_nelson_state_path
+
+    # Execute task
+    success = orchestrator.execute_task("PRD-001", "Implement feature", "high")
+
+    # Task should still succeed even without Nelson state
+    assert success is True
+
+    # Task state should be completed but with no cost/iteration data
+    task_state = orchestrator.state_manager.load_task_state(
+        "PRD-001", "Implement feature", "high"
+    )
+    assert task_state.status == TaskStatus.COMPLETED
+    assert task_state.cost_usd == 0.0  # No cost extracted
+    assert task_state.iterations == 0  # No iterations extracted
+
+
+@patch("nelson.state.NelsonState.load")
+@patch("nelson.prd_orchestrator.Path")
+@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.subprocess.run")
+def test_cost_extraction_handles_corrupted_nelson_state(
+    mock_run: Mock,
+    mock_ensure_branch: Mock,
+    mock_path: Mock,
+    mock_load: Mock,
+    orchestrator: PRDOrchestrator,
+    capsys,
+):
+    """Test that cost extraction handles corrupted Nelson state gracefully."""
+    # Setup mocks
+    mock_ensure_branch.return_value = "feature/PRD-001-test-task"
+    mock_run.return_value = Mock(returncode=0)
+
+    # Mock Path.exists() to return True
+    mock_nelson_state_path = MagicMock()
+    mock_nelson_state_path.exists.return_value = True
+    mock_path.return_value.__truediv__.return_value.__truediv__.return_value = mock_nelson_state_path
+
+    # Mock NelsonState.load() to raise JSONDecodeError
+    import json
+    mock_load.side_effect = json.JSONDecodeError("Invalid JSON", "", 0)
+
+    # Execute task
+    success = orchestrator.execute_task("PRD-001", "Implement feature", "high")
+
+    # Task should still succeed even with corrupted state
+    assert success is True
+
+    # Verify warning was printed
+    captured = capsys.readouterr()
+    assert "Warning: Could not read Nelson state:" in captured.out
+
+    # Task state should be completed but with no cost data
+    task_state = orchestrator.state_manager.load_task_state(
+        "PRD-001", "Implement feature", "high"
+    )
+    assert task_state.status == TaskStatus.COMPLETED
+    assert task_state.cost_usd == 0.0  # No cost extracted
+
+
+@patch("nelson.state.NelsonState.load")
+@patch("nelson.prd_orchestrator.Path")
+@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.subprocess.run")
+def test_cost_extraction_handles_missing_fields_in_nelson_state(
+    mock_run: Mock,
+    mock_ensure_branch: Mock,
+    mock_path: Mock,
+    mock_load: Mock,
+    orchestrator: PRDOrchestrator,
+    capsys,
+):
+    """Test that cost extraction handles Nelson state with missing fields."""
+    # Setup mocks
+    mock_ensure_branch.return_value = "feature/PRD-001-test-task"
+    mock_run.return_value = Mock(returncode=0)
+
+    # Mock Path.exists() to return True
+    mock_nelson_state_path = MagicMock()
+    mock_nelson_state_path.exists.return_value = True
+    mock_path.return_value.__truediv__.return_value.__truediv__.return_value = mock_nelson_state_path
+
+    # Mock Nelson state with missing cost_usd attribute
+    mock_nelson_state = MagicMock()
+    del mock_nelson_state.cost_usd  # Remove the attribute
+    mock_load.return_value = mock_nelson_state
+
+    # Execute task
+    success = orchestrator.execute_task("PRD-001", "Implement feature", "high")
+
+    # Task should still succeed even with incomplete state
+    assert success is True
+
+    # Verify warning was printed
+    captured = capsys.readouterr()
+    assert "Warning: Could not read Nelson state:" in captured.out
+
+    # Task state should be completed but with no cost data
+    task_state = orchestrator.state_manager.load_task_state(
+        "PRD-001", "Implement feature", "high"
+    )
+    assert task_state.status == TaskStatus.COMPLETED
+    assert task_state.cost_usd == 0.0  # No cost extracted
+
+
+@patch("nelson.state.NelsonState.load")
+@patch("nelson.prd_orchestrator.Path")
+@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.subprocess.run")
+def test_cost_extraction_with_zero_cost(
+    mock_run: Mock,
+    mock_ensure_branch: Mock,
+    mock_path: Mock,
+    mock_load: Mock,
+    orchestrator: PRDOrchestrator,
+):
+    """Test that cost extraction correctly handles zero cost from Nelson."""
+    # Setup mocks
+    mock_ensure_branch.return_value = "feature/PRD-001-test-task"
+    mock_run.return_value = Mock(returncode=0)
+
+    # Mock Path.exists() to return True
+    mock_nelson_state_path = MagicMock()
+    mock_nelson_state_path.exists.return_value = True
+    mock_path.return_value.__truediv__.return_value.__truediv__.return_value = mock_nelson_state_path
+
+    # Mock Nelson state with zero cost (valid scenario for cached responses)
+    mock_nelson_state = MagicMock()
+    mock_nelson_state.cost_usd = 0.0
+    mock_nelson_state.total_iterations = 3
+    mock_nelson_state.current_phase = 2
+    mock_nelson_state.phase_name = "IMPLEMENT"
+    mock_load.return_value = mock_nelson_state
+
+    # Execute task
+    success = orchestrator.execute_task("PRD-001", "Implement feature", "high")
+
+    # Task should succeed
+    assert success is True
+
+    # Verify zero cost was correctly extracted
+    task_state = orchestrator.state_manager.load_task_state(
+        "PRD-001", "Implement feature", "high"
+    )
+    assert task_state.cost_usd == 0.0
+    assert task_state.iterations == 3
+    assert task_state.status == TaskStatus.COMPLETED
+
+
+@patch("nelson.state.NelsonState.load")
+@patch("nelson.prd_orchestrator.Path")
+@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.subprocess.run")
+def test_cost_extraction_with_high_cost_values(
+    mock_run: Mock,
+    mock_ensure_branch: Mock,
+    mock_path: Mock,
+    mock_load: Mock,
+    orchestrator: PRDOrchestrator,
+):
+    """Test that cost extraction handles large cost values correctly."""
+    # Setup mocks
+    mock_ensure_branch.return_value = "feature/PRD-001-test-task"
+    mock_run.return_value = Mock(returncode=0)
+
+    # Mock Path.exists() to return True
+    mock_nelson_state_path = MagicMock()
+    mock_nelson_state_path.exists.return_value = True
+    mock_path.return_value.__truediv__.return_value.__truediv__.return_value = mock_nelson_state_path
+
+    # Mock Nelson state with high cost (100+ iterations, expensive task)
+    mock_nelson_state = MagicMock()
+    mock_nelson_state.cost_usd = 47.85  # High cost
+    mock_nelson_state.total_iterations = 150
+    mock_nelson_state.current_phase = 6
+    mock_nelson_state.phase_name = "COMMIT"
+    mock_load.return_value = mock_nelson_state
+
+    # Execute task
+    success = orchestrator.execute_task("PRD-001", "Implement feature", "high")
+
+    # Task should succeed
+    assert success is True
+
+    # Verify high cost was correctly extracted
+    task_state = orchestrator.state_manager.load_task_state(
+        "PRD-001", "Implement feature", "high"
+    )
+    assert task_state.cost_usd == 47.85
+    assert task_state.iterations == 150
+    assert task_state.phase == 6
+    assert task_state.phase_name == "COMMIT"
+    assert task_state.status == TaskStatus.COMPLETED
+
+
+@patch("nelson.state.NelsonState.load")
+@patch("nelson.prd_orchestrator.Path")
+@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.subprocess.run")
+def test_cost_extraction_with_partial_phase_data(
+    mock_run: Mock,
+    mock_ensure_branch: Mock,
+    mock_path: Mock,
+    mock_load: Mock,
+    orchestrator: PRDOrchestrator,
+):
+    """Test that cost extraction handles partial phase data (None values)."""
+    # Setup mocks
+    mock_ensure_branch.return_value = "feature/PRD-001-test-task"
+    mock_run.return_value = Mock(returncode=0)
+
+    # Mock Path.exists() to return True
+    mock_nelson_state_path = MagicMock()
+    mock_nelson_state_path.exists.return_value = True
+    mock_path.return_value.__truediv__.return_value.__truediv__.return_value = mock_nelson_state_path
+
+    # Mock Nelson state with None phase (edge case)
+    mock_nelson_state = MagicMock()
+    mock_nelson_state.cost_usd = 2.50
+    mock_nelson_state.total_iterations = 10
+    mock_nelson_state.current_phase = None  # Missing phase
+    mock_nelson_state.phase_name = "PLAN"
+    mock_load.return_value = mock_nelson_state
+
+    # Execute task
+    success = orchestrator.execute_task("PRD-001", "Implement feature", "high")
+
+    # Task should succeed
+    assert success is True
+
+    # Verify cost and iterations were extracted but phase update was skipped
+    task_state = orchestrator.state_manager.load_task_state(
+        "PRD-001", "Implement feature", "high"
+    )
+    assert task_state.cost_usd == 2.50
+    assert task_state.iterations == 10
+    # Phase should remain at default (not updated due to None)
+    assert task_state.phase is None
+    assert task_state.status == TaskStatus.COMPLETED
+
+
 @patch("nelson.prd_orchestrator.PRDOrchestrator.execute_task")
 def test_execute_all_pending_runs_all_tasks(
     mock_execute: Mock,

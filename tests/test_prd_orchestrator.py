@@ -341,6 +341,7 @@ def test_execute_task_with_nelson_args(
     assert "50" in args
 
 
+@patch("nelson.prd_orchestrator.Path")
 @patch("nelson.prd_orchestrator.ensure_branch_for_task")
 @patch("nelson.prd_orchestrator.subprocess.run")
 @patch("nelson.prd_orchestrator.NelsonState.load")
@@ -348,12 +349,19 @@ def test_execute_task_updates_cost_from_nelson_state(
     mock_load: Mock,
     mock_run: Mock,
     mock_ensure_branch: Mock,
+    mock_path: Mock,
     orchestrator: PRDOrchestrator,
 ):
     """Test that execute_task updates cost from Nelson state."""
     # Setup mocks
     mock_ensure_branch.return_value = "feature/PRD-001-implement-user-authentication"
     mock_run.return_value = Mock(returncode=0)
+
+    # Mock Path.exists() to return True so the Nelson state loading code runs
+    mock_nelson_state_path = MagicMock()
+    mock_nelson_state_path.exists.return_value = True
+    # Make Path() return the mock path when called with ".nelson/runs" division
+    mock_path.return_value.__truediv__.return_value.__truediv__.return_value = mock_nelson_state_path
 
     # Mock Nelson state with cost data
     mock_nelson_state = MagicMock()

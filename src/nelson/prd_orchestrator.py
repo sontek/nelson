@@ -13,7 +13,27 @@ from nelson.git_utils import GitError
 from nelson.prd_branch import ensure_branch_for_task
 from nelson.prd_parser import PRDParser, PRDTaskStatus
 from nelson.prd_state import PRDStateManager
+from nelson.prd_task_state import TaskStatus
 from nelson.state import NelsonState
+
+
+def _prd_status_to_task_status(prd_status: PRDTaskStatus) -> str:
+    """Convert PRDTaskStatus to TaskStatus enum value.
+
+    Args:
+        prd_status: Status from PRD file
+
+    Returns:
+        TaskStatus enum value string
+    """
+    if prd_status == PRDTaskStatus.COMPLETED:
+        return TaskStatus.COMPLETED.value
+    elif prd_status == PRDTaskStatus.IN_PROGRESS:
+        return TaskStatus.IN_PROGRESS.value
+    elif prd_status == PRDTaskStatus.BLOCKED:
+        return TaskStatus.BLOCKED.value
+    else:  # PENDING
+        return TaskStatus.PENDING.value
 
 
 class PRDOrchestrator:
@@ -421,21 +441,89 @@ class PRDOrchestrator:
         Returns:
             Dictionary with status information
         """
-        prd_state = self.state_manager.prd_state
-        task_states = self.state_manager.get_all_task_states()
+        # Re-parse to get current status from PRD file
+        self.tasks = self.parser.parse()
 
-        # Convert TaskState objects to dictionaries for iteration
-        tasks_list = [state.to_dict() for state in task_states.values()]
+        # Count statuses from parsed PRD file (source of truth)
+        completed_count = 0
+        in_progress_count = 0
+        blocked_count = 0
+        pending_count = 0
+        failed_count = 0
+
+        # Build tasks list with merged data from PRD file and state files
+        tasks_list = []
+        total_cost = 0.0
+
+        for task in self.tasks:
+            # Load state file if it exists for this task
+            task_state_path = self.state_manager.get_task_state_path(task.task_id)
+            if task_state_path.exists():
+                task_state = self.state_manager.load_task_state(
+                    task.task_id, task.task_text, task.priority
+                )
+                # Use state from PRD file (source of truth), not from state file
+                # But keep metadata from state file
+                task_dict = {
+                    "task_id": task.task_id,
+                    "task_text": task.task_text,
+                    "status": _prd_status_to_task_status(task.status),  # From PRD file
+                    "priority": task.priority,
+                    "branch": task_state.branch,
+                    "blocking_reason": task_state.blocking_reason,
+                    "resume_context": task_state.resume_context,
+                    "nelson_run_id": task_state.nelson_run_id,
+                    "started_at": task_state.started_at,
+                    "completed_at": task_state.completed_at,
+                    "blocked_at": task_state.blocked_at,
+                    "cost_usd": task_state.cost_usd,
+                    "iterations": task_state.iterations,
+                    "phase": task_state.phase,
+                    "phase_name": task_state.phase_name,
+                }
+                total_cost += task_state.cost_usd
+            else:
+                # No state file exists yet
+                task_dict = {
+                    "task_id": task.task_id,
+                    "task_text": task.task_text,
+                    "status": _prd_status_to_task_status(task.status),  # From PRD file
+                    "priority": task.priority,
+                    "branch": None,
+                    "blocking_reason": None,
+                    "resume_context": None,
+                    "nelson_run_id": None,
+                    "started_at": None,
+                    "completed_at": None,
+                    "blocked_at": None,
+                    "cost_usd": 0.0,
+                    "iterations": 0,
+                    "phase": None,
+                    "phase_name": None,
+                }
+
+            tasks_list.append(task_dict)
+
+            # Count by status from PRD file
+            if task.status == PRDTaskStatus.COMPLETED:
+                completed_count += 1
+            elif task.status == PRDTaskStatus.IN_PROGRESS:
+                in_progress_count += 1
+            elif task.status == PRDTaskStatus.BLOCKED:
+                blocked_count += 1
+            elif task.status == PRDTaskStatus.PENDING:
+                pending_count += 1
+            # Note: FAILED status doesn't have a marker in PRD file
 
         return {
             "prd_file": str(self.prd_file),
             "total_tasks": len(self.tasks),
-            "completed": prd_state.completed_count,
-            "in_progress": prd_state.in_progress_count,
-            "blocked": prd_state.blocked_count,
-            "pending": prd_state.pending_count,
-            "failed": prd_state.failed_count,
-            "total_cost": prd_state.total_cost_usd,
+            "completed": completed_count,
+            "in_progress": in_progress_count,
+            "blocked": blocked_count,
+            "pending": pending_count,
+            "failed": failed_count,
+            "total_cost": total_cost,
             "tasks": tasks_list,
         }
 

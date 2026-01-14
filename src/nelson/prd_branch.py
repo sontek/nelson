@@ -8,7 +8,25 @@ import re
 import subprocess
 from pathlib import Path
 
-from nelson.git_utils import GitError, get_current_branch, get_git_status
+from nelson.git_utils import GitError, get_current_branch, get_git_status, is_git_repo
+
+
+def _ensure_git_repo(path: Path | None = None) -> None:
+    """Validate that we're in a git repository.
+
+    Args:
+        path: Directory to check. Defaults to current directory.
+
+    Raises:
+        GitError: If not in a git repository
+    """
+    if not is_git_repo(path):
+        location = f"'{path}'" if path else "current directory"
+        raise GitError(
+            f"Not a git repository: {location}\n"
+            "nelson-prd requires a git repository for branch management.\n"
+            "Initialize one with: git init"
+        )
 
 
 def slugify_task_text(text: str, max_length: int = 40) -> str:
@@ -80,7 +98,12 @@ def branch_exists(branch_name: str, path: Path | None = None) -> bool:
 
     Returns:
         True if branch exists, False otherwise
+
+    Raises:
+        GitError: If not in a git repository
     """
+    _ensure_git_repo(path)
+
     cmd = ["git"]
     if path:
         cmd.extend(["-C", str(path)])
@@ -109,9 +132,11 @@ def create_branch(
         force: If True, overwrite existing branch
 
     Raises:
-        GitError: If branch creation fails
+        GitError: If branch creation fails or not in a git repository
         ValueError: If branch already exists and force=False
     """
+    _ensure_git_repo(path)
+
     # Check if branch already exists
     if branch_exists(branch_name, path) and not force:
         raise ValueError(f"Branch already exists: {branch_name}")
@@ -145,8 +170,10 @@ def switch_branch(branch_name: str, path: Path | None = None) -> None:
         path: Repository path. Defaults to current directory.
 
     Raises:
-        GitError: If branch switch fails or there are uncommitted changes
+        GitError: If branch switch fails, there are uncommitted changes, or not in a git repository
     """
+    _ensure_git_repo(path)
+
     # Check for uncommitted changes
     status = get_git_status(path)
     if status.has_uncommitted_changes:
@@ -184,9 +211,11 @@ def create_and_switch_branch(
         force: If True, overwrite existing branch
 
     Raises:
-        GitError: If operation fails
+        GitError: If operation fails or not in a git repository
         ValueError: If branch already exists and force=False
     """
+    _ensure_git_repo(path)
+
     # Check if branch exists
     exists = branch_exists(branch_name, path)
 
@@ -231,8 +260,10 @@ def delete_branch(
         force: If True, force delete even if unmerged
 
     Raises:
-        GitError: If branch deletion fails
+        GitError: If branch deletion fails or not in a git repository
     """
+    _ensure_git_repo(path)
+
     # Check if we're on the branch we're trying to delete
     current = get_current_branch(path)
     if current == branch_name:
@@ -275,8 +306,10 @@ def ensure_branch_for_task(
         Branch name that was created/switched to
 
     Raises:
-        GitError: If operation fails
+        GitError: If operation fails or not in a git repository
     """
+    _ensure_git_repo(path)
+
     branch_name = generate_branch_name(task_id, task_text)
 
     # Check if branch exists

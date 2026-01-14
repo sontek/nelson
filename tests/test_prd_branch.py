@@ -1,9 +1,20 @@
 """Tests for prd_branch module."""
 
+from pathlib import Path
+from unittest.mock import patch
 
+import pytest
+
+from nelson.git_utils import GitError
 from nelson.prd_branch import (
+    branch_exists,
+    create_and_switch_branch,
+    create_branch,
+    delete_branch,
+    ensure_branch_for_task,
     generate_branch_name,
     slugify_task_text,
+    switch_branch,
 )
 
 
@@ -147,6 +158,125 @@ def test_slugify_truncation_doesnt_break_words_badly():
     assert not slug.endswith("-")
 
 
-# Note: Tests for actual git operations (branch_exists, create_branch, etc.)
-# would require a git repository setup and are better suited for integration tests.
-# The above tests cover the pure Python logic that doesn't require git.
+# Git Repository Validation Tests
+
+
+@patch("nelson.prd_branch.is_git_repo")
+def test_branch_exists_requires_git_repo(mock_is_git_repo):
+    """Test that branch_exists validates git repository."""
+    mock_is_git_repo.return_value = False
+
+    with pytest.raises(GitError) as excinfo:
+        branch_exists("feature/test", Path("/tmp/not-a-repo"))
+
+    assert "Not a git repository" in str(excinfo.value)
+    assert "nelson-prd requires a git repository" in str(excinfo.value)
+    assert "git init" in str(excinfo.value)
+    mock_is_git_repo.assert_called_once_with(Path("/tmp/not-a-repo"))
+
+
+@patch("nelson.prd_branch.is_git_repo")
+def test_create_branch_requires_git_repo(mock_is_git_repo):
+    """Test that create_branch validates git repository."""
+    mock_is_git_repo.return_value = False
+
+    with pytest.raises(GitError) as excinfo:
+        create_branch("feature/test")
+
+    assert "Not a git repository" in str(excinfo.value)
+    assert "current directory" in str(excinfo.value)
+    mock_is_git_repo.assert_called_once_with(None)
+
+
+@patch("nelson.prd_branch.is_git_repo")
+def test_switch_branch_requires_git_repo(mock_is_git_repo):
+    """Test that switch_branch validates git repository."""
+    mock_is_git_repo.return_value = False
+
+    with pytest.raises(GitError) as excinfo:
+        switch_branch("feature/test")
+
+    assert "Not a git repository" in str(excinfo.value)
+    mock_is_git_repo.assert_called_once_with(None)
+
+
+@patch("nelson.prd_branch.is_git_repo")
+def test_create_and_switch_branch_requires_git_repo(mock_is_git_repo):
+    """Test that create_and_switch_branch validates git repository."""
+    mock_is_git_repo.return_value = False
+
+    with pytest.raises(GitError) as excinfo:
+        create_and_switch_branch("feature/test", Path("/tmp/not-a-repo"))
+
+    assert "Not a git repository" in str(excinfo.value)
+    assert "/tmp/not-a-repo" in str(excinfo.value)
+    mock_is_git_repo.assert_called_once_with(Path("/tmp/not-a-repo"))
+
+
+@patch("nelson.prd_branch.is_git_repo")
+def test_delete_branch_requires_git_repo(mock_is_git_repo):
+    """Test that delete_branch validates git repository."""
+    mock_is_git_repo.return_value = False
+
+    with pytest.raises(GitError) as excinfo:
+        delete_branch("feature/test")
+
+    assert "Not a git repository" in str(excinfo.value)
+    mock_is_git_repo.assert_called_once_with(None)
+
+
+@patch("nelson.prd_branch.is_git_repo")
+def test_ensure_branch_for_task_requires_git_repo(mock_is_git_repo):
+    """Test that ensure_branch_for_task validates git repository."""
+    mock_is_git_repo.return_value = False
+
+    with pytest.raises(GitError) as excinfo:
+        ensure_branch_for_task("PRD-001", "Add authentication")
+
+    assert "Not a git repository" in str(excinfo.value)
+    mock_is_git_repo.assert_called_once_with(None)
+
+
+@patch("nelson.prd_branch.is_git_repo")
+def test_git_repo_validation_with_valid_repo(mock_is_git_repo):
+    """Test that functions proceed when in a valid git repository."""
+    mock_is_git_repo.return_value = True
+
+    # branch_exists should proceed to git command (which will fail without real git)
+    # We're just testing that the validation passes
+    with patch("nelson.prd_branch.subprocess.run") as mock_run:
+        mock_run.return_value.returncode = 1  # Branch doesn't exist
+        result = branch_exists("test-branch")
+        assert result is False
+        mock_is_git_repo.assert_called_with(None)
+
+
+@patch("nelson.prd_branch.is_git_repo")
+def test_git_repo_validation_error_message_for_path(mock_is_git_repo):
+    """Test error message includes path when provided."""
+    mock_is_git_repo.return_value = False
+    test_path = Path("/tmp/my-project")
+
+    with pytest.raises(GitError) as excinfo:
+        branch_exists("test", test_path)
+
+    error_msg = str(excinfo.value)
+    assert "/tmp/my-project" in error_msg
+    assert "Not a git repository" in error_msg
+
+
+@patch("nelson.prd_branch.is_git_repo")
+def test_git_repo_validation_error_message_for_current_dir(mock_is_git_repo):
+    """Test error message mentions current directory when no path provided."""
+    mock_is_git_repo.return_value = False
+
+    with pytest.raises(GitError) as excinfo:
+        branch_exists("test", None)
+
+    error_msg = str(excinfo.value)
+    assert "current directory" in error_msg
+    assert "Not a git repository" in error_msg
+
+
+# Note: Full integration tests with real git operations are in
+# tests/integration/test_prd_git_integration.py

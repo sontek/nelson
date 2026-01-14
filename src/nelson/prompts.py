@@ -194,58 +194,74 @@ def _get_review_prompt(plan_file: Path, decisions_file: Path) -> str:
     """Generate Phase 3 (REVIEW) prompt."""
     return f"""Read {decisions_file}, {plan_file}. Find FIRST unchecked Phase 3 task.
 
-Review Phase 2 commits: git log + git status
+IF task is "Review all changes" or similar review task:
+  Review Phase 2 commits: git log + git status
 
-COMPREHENSIVE CODE REVIEW CHECKLIST:
+  COMPREHENSIVE CODE REVIEW CHECKLIST:
 
-1. CORRECTNESS & BUGS:
-   - Logic errors, off-by-one errors, incorrect algorithms
-   - Edge cases: null/undefined, empty collections, boundary values
-   - Race conditions, concurrency issues
-   - Proper error handling and validation
-   - Return values and side effects are correct
+  1. CORRECTNESS & BUGS:
+     - Logic errors, off-by-one errors, incorrect algorithms
+     - Edge cases: null/undefined, empty collections, boundary values
+     - Race conditions, concurrency issues
+     - Proper error handling and validation
+     - Return values and side effects are correct
 
-2. CODEBASE PATTERNS & CONSISTENCY:
-   - Follows existing architectural patterns in the codebase
-   - Uses same libraries/frameworks as similar features
-   - Matches naming conventions (functions, variables, files)
-   - Consistent code style with existing code
-   - Follows established project structure/organization
+  2. CODEBASE PATTERNS & CONSISTENCY:
+     - Follows existing architectural patterns in the codebase
+     - Uses same libraries/frameworks as similar features
+     - Matches naming conventions (functions, variables, files)
+     - Consistent code style with existing code
+     - Follows established project structure/organization
 
-3. CODE QUALITY:
-   - Readable and maintainable
-   - No unnecessary complexity or over-engineering
-   - Proper abstractions and separation of concerns
-   - No code duplication that should be refactored
-   - Type safety (if applicable: TypeScript, Python type hints, etc.)
+  3. CODE QUALITY:
+     - Readable and maintainable
+     - No unnecessary complexity or over-engineering
+     - Proper abstractions and separation of concerns
+     - No code duplication that should be refactored
+     - Type safety (if applicable: TypeScript, Python type hints, etc.)
 
-4. SECURITY:
-   - No SQL injection, XSS, command injection vulnerabilities
-   - Proper input validation and sanitization
-   - No hardcoded secrets or sensitive data
-   - Secure authentication/authorization checks
+  4. SECURITY:
+     - No SQL injection, XSS, command injection vulnerabilities
+     - Proper input validation and sanitization
+     - No hardcoded secrets or sensitive data
+     - Secure authentication/authorization checks
 
-5. COMPLETENESS:
-   - No TODO/FIXME/XXX comments or placeholder stubs
-   - All implementations are production-ready, not partial
-   - Adequate test coverage for new functionality
-   - Required edge cases are handled
+  5. COMPLETENESS:
+     - No TODO/FIXME/XXX comments or placeholder stubs
+     - All implementations are production-ready, not partial
+     - Adequate test coverage for new functionality
+     - Required edge cases are handled
 
-6. UNWANTED CHANGES:
-   - No unwanted docs (README, SUMMARY.md, guides)
-   - No .claude/ or .nelson/ files
-   - No unrelated refactoring or scope creep
+  6. UNWANTED CHANGES:
+     - No unwanted docs (README, SUMMARY.md, guides)
+     - No .claude/ or .nelson/ files
+     - No unrelated refactoring or scope creep
 
-IF issues found:
-  - Add '- [ ] Fix: description' tasks to Phase 3 (be specific about what's wrong)
-  - Mark current task [x]
-  - STOP
+  REVIEW STANDARD - Flag ANY of these as blocking issues:
+  - BUGS: Logic errors, incorrect behavior, missing edge case handling
+  - SECURITY: Any security vulnerability from checklist above
+  - INCOMPLETE: TODO/FIXME/XXX comments, placeholder code, partial implementations
+  - HARDCODED VALUES: Magic numbers/strings that should be constants or configurable
+  - MISSING TESTS: New logic with complex edge cases that lacks test coverage
+  - BREAKING CHANGES: Changes to public APIs/data structures without migration path
+  - INCONSISTENT: Violates established codebase patterns (check similar code)
 
-IF no issues:
-  - Mark task [x]
-  - STOP (Nelson advances to Phase 4)
+  IF you find ANY blocking issues:
+    - Add '- [ ] Fix: <specific issue with file:line>' to Phase 3 for EACH issue
+    - Be specific: "Fix: Hardcoded threshold 10 in workflow.py:445 should be config"
+    - Mark current review task [x], log to {decisions_file}, STOP
 
-Note: Phase 2 commits already made. Review fixes also get committed.
+  IF no blocking issues found (verified ALL categories):
+    - Mark task [x], log to {decisions_file}, STOP
+    - Nelson advances to Phase 4
+
+IF task starts with "Fix:":
+  - Fix the ONE specific issue described in the task
+  - Stage changes: git add (ONLY files you modified)
+  - Create commit with message describing the fix
+  - Mark task [x], log to {decisions_file}, STOP
+
+When all Phase 3 tasks [x]: Nelson advances to Phase 4
 """
 
 
@@ -305,14 +321,23 @@ COMPREHENSIVE FINAL REVIEW - Tests passed, now verify ALL changes:
    - Edge cases covered
    - Critical paths tested
 
-IF issues found:
-  - Add fix tasks to Phase 5 with specific details (will be committed)
-  - Mark current task [x]
-  - STOP (returns to Phase 4 after fixes)
+REVIEW STANDARD - Flag ANY of these as critical issues:
+- BUGS: Logic errors, incorrect behavior, missing edge case handling
+- SECURITY: Any security vulnerability
+- INCOMPLETE: TODO/FIXME/XXX comments, placeholder code
+- BREAKING CHANGES: API/data structure changes without migration path
+- TEST FAILURES MISSED: Tests should have caught this but didn't
+- CRITICAL QUALITY: Major code quality issues that will cause problems
 
-IF no issues:
-  - Mark task [x]
-  - STOP (Nelson advances to Phase 6)
+IF you find ANY critical issues:
+  - Add '- [ ] Fix: <specific issue with file:line>' tasks to Phase 2 (IMPLEMENT)
+  - Be specific: "Fix: Race condition in auth.py:123 when token expires"
+  - Mark current task [x], log to {decisions_file}, STOP
+  - Nelson will loop back to Phase 2 → 3 → 4 → 5 for full SDLC cycle
+
+IF no critical issues found (verified ALL categories):
+  - Mark task [x], log to {decisions_file}, STOP
+  - Nelson advances to Phase 6 (COMMIT)
 
 This is the FINAL checkpoint before commit - be thorough.
 """

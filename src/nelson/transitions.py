@@ -101,11 +101,14 @@ def determine_next_phase(
             return Phase.TEST
         return Phase.FINAL_REVIEW
 
-    # Phase 5 (FINAL_REVIEW) → Phase 4 (TEST if unchecked) OR Phase 6 (COMMIT)
+    # Phase 5 (FINAL_REVIEW) → Phase 2 (IMPLEMENT if unchecked) OR Phase 6 (COMMIT)
     if current == Phase.FINAL_REVIEW:
-        if has_unchecked_tasks(Phase.FINAL_REVIEW, plan_file):
-            # If final review found issues, go back to TEST to verify fixes
-            return Phase.TEST
+        # Check if Phase 2 has unchecked tasks (Phase 5 may have added Fix tasks there)
+        if has_unchecked_tasks(Phase.IMPLEMENT, plan_file):
+            # Final review found issues and added Fix tasks to Phase 2
+            # Loop back to IMPLEMENT for full SDLC cycle: 2 → 3 → 4 → 5
+            # This ensures fixes get code reviewed (Phase 3) and tested (Phase 4)
+            return Phase.IMPLEMENT
         return Phase.COMMIT
 
     # Phase 6 (COMMIT) → None (done)

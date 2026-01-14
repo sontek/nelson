@@ -776,8 +776,17 @@ def test_execute_all_pending_runs_all_tasks(
     orchestrator: PRDOrchestrator,
 ):
     """Test that execute_all_pending runs all pending tasks."""
-    # Setup mock to return success
-    mock_execute.return_value = True
+    # Track which tasks have been executed to simulate completion
+    executed_tasks = set()
+
+    def execute_side_effect(task_id, *args, **kwargs):
+        # Mark task as executed
+        executed_tasks.add(task_id)
+        # Actually update the PRD file to mark as complete
+        orchestrator.parser.update_task_status(task_id, PRDTaskStatus.COMPLETED)
+        return True
+
+    mock_execute.side_effect = execute_side_effect
 
     # Execute all pending
     results = orchestrator.execute_all_pending()
@@ -802,7 +811,17 @@ def test_execute_all_pending_stops_on_failure(
 ):
     """Test that execute_all_pending stops on failure when requested."""
     # Setup mock to fail on second task
-    mock_execute.side_effect = [True, False, True, True, True]
+    call_count = [0]
+
+    def execute_side_effect(task_id, *args, **kwargs):
+        call_count[0] += 1
+        success = call_count[0] != 2  # Fail on second call
+        if success:
+            # Update PRD file to mark as complete
+            orchestrator.parser.update_task_status(task_id, PRDTaskStatus.COMPLETED)
+        return success
+
+    mock_execute.side_effect = execute_side_effect
 
     # Execute all pending with stop_on_failure
     results = orchestrator.execute_all_pending(stop_on_failure=True)
@@ -823,7 +842,17 @@ def test_execute_all_pending_continues_on_failure(
 ):
     """Test that execute_all_pending continues on failure by default."""
     # Setup mock to fail on second task
-    mock_execute.side_effect = [True, False, True, True, True]
+    call_count = [0]
+
+    def execute_side_effect(task_id, *args, **kwargs):
+        call_count[0] += 1
+        success = call_count[0] != 2  # Fail on second call
+        if success:
+            # Update PRD file to mark as complete
+            orchestrator.parser.update_task_status(task_id, PRDTaskStatus.COMPLETED)
+        return success
+
+    mock_execute.side_effect = execute_side_effect
 
     # Execute all pending without stop_on_failure
     results = orchestrator.execute_all_pending(stop_on_failure=False)
@@ -841,8 +870,12 @@ def test_execute_all_pending_with_nelson_args(
     orchestrator: PRDOrchestrator,
 ):
     """Test that execute_all_pending passes Nelson args to execute_task."""
-    # Setup mock
-    mock_execute.return_value = True
+    def execute_side_effect(task_id, *args, **kwargs):
+        # Update PRD file to mark as complete
+        orchestrator.parser.update_task_status(task_id, PRDTaskStatus.COMPLETED)
+        return True
+
+    mock_execute.side_effect = execute_side_effect
 
     # Execute with Nelson args
     nelson_args = ["--max-iterations", "75"]

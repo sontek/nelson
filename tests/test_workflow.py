@@ -340,6 +340,31 @@ class TestCircuitBreaker:
 
         assert result == CircuitBreakerResult.OK
 
+    def test_circuit_breaker_same_phase_loop(self, orchestrator: WorkflowOrchestrator) -> None:
+        """Test circuit breaker detects excessive looping in same phase."""
+        # Set state to a looping phase (REVIEW = 3)
+        orchestrator.state.current_phase = Phase.REVIEW.value
+        orchestrator.state.last_phase_tracked = Phase.REVIEW.value
+
+        status_block = {
+            "exit_signal": False,
+            "tasks_completed": 1,
+            "files_modified": 0,
+            "work_type": "REVIEW",
+            "status": "IN_PROGRESS",
+            "recommendation": "Continue",
+        }
+
+        # Loop 10 times in the same phase - should trigger circuit breaker
+        for i in range(10):
+            result = orchestrator._check_circuit_breaker(status_block)
+            if i < 9:
+                # First 9 iterations should be OK
+                assert result == CircuitBreakerResult.OK
+            else:
+                # 10th iteration should trigger
+                assert result == CircuitBreakerResult.TRIGGERED
+
 
 class TestPhaseTransition:
     """Tests for phase transition logic."""

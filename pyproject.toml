@@ -21,6 +21,7 @@ nelson-prd = "nelson.prd_cli:main"
 dev = [
     "pytest>=8.0.0",
     "pytest-cov>=4.1.0",
+    "pytest-timeout>=2.3.0",
     "ruff>=0.1.0",
     "mypy>=1.8.0",
 ]
@@ -57,3 +58,5 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --cov=nelson --cov-report=term-missing"
+# Timeout for each test to prevent hangs (300 seconds = 5 minutes)
+timeout = 300

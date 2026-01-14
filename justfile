@@ -8,13 +8,13 @@ default:
 install:
     uv pip install -e ".[dev]"
 
-# Run all tests with coverage
-test:
-    .venv/bin/pytest
+# Run all tests with coverage (supports args like: just test -k test_name)
+test *ARGS:
+    .venv/bin/pytest {{ARGS}}
 
-# Run tests without coverage report
-test-fast:
-    .venv/bin/pytest --no-cov
+# Run tests without coverage report (supports args like: just test-fast -k test_name)
+test-fast *ARGS:
+    .venv/bin/pytest --no-cov {{ARGS}}
 
 # Run tests in watch mode (requires pytest-watch)
 test-watch:

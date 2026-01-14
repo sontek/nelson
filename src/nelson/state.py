@@ -44,6 +44,8 @@ class NelsonState:
     last_error_message: str = ""  # Last error encountered
     repeated_error_count: int = 0  # Count of repeated identical errors
     test_only_loop_count: int = 0  # Count of consecutive test-only iterations
+    same_phase_loop_count: int = 0  # Count of consecutive iterations in same phase
+    last_phase_tracked: int = 1  # Last phase we tracked for loop detection
 
     # Phase tracking
     current_phase: int = 1

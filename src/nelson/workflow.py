@@ -431,6 +431,24 @@ class WorkflowOrchestrator:
         else:
             exit_signal = bool(exit_signal_value)
 
+        # Track same-phase looping (for looping phases only)
+        current_phase = Phase(self.state.current_phase)
+        if self.state.last_phase_tracked == self.state.current_phase:
+            self.state.same_phase_loop_count += 1
+        else:
+            # Phase changed, reset counter
+            self.state.same_phase_loop_count = 0
+            self.state.last_phase_tracked = self.state.current_phase
+
+        # Check for excessive same-phase looping (10+ consecutive iterations in same looping phase)
+        # This catches cases where EXIT_SIGNAL=true but plan tasks aren't being checked off
+        if current_phase.can_loop and self.state.same_phase_loop_count >= 10:
+            logger.error(
+                f"Same-phase loop detected: {self.state.same_phase_loop_count} iterations "
+                f"in Phase {current_phase.value} ({current_phase.name})"
+            )
+            return CircuitBreakerResult.TRIGGERED
+
         if exit_signal:
             return CircuitBreakerResult.EXIT_SIGNAL
 

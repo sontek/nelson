@@ -7,6 +7,7 @@ Circuit breaker conditions:
 1. No progress: 3+ iterations with 0 tasks completed and 0 files modified
 2. Test-only loops: 3+ consecutive TESTING iterations with no file changes
 3. Repeated errors: Same error pattern occurring 3+ times consecutively
+4. Same-phase loops: 10+ consecutive iterations in same looping phase (REVIEW/TEST/FINAL_REVIEW)
 """
 
 from __future__ import annotations

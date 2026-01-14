@@ -47,30 +47,30 @@ def mock_run_manager(tmp_path: Path, mock_config: NelsonConfig) -> RunManager:
 
 @pytest.fixture
 def sample_plan_file(mock_run_manager: RunManager) -> Path:
-    """Create sample plan file for testing."""
+    """Create sample plan file for testing with all tasks completed."""
     plan_path = mock_run_manager.get_plan_path()
     plan_path.parent.mkdir(parents=True, exist_ok=True)
     plan_path.write_text(
         """# Test Plan
 
 ## Phase 1: PLAN
-- [ ] Create initial plan
+- [x] Create initial plan
 
 ## Phase 2: IMPLEMENT
-- [ ] Implement feature A
-- [ ] Implement feature B
+- [x] Implement feature A
+- [x] Implement feature B
 
 ## Phase 3: REVIEW
-- [ ] Review implementation
+- [x] Review implementation
 
 ## Phase 4: TEST
-- [ ] Run tests
+- [x] Run tests
 
 ## Phase 5: FINAL-REVIEW
-- [ ] Final checks
+- [x] Final checks
 
 ## Phase 6: COMMIT
-- [ ] Create commit
+- [x] Create commit
 """
     )
     return plan_path
@@ -111,28 +111,30 @@ class TestWorkflowIntegration:
         self, mock_config: NelsonConfig, mock_run_manager: RunManager, sample_plan_file: Path
     ) -> None:
         """Test workflow calls AI provider with correct parameters."""
-        # Create mock provider
+        # Create mock provider that exits after first call
         mock_provider = MagicMock(spec=AIProvider)
         mock_provider.execute.return_value = AIResponse(
             content="Response",
             raw_output="raw",
             metadata={},
         )
+        # Return EXIT_SIGNAL=true to exit after one iteration
         mock_provider.extract_status_block.return_value = {
-            "status": "IN_PROGRESS",
-            "tasks_completed_this_loop": "1",
-            "files_modified": "1",
+            "status": "COMPLETE",
+            "tasks_completed": 1,
+            "files_modified": 1,
             "tests_status": "NOT_RUN",
             "work_type": "IMPLEMENTATION",
-            "exit_signal": "false",
-            "recommendation": "Continue",
+            "exit_signal": True,  # Exit immediately
+            "recommendation": "Complete",
         }
+        mock_provider.get_cost.return_value = 0.0
 
         # Create state
         state = NelsonState(current_phase=Phase.IMPLEMENT.value)
         state.save(mock_run_manager.get_state_path())
 
-        # Set low iteration limit to exit quickly
+        # Set low iteration limit to exit quickly if EXIT_SIGNAL doesn't work
         mock_config = NelsonConfig(
             max_iterations=1,
             max_iterations_explicit=True,
@@ -156,11 +158,12 @@ class TestWorkflowIntegration:
             run_dir=mock_run_manager.run_dir,
         )
 
-        # Run workflow
+        # Run workflow - will hit max cycles after completing cycle 0
         try:
             workflow.run(prompt="Test task")
-        except WorkflowError:
-            pass  # May hit limit or circuit breaker
+        except WorkflowError as e:
+            # Expected - should hit limits after completing first cycle
+            assert "stopping due to limits" in str(e).lower()
 
         # Verify provider was called
         assert mock_provider.execute.called
@@ -178,15 +181,17 @@ class TestWorkflowIntegration:
             raw_output=output_content,
             metadata={},
         )
+        # Return EXIT_SIGNAL=true to exit after one call
         mock_provider.extract_status_block.return_value = {
-            "status": "IN_PROGRESS",
-            "tasks_completed_this_loop": "1",
-            "files_modified": "1",
+            "status": "COMPLETE",
+            "tasks_completed": 1,
+            "files_modified": 1,
             "tests_status": "NOT_RUN",
             "work_type": "IMPLEMENTATION",
-            "exit_signal": "false",
-            "recommendation": "Continue",
+            "exit_signal": True,  # Exit immediately
+            "recommendation": "Complete",
         }
+        mock_provider.get_cost.return_value = 0.0
 
         # Create state with low iteration count to stop quickly
         state = NelsonState(current_phase=Phase.IMPLEMENT.value)
@@ -216,11 +221,12 @@ class TestWorkflowIntegration:
             run_dir=mock_run_manager.run_dir,
         )
 
-        # Run workflow
+        # Run workflow - will hit max cycles after completing cycle 0
         try:
             workflow.run(prompt="Test task")
-        except WorkflowError:
-            pass  # Expected - hit iteration limit
+        except WorkflowError as e:
+            # Expected - should hit limits after completing first cycle
+            assert "stopping due to limits" in str(e).lower()
 
         # Verify output was saved
         output_path = mock_run_manager.run_dir / "last_output.txt"
@@ -239,14 +245,15 @@ class TestWorkflowIntegration:
             metadata={},
         )
         mock_provider.extract_status_block.return_value = {
-            "status": "IN_PROGRESS",
-            "tasks_completed_this_loop": "1",
-            "files_modified": "1",
+            "status": "COMPLETE",
+            "tasks_completed": 1,
+            "files_modified": 1,
             "tests_status": "NOT_RUN",
             "work_type": "IMPLEMENTATION",
-            "exit_signal": "false",
-            "recommendation": "Continue",
+            "exit_signal": True,  # Exit immediately
+            "recommendation": "Complete",
         }
+        mock_provider.get_cost.return_value = 0.0
 
         # Create state
         state = NelsonState(current_phase=Phase.IMPLEMENT.value)
@@ -276,11 +283,12 @@ class TestWorkflowIntegration:
             run_dir=mock_run_manager.run_dir,
         )
 
-        # Run workflow
+        # Run workflow - will hit max cycles after completing cycle 0
         try:
             workflow.run(prompt="Test task")
-        except WorkflowError:
-            pass  # May hit limit or circuit breaker
+        except WorkflowError as e:
+            # Expected - should hit limits after completing first cycle
+            assert "stopping due to limits" in str(e).lower()
 
         # Verify state file was created
         state_file = mock_config.nelson_dir / "state.json"
@@ -317,14 +325,15 @@ class TestWorkflowIntegration:
             metadata={},
         )
         mock_provider.extract_status_block.return_value = {
-            "status": "IN_PROGRESS",
-            "tasks_completed_this_loop": "0",
-            "files_modified": "0",
+            "status": "COMPLETE",
+            "tasks_completed": 0,
+            "files_modified": 0,
             "tests_status": "NOT_RUN",
             "work_type": "PLANNING",
-            "exit_signal": "false",
-            "recommendation": "Continue",
+            "exit_signal": True,  # Exit immediately
+            "recommendation": "Complete",
         }
+        mock_provider.get_cost.return_value = 0.0
 
         # Create state in PLAN phase
         state = NelsonState(current_phase=Phase.PLAN.value)

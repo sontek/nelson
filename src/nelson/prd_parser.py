@@ -139,7 +139,8 @@ class PRDParser:
                     errors.append(
                         f"Line {line_num}: Invalid task ID format '{task_id}'\n"
                         f"  Found: {line.strip()}\n"
-                        f"  Expected format: PRD-NNN where NNN is exactly 3 digits (e.g., PRD-001, PRD-042)\n"
+                        f"  Expected format: PRD-NNN where NNN is exactly 3 digits "
+                        f"(e.g., PRD-001, PRD-042)\n"
                         f"  Fix: Change '{task_id}' to format like 'PRD-001'"
                     )
                     continue

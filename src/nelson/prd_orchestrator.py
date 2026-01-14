@@ -7,6 +7,7 @@ execution, branch management, cost tracking, and state transitions.
 
 import subprocess
 from pathlib import Path
+from typing import Any
 
 from nelson.git_utils import GitError
 from nelson.prd_branch import ensure_branch_for_task
@@ -127,7 +128,7 @@ class PRDOrchestrator:
         print(f"   Description: {task_text}")
         print(f"   Branch: {branch_name}")
         if task_state.resume_context:
-            print(f"   🔄 Resuming with context")
+            print("   🔄 Resuming with context")
         print(f"{'='*60}\n")
 
         try:
@@ -202,7 +203,7 @@ class PRDOrchestrator:
             # Keep in-progress in PRD file for manual review
             print(f"\n{'='*60}")
             print(f"❌ Task failed: {task_id}")
-            print(f"   Review the task and fix any issues before resuming")
+            print("   Review the task and fix any issues before resuming")
             print(f"{'='*60}\n")
 
         return success
@@ -235,7 +236,7 @@ class PRDOrchestrator:
         # Show initial progress
         if total_pending > 0:
             print(f"\n{'='*60}")
-            print(f"PRD Execution Progress")
+            print("PRD Execution Progress")
             print(f"{'='*60}")
             print(f"Total tasks in PRD: {total_tasks}")
             print(f"Already completed: {completed_before}")
@@ -270,7 +271,10 @@ class PRDOrchestrator:
             completion_pct = (completed_so_far / total_tasks * 100) if total_tasks > 0 else 0
 
             print(f"\n{'─'*60}")
-            print(f"📊 Progress: {completed_so_far}/{total_tasks} tasks ({completion_pct:.1f}% complete)")
+            print(
+                f"📊 Progress: {completed_so_far}/{total_tasks} tasks "
+                f"({completion_pct:.1f}% complete)"
+            )
             print(f"   Remaining: {remaining} tasks")
             print(f"{'─'*60}")
 
@@ -369,7 +373,7 @@ class PRDOrchestrator:
             print(f"Resume context: {context}")
         return True
 
-    def get_status_summary(self) -> dict:
+    def get_status_summary(self) -> dict[str, Any]:
         """Get summary of all tasks and their status.
 
         Returns:
@@ -393,7 +397,7 @@ class PRDOrchestrator:
             "tasks": tasks_list,
         }
 
-    def get_task_info(self, task_id: str) -> dict | None:
+    def get_task_info(self, task_id: str) -> dict[str, Any] | None:
         """Get detailed information about a specific task.
 
         Args:

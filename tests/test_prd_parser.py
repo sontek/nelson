@@ -606,6 +606,186 @@ def test_backup_directory_created_automatically(tmp_path: Path):
     assert len(backups) == 1
 
 
+def test_backup_cleanup_with_exactly_max_backups(tmp_path: Path):
+    """Test cleanup when exactly MAX_BACKUPS files exist (edge case)."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(VALID_PRD)
+
+    backup_dir = tmp_path / "backups"
+    parser = PRDParser(prd_file, backup_dir=backup_dir)
+    parser.parse()
+
+    # Create exactly MAX_BACKUPS (10) backups
+    for i in range(PRDParser.MAX_BACKUPS):
+        parser.update_task_status("PRD-001", PRDTaskStatus.IN_PROGRESS)
+        parser._tasks = []
+        parser._task_ids = set()
+        parser._current_priority = None
+        parser.parse()
+
+    # Verify exactly MAX_BACKUPS remain (no cleanup needed)
+    backups = list(backup_dir.glob("test-*.md"))
+    assert len(backups) == PRDParser.MAX_BACKUPS
+
+    # Create one more to trigger cleanup
+    parser.update_task_status("PRD-001", PRDTaskStatus.COMPLETED)
+    parser._tasks = []
+    parser._task_ids = set()
+    parser._current_priority = None
+    parser.parse()
+
+    # Should still be MAX_BACKUPS after cleanup
+    backups = list(backup_dir.glob("test-*.md"))
+    assert len(backups) == PRDParser.MAX_BACKUPS
+
+
+def test_backup_cleanup_with_multiple_prd_files(tmp_path: Path):
+    """Test that cleanup only affects backups for the specific PRD file."""
+    prd_file1 = tmp_path / "project1.md"
+    prd_file2 = tmp_path / "project2.md"
+    prd_file1.write_text(VALID_PRD)
+    prd_file2.write_text(VALID_PRD)
+
+    backup_dir = tmp_path / "backups"
+    parser1 = PRDParser(prd_file1, backup_dir=backup_dir)
+    parser2 = PRDParser(prd_file2, backup_dir=backup_dir)
+    parser1.parse()
+    parser2.parse()
+
+    # Create 12 backups for each file
+    for i in range(12):
+        parser1.update_task_status("PRD-001", PRDTaskStatus.IN_PROGRESS)
+        parser1._tasks = []
+        parser1._task_ids = set()
+        parser1._current_priority = None
+        parser1.parse()
+
+        parser2.update_task_status("PRD-001", PRDTaskStatus.IN_PROGRESS)
+        parser2._tasks = []
+        parser2._task_ids = set()
+        parser2._current_priority = None
+        parser2.parse()
+
+    # Each file should have exactly MAX_BACKUPS
+    backups1 = list(backup_dir.glob("project1-*.md"))
+    backups2 = list(backup_dir.glob("project2-*.md"))
+    assert len(backups1) == PRDParser.MAX_BACKUPS
+    assert len(backups2) == PRDParser.MAX_BACKUPS
+
+
+def test_backup_cleanup_preserves_most_recent(tmp_path: Path):
+    """Test that cleanup keeps the most recent backups, not oldest."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(VALID_PRD)
+
+    backup_dir = tmp_path / "backups"
+    parser = PRDParser(prd_file, backup_dir=backup_dir)
+    parser.parse()
+
+    # Create 15 backups and track their timestamps
+    backup_times = []
+    for i in range(15):
+        parser.update_task_status("PRD-001", PRDTaskStatus.IN_PROGRESS)
+        parser._tasks = []
+        parser._task_ids = set()
+        parser._current_priority = None
+        parser.parse()
+
+        # Get the most recent backup
+        backups = sorted(
+            backup_dir.glob("test-*.md"),
+            key=lambda p: p.stat().st_mtime,
+        )
+        if backups:
+            backup_times.append(backups[-1].stat().st_mtime)
+
+    # Should have MAX_BACKUPS remaining
+    remaining_backups = sorted(
+        backup_dir.glob("test-*.md"),
+        key=lambda p: p.stat().st_mtime,
+    )
+    assert len(remaining_backups) == PRDParser.MAX_BACKUPS
+
+    # Verify the remaining backups are the most recent ones
+    remaining_times = [b.stat().st_mtime for b in remaining_backups]
+    # The oldest remaining backup should be newer than any deleted backup
+    oldest_remaining = min(remaining_times)
+    # We expect the 5 oldest backups to be deleted (15 - 10 = 5)
+    # So the oldest remaining should be approximately the 6th backup time
+    assert oldest_remaining >= backup_times[4]  # At least as new as the 5th backup
+
+
+def test_backup_no_file_to_backup(tmp_path: Path):
+    """Test that _create_backup handles missing source file gracefully."""
+    prd_file = tmp_path / "nonexistent.md"
+    backup_dir = tmp_path / "backups"
+
+    parser = PRDParser(prd_file, backup_dir=backup_dir)
+
+    # Calling _create_backup on non-existent file should not raise
+    parser._create_backup()
+
+    # Should not create backup directory if nothing to backup
+    assert not backup_dir.exists()
+
+
+def test_backup_cleanup_handles_deletion_error(tmp_path: Path):
+    """Test that cleanup continues gracefully even if deletion fails."""
+    from unittest.mock import patch
+    import os
+
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(VALID_PRD)
+
+    backup_dir = tmp_path / "backups"
+    parser = PRDParser(prd_file, backup_dir=backup_dir)
+    parser.parse()
+
+    # Create MAX_BACKUPS backups (exactly at the limit)
+    for i in range(PRDParser.MAX_BACKUPS):
+        parser.update_task_status("PRD-001", PRDTaskStatus.IN_PROGRESS)
+        parser._tasks = []
+        parser._task_ids = set()
+        parser._current_priority = None
+        parser.parse()
+
+    # Verify we have exactly MAX_BACKUPS
+    backups_before = sorted(
+        backup_dir.glob("test-*.md"),
+        key=lambda p: p.stat().st_mtime,
+    )
+    assert len(backups_before) == PRDParser.MAX_BACKUPS
+
+    # Mock Path.unlink to raise OSError on first call (simulating permission error)
+    original_unlink = Path.unlink
+    unlink_call_count = [0]
+
+    def mock_unlink(self, *args, **kwargs):
+        unlink_call_count[0] += 1
+        if unlink_call_count[0] == 1:
+            # Simulate permission error on first deletion attempt
+            raise OSError("Permission denied")
+        # Allow other deletions to proceed
+        return original_unlink(self, *args, **kwargs)
+
+    # Patch unlink to simulate permission error
+    with patch.object(Path, "unlink", mock_unlink):
+        # Create one more backup to trigger cleanup
+        parser.update_task_status("PRD-001", PRDTaskStatus.COMPLETED)
+        parser._tasks = []
+        parser._task_ids = set()
+        parser._current_priority = None
+        parser.parse()
+
+    # Cleanup should continue even if one file deletion failed
+    # Because one deletion failed, we end up with MAX_BACKUPS + 1 files
+    remaining_backups = list(backup_dir.glob("test-*.md"))
+    assert len(remaining_backups) == PRDParser.MAX_BACKUPS + 1
+
+    # Verify that unlink was called (attempted cleanup of 1 file)
+    assert unlink_call_count[0] == 1
+
+
 def test_parse_empty_file_error(tmp_path: Path):
     """Test that empty PRD files produce helpful error message."""
     prd_file = tmp_path / "empty.md"

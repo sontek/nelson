@@ -477,7 +477,7 @@ See [FUTURE_FEATURES.md](FUTURE_FEATURES.md) for planned enhancements:
 
 ## License
 
-MIT License - see LICENSE file for details.
+Mozilla Public License 2.0 (MPL-2.0) - see LICENSE file for details.
 
 ## Credits
 

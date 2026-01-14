@@ -26,7 +26,7 @@ from nelson.prompts import (
 )
 from nelson.providers.base import AIProvider, ProviderError
 from nelson.state import NelsonState
-from nelson.transitions import determine_next_phase, should_transition_phase
+from nelson.transitions import determine_next_phase, has_unchecked_tasks, should_transition_phase
 
 logger = get_logger()
 
@@ -221,13 +221,23 @@ class WorkflowOrchestrator:
                 self._log_completion_status(status_block)
 
                 # Special case: Phase 1 in a NEW cycle (cycle > 0) with EXIT_SIGNAL
-                # means no new work found - stop workflow
+                # Only exit if there are truly no unchecked tasks in the plan
                 if current_phase == Phase.PLAN and self.state.cycle_iterations > 0:
-                    # We looped back to Phase 1 after completing a cycle
-                    # EXIT_SIGNAL here means no new work to do
-                    logger.success("Phase 1 in new cycle found no additional work")
-                    logger.success("Workflow complete - exiting")
-                    break
+                    # Check if plan has any unchecked tasks in phases 2-6
+                    has_work_remaining = any(
+                        has_unchecked_tasks(phase, self.plan_file)
+                        for phase in [Phase.IMPLEMENT, Phase.REVIEW, Phase.TEST,
+                                     Phase.FINAL_REVIEW, Phase.COMMIT]
+                    )
+
+                    if not has_work_remaining:
+                        # No unchecked tasks anywhere - truly done
+                        logger.success("Phase 1 in new cycle found no additional work")
+                        logger.success("Workflow complete - exiting")
+                        break
+                    else:
+                        # There are unchecked tasks in later phases - continue to Phase 2
+                        logger.info("Phase 1 complete, continuing to remaining phases")
 
                 # For all other cases: let normal phase transition logic handle it below
 

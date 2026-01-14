@@ -659,6 +659,107 @@ class TestCycleLoopBehavior:
         archived_plan = mock_run_dir / "plan-cycle-1.md"
         assert not archived_plan.exists()
 
+    def test_phase_1_with_unchecked_tasks_continues(
+        self,
+        mock_run_dir: Path,
+        tmp_path: Path,
+    ) -> None:
+        """Test that Phase 1 in new cycle with unchecked tasks continues to Phase 2."""
+        # Create config
+        config = NelsonConfig(
+            max_iterations=5,
+            max_iterations_explicit=True,
+            cost_limit=10.0,
+            nelson_dir=tmp_path / ".nelson",
+            audit_dir=tmp_path / ".nelson" / "audit",
+            runs_dir=tmp_path / ".nelson" / "runs",
+            claude_command="claude",
+            claude_command_path=Path("claude"),
+            model="sonnet",
+            plan_model="sonnet",
+            review_model="sonnet",
+            auto_approve_push=False,
+        )
+
+        # Create state starting at Phase 1, cycle 1 (after completing cycle 0)
+        state = NelsonState(
+            prompt="Test prompt",
+            current_phase=Phase.PLAN.value,
+            total_iterations=0,
+            phase_iterations=0,
+            cycle_iterations=1,
+        )
+
+        # Create provider that returns EXIT_SIGNAL
+        mock_provider = MagicMock()
+
+        # Response: EXIT_SIGNAL
+        response = AIResponse(
+            content="Phase work complete\n"
+            "---NELSON_STATUS---\n"
+            "STATUS: COMPLETE\n"
+            "TASKS_COMPLETED_THIS_LOOP: 1\n"
+            "FILES_MODIFIED: 0\n"
+            "TESTS_STATUS: PASSING\n"
+            "WORK_TYPE: IMPLEMENTATION\n"
+            "EXIT_SIGNAL: true\n"
+            "RECOMMENDATION: Phase complete\n"
+            "---END_NELSON_STATUS---",
+            raw_output="raw1",
+            metadata={},
+            is_error=False,
+        )
+
+        mock_provider.execute.return_value = response
+
+        # Status block with EXIT_SIGNAL
+        status = {
+            "status": "COMPLETE",
+            "tasks_completed": 1,
+            "files_modified": 0,
+            "tests_status": "PASSING",
+            "work_type": "IMPLEMENTATION",
+            "exit_signal": True,
+            "recommendation": "Phase complete",
+        }
+
+        mock_provider.extract_status_block.return_value = status
+        mock_provider.get_cost.return_value = 0.0
+
+        orchestrator = WorkflowOrchestrator(
+            config=config,
+            state=state,
+            provider=mock_provider,
+            run_dir=mock_run_dir,
+        )
+
+        # Create plan file with Phase 1 complete but Phase 3 has unchecked tasks
+        orchestrator.plan_file.write_text(
+            "## Phase 1: PLAN\n"
+            "- [x] Task 1\n"
+            "\n"
+            "## Phase 2: IMPLEMENT\n"
+            "- [x] Task 2\n"
+            "\n"
+            "## Phase 3: REVIEW\n"
+            "- [ ] Review changes\n"
+            "\n"
+            "## Phase 4: TEST\n"
+            "- [ ] Run tests\n"
+        )
+
+        # Run workflow
+        # Phase 1 should send EXIT_SIGNAL but NOT exit because phases 3-4 have unchecked tasks
+        # Should continue to Phase 2, then 3, then 4
+        orchestrator.run("Test prompt")
+
+        # Verify provider was called at least 3 times (Phase 1, 2, 3+)
+        # (may be more depending on how many iterations before hitting max)
+        assert mock_provider.execute.call_count >= 3
+
+        # Verify we didn't exit early - should have progressed past Phase 1
+        assert orchestrator.state.current_phase != Phase.PLAN.value
+
     def test_exit_signal_in_phase_6_uses_natural_cycle_completion(
         self,
         mock_run_dir: Path,

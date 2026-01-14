@@ -3,6 +3,7 @@ name = "nelson"
 version = "0.1.0"
 description = "AI orchestration CLI for autonomous development workflows"
 readme = "README.md"
+license = {text = "MPL-2.0"}
 authors = [
     { name = "John Anderson", email = "sontek@gmail.com" }
 ]

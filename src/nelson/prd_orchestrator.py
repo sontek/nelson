@@ -50,6 +50,35 @@ class PRDOrchestrator:
                 )
         self.state_manager.save_prd_state()
 
+    def check_task_text_changes(self) -> list[dict[str, str]]:
+        """Check if any task texts have changed compared to stored original text.
+
+        Returns:
+            List of dictionaries with change information:
+            [
+                {
+                    "task_id": "PRD-001",
+                    "original_text": "Old task description",
+                    "current_text": "New task description"
+                },
+                ...
+            ]
+        """
+        changes = []
+        task_mapping = self.state_manager.prd_state.task_mapping
+
+        for task in self.tasks:
+            if task.task_id in task_mapping:
+                original_text = task_mapping[task.task_id]["original_text"]
+                if task.task_text != original_text:
+                    changes.append({
+                        "task_id": task.task_id,
+                        "original_text": original_text,
+                        "current_text": task.task_text,
+                    })
+
+        return changes
+
     def get_next_pending_task(self) -> tuple[str, str, str] | None:
         """Get next pending task by priority.
 

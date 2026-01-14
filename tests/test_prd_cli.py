@@ -774,3 +774,118 @@ def test_cli_nelson_args_passed_to_resume_task(
     mock_orchestrator.resume_task.assert_called_once_with(
         "PRD-001", ["--model", "haiku"]
     )
+
+
+@patch("nelson.prd_cli.PRDOrchestrator")
+def test_status_shows_text_change_warnings(
+    mock_orchestrator_class: Mock,
+    cli_runner: CliRunner,
+    temp_prd_file: Path,
+):
+    """Test that status command displays warnings for changed task text."""
+    # Setup mock orchestrator
+    mock_orchestrator = MagicMock()
+    mock_orchestrator_class.return_value = mock_orchestrator
+
+    # Mock status summary
+    mock_orchestrator.get_status_summary.return_value = {
+        "prd_file": str(temp_prd_file),
+        "total_tasks": 2,
+        "completed": 0,
+        "in_progress": 0,
+        "blocked": 0,
+        "pending": 2,
+        "failed": 0,
+        "total_cost": 0.0,
+        "tasks": [
+            {
+                "task_id": "PRD-001",
+                "task_text": "Implement authentication with OAuth",
+                "status": "pending",
+                "branch": None,
+                "blocking_reason": None,
+                "cost_usd": 0.0,
+                "iterations": 0,
+                "phase": None,
+                "phase_name": None,
+            },
+            {
+                "task_id": "PRD-002",
+                "task_text": "Create API endpoints",
+                "status": "pending",
+                "branch": None,
+                "blocking_reason": None,
+                "cost_usd": 0.0,
+                "iterations": 0,
+                "phase": None,
+                "phase_name": None,
+            },
+        ],
+    }
+
+    # Mock text changes
+    mock_orchestrator.check_task_text_changes.return_value = [
+        {
+            "task_id": "PRD-001",
+            "original_text": "Implement user authentication",
+            "current_text": "Implement authentication with OAuth",
+        }
+    ]
+
+    # Run status command
+    result = cli_runner.invoke(main, ["--status", str(temp_prd_file)])
+
+    # Verify warning is displayed
+    assert result.exit_code == 0
+    assert "⚠️  WARNING: Task text changes detected:" in result.output
+    assert "PRD-001" in result.output
+    assert "Implement user authentication" in result.output
+    assert "Implement authentication with OAuth" in result.output
+    assert "Task descriptions have been modified" in result.output
+
+
+@patch("nelson.prd_cli.PRDOrchestrator")
+def test_status_no_warnings_when_no_changes(
+    mock_orchestrator_class: Mock,
+    cli_runner: CliRunner,
+    temp_prd_file: Path,
+):
+    """Test that status command shows no warnings when text hasn't changed."""
+    # Setup mock orchestrator
+    mock_orchestrator = MagicMock()
+    mock_orchestrator_class.return_value = mock_orchestrator
+
+    # Mock status summary
+    mock_orchestrator.get_status_summary.return_value = {
+        "prd_file": str(temp_prd_file),
+        "total_tasks": 1,
+        "completed": 0,
+        "in_progress": 0,
+        "blocked": 0,
+        "pending": 1,
+        "failed": 0,
+        "total_cost": 0.0,
+        "tasks": [
+            {
+                "task_id": "PRD-001",
+                "task_text": "Implement user authentication",
+                "status": "pending",
+                "branch": None,
+                "blocking_reason": None,
+                "cost_usd": 0.0,
+                "iterations": 0,
+                "phase": None,
+                "phase_name": None,
+            }
+        ],
+    }
+
+    # Mock no text changes
+    mock_orchestrator.check_task_text_changes.return_value = []
+
+    # Run status command
+    result = cli_runner.invoke(main, ["--status", str(temp_prd_file)])
+
+    # Verify no warning is displayed
+    assert result.exit_code == 0
+    assert "WARNING: Task text changes detected" not in result.output

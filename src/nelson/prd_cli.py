@@ -236,6 +236,26 @@ def _show_status(orchestrator: PRDOrchestrator) -> None:
     click.echo(f"Total Cost: ${summary['total_cost']:.2f}")
     click.echo(f"{'='*60}\n")
 
+    # Check for task text changes and warn
+    text_changes = orchestrator.check_task_text_changes()
+    if text_changes:
+        click.echo("⚠️  WARNING: Task text changes detected:")
+        click.echo(f"{'='*60}")
+        for change in text_changes:
+            click.echo(f"  Task: {change['task_id']}")
+            click.echo(f"    Original: {change['original_text']}")
+            click.echo(f"    Current:  {change['current_text']}")
+            click.echo()
+        click.echo(
+            "Task descriptions have been modified. This may affect "
+            "branch names and task tracking."
+        )
+        click.echo(
+            "Consider reviewing these changes or creating new task IDs "
+            "if the task scope has changed significantly."
+        )
+        click.echo(f"{'='*60}\n")
+
     # Print task details
     click.echo("Tasks:\n")
 

@@ -1051,3 +1051,173 @@ def test_execute_all_pending_no_pending_tasks(
     # Check that no progress summary is shown when there are no pending tasks
     captured = capsys.readouterr()
     assert "PRD Execution Progress" not in captured.out or "Pending to execute: 0" in captured.out
+
+
+def test_check_task_text_changes_no_changes(orchestrator: PRDOrchestrator):
+    """Test that check_task_text_changes returns empty list when no changes."""
+    changes = orchestrator.check_task_text_changes()
+    assert changes == []
+
+
+def test_check_task_text_changes_with_change(tmp_path: Path):
+    """Test that check_task_text_changes detects when task text is modified."""
+    # Create initial PRD file
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text("""## High Priority
+- [ ] PRD-001 Implement user authentication
+- [ ] PRD-002 Add profile management
+""")
+
+    # Initialize orchestrator (will store original text)
+    prd_dir = tmp_path / ".nelson/prd"
+    orchestrator = PRDOrchestrator(prd_file, prd_dir)
+
+    # Verify no changes yet
+    changes = orchestrator.check_task_text_changes()
+    assert changes == []
+
+    # Modify the PRD file
+    prd_file.write_text("""## High Priority
+- [ ] PRD-001 Implement authentication with OAuth
+- [ ] PRD-002 Add profile management
+""")
+
+    # Re-parse to get updated tasks
+    orchestrator.tasks = orchestrator.parser.parse()
+
+    # Check for changes
+    changes = orchestrator.check_task_text_changes()
+
+    # Verify change detected
+    assert len(changes) == 1
+    assert changes[0]["task_id"] == "PRD-001"
+    assert changes[0]["original_text"] == "Implement user authentication"
+    assert changes[0]["current_text"] == "Implement authentication with OAuth"
+
+
+def test_check_task_text_changes_multiple_changes(tmp_path: Path):
+    """Test detection of multiple task text changes."""
+    # Create initial PRD file
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text("""## High Priority
+- [ ] PRD-001 Task one
+- [ ] PRD-002 Task two
+- [ ] PRD-003 Task three
+""")
+
+    # Initialize orchestrator
+    prd_dir = tmp_path / ".nelson/prd"
+    orchestrator = PRDOrchestrator(prd_file, prd_dir)
+
+    # Modify multiple tasks
+    prd_file.write_text("""## High Priority
+- [ ] PRD-001 Task one modified
+- [ ] PRD-002 Task two completely different
+- [ ] PRD-003 Task three
+""")
+
+    # Re-parse
+    orchestrator.tasks = orchestrator.parser.parse()
+
+    # Check for changes
+    changes = orchestrator.check_task_text_changes()
+
+    # Verify both changes detected
+    assert len(changes) == 2
+
+    # Find changes by task_id
+    changes_dict = {c["task_id"]: c for c in changes}
+
+    assert "PRD-001" in changes_dict
+    assert changes_dict["PRD-001"]["original_text"] == "Task one"
+    assert changes_dict["PRD-001"]["current_text"] == "Task one modified"
+
+    assert "PRD-002" in changes_dict
+    assert changes_dict["PRD-002"]["original_text"] == "Task two"
+    assert changes_dict["PRD-002"]["current_text"] == "Task two completely different"
+
+
+def test_check_task_text_changes_whitespace_difference(tmp_path: Path):
+    """Test that whitespace changes are detected (strict comparison)."""
+    # Create initial PRD file
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text("""## High Priority
+- [ ] PRD-001 Task description
+""")
+
+    # Initialize orchestrator
+    prd_dir = tmp_path / ".nelson/prd"
+    orchestrator = PRDOrchestrator(prd_file, prd_dir)
+
+    # Modify with extra whitespace
+    prd_file.write_text("""## High Priority
+- [ ] PRD-001 Task  description
+""")
+
+    # Re-parse
+    orchestrator.tasks = orchestrator.parser.parse()
+
+    # Check for changes
+    changes = orchestrator.check_task_text_changes()
+
+    # Verify whitespace change detected
+    assert len(changes) == 1
+    assert changes[0]["task_id"] == "PRD-001"
+    assert changes[0]["original_text"] == "Task description"
+    assert changes[0]["current_text"] == "Task  description"
+
+
+def test_check_task_text_changes_new_task_not_reported(tmp_path: Path):
+    """Test that new tasks (not in mapping yet) are not reported as changes."""
+    # Create initial PRD file
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text("""## High Priority
+- [ ] PRD-001 First task
+""")
+
+    # Initialize orchestrator
+    prd_dir = tmp_path / ".nelson/prd"
+    orchestrator = PRDOrchestrator(prd_file, prd_dir)
+
+    # Add a new task
+    prd_file.write_text("""## High Priority
+- [ ] PRD-001 First task
+- [ ] PRD-002 Second task
+""")
+
+    # Re-parse
+    orchestrator.tasks = orchestrator.parser.parse()
+
+    # Check for changes - new task should not be reported as change
+    changes = orchestrator.check_task_text_changes()
+    assert changes == []
+
+
+def test_check_task_text_changes_case_sensitive(tmp_path: Path):
+    """Test that text comparison is case-sensitive."""
+    # Create initial PRD file
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text("""## High Priority
+- [ ] PRD-001 implement authentication
+""")
+
+    # Initialize orchestrator
+    prd_dir = tmp_path / ".nelson/prd"
+    orchestrator = PRDOrchestrator(prd_file, prd_dir)
+
+    # Change case
+    prd_file.write_text("""## High Priority
+- [ ] PRD-001 Implement Authentication
+""")
+
+    # Re-parse
+    orchestrator.tasks = orchestrator.parser.parse()
+
+    # Check for changes
+    changes = orchestrator.check_task_text_changes()
+
+    # Verify case change detected
+    assert len(changes) == 1
+    assert changes[0]["task_id"] == "PRD-001"
+    assert changes[0]["original_text"] == "implement authentication"
+    assert changes[0]["current_text"] == "Implement Authentication"

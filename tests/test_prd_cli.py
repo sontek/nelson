@@ -9,7 +9,6 @@ from click.testing import CliRunner
 from nelson.prd_cli import main
 from nelson.prd_task_state import TaskState, TaskStatus
 
-
 # Sample PRD content for testing
 SAMPLE_PRD = """# Test PRD
 

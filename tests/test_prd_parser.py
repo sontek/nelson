@@ -580,7 +580,8 @@ def test_backup_with_blocking_reason(tmp_path: Path):
     # Verify backup has original content without blocking reason
     backup_content = backups[0].read_text()
     assert "[ ] PRD-001 Add user authentication" in backup_content
-    assert "blocked:" not in backup_content or "PRD-004" in backup_content  # Only existing blocked task
+    # Only existing blocked task should have "blocked:"
+    assert "blocked:" not in backup_content or "PRD-004" in backup_content
 
 
 def test_backup_directory_created_automatically(tmp_path: Path):
@@ -732,7 +733,6 @@ def test_backup_no_file_to_backup(tmp_path: Path):
 def test_backup_cleanup_handles_deletion_error(tmp_path: Path):
     """Test that cleanup continues gracefully even if deletion fails."""
     from unittest.mock import patch
-    import os
 
     prd_file = tmp_path / "test.md"
     prd_file.write_text(VALID_PRD)

@@ -1,14 +1,13 @@
 """Tests for prd_orchestrator module."""
 
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, call, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
 from nelson.prd_orchestrator import PRDOrchestrator
 from nelson.prd_parser import PRDTaskStatus
 from nelson.prd_task_state import TaskStatus
-
 
 # Sample PRD content for testing
 SAMPLE_PRD = """# Test PRD
@@ -364,7 +363,7 @@ def test_nelson_cli_command_construction(
 
     # Verify check=False is used (allows us to handle exit codes)
     kwargs = mock_run.call_args[1]
-    assert kwargs.get("check") == False, "Should use check=False to handle exit codes"
+    assert not kwargs.get("check"), "Should use check=False to handle exit codes"
 
     # Reset for next test
     orchestrator.parser.update_task_status("PRD-001", PRDTaskStatus.PENDING)
@@ -475,7 +474,9 @@ def test_execute_task_updates_cost_from_nelson_state(
     mock_nelson_state_path = MagicMock()
     mock_nelson_state_path.exists.return_value = True
     # Make Path() return the mock path when called with ".nelson/runs" division
-    mock_path.return_value.__truediv__.return_value.__truediv__.return_value = mock_nelson_state_path
+    mock_path.return_value.__truediv__.return_value.__truediv__.return_value = (
+        mock_nelson_state_path
+    )
 
     # Mock Nelson state with cost data
     mock_nelson_state = MagicMock()
@@ -515,7 +516,9 @@ def test_cost_extraction_when_nelson_state_file_missing(
     # Mock Path.exists() to return False (state file doesn't exist)
     mock_nelson_state_path = MagicMock()
     mock_nelson_state_path.exists.return_value = False
-    mock_path.return_value.__truediv__.return_value.__truediv__.return_value = mock_nelson_state_path
+    mock_path.return_value.__truediv__.return_value.__truediv__.return_value = (
+        mock_nelson_state_path
+    )
 
     # Execute task
     success = orchestrator.execute_task("PRD-001", "Implement feature", "high")
@@ -552,7 +555,9 @@ def test_cost_extraction_handles_corrupted_nelson_state(
     # Mock Path.exists() to return True
     mock_nelson_state_path = MagicMock()
     mock_nelson_state_path.exists.return_value = True
-    mock_path.return_value.__truediv__.return_value.__truediv__.return_value = mock_nelson_state_path
+    mock_path.return_value.__truediv__.return_value.__truediv__.return_value = (
+        mock_nelson_state_path
+    )
 
     # Mock NelsonState.load() to raise JSONDecodeError
     import json
@@ -596,7 +601,9 @@ def test_cost_extraction_handles_missing_fields_in_nelson_state(
     # Mock Path.exists() to return True
     mock_nelson_state_path = MagicMock()
     mock_nelson_state_path.exists.return_value = True
-    mock_path.return_value.__truediv__.return_value.__truediv__.return_value = mock_nelson_state_path
+    mock_path.return_value.__truediv__.return_value.__truediv__.return_value = (
+        mock_nelson_state_path
+    )
 
     # Mock Nelson state with missing cost_usd attribute
     mock_nelson_state = MagicMock()
@@ -640,7 +647,9 @@ def test_cost_extraction_with_zero_cost(
     # Mock Path.exists() to return True
     mock_nelson_state_path = MagicMock()
     mock_nelson_state_path.exists.return_value = True
-    mock_path.return_value.__truediv__.return_value.__truediv__.return_value = mock_nelson_state_path
+    mock_path.return_value.__truediv__.return_value.__truediv__.return_value = (
+        mock_nelson_state_path
+    )
 
     # Mock Nelson state with zero cost (valid scenario for cached responses)
     mock_nelson_state = MagicMock()
@@ -684,7 +693,9 @@ def test_cost_extraction_with_high_cost_values(
     # Mock Path.exists() to return True
     mock_nelson_state_path = MagicMock()
     mock_nelson_state_path.exists.return_value = True
-    mock_path.return_value.__truediv__.return_value.__truediv__.return_value = mock_nelson_state_path
+    mock_path.return_value.__truediv__.return_value.__truediv__.return_value = (
+        mock_nelson_state_path
+    )
 
     # Mock Nelson state with high cost (100+ iterations, expensive task)
     mock_nelson_state = MagicMock()
@@ -730,7 +741,9 @@ def test_cost_extraction_with_partial_phase_data(
     # Mock Path.exists() to return True
     mock_nelson_state_path = MagicMock()
     mock_nelson_state_path.exists.return_value = True
-    mock_path.return_value.__truediv__.return_value.__truediv__.return_value = mock_nelson_state_path
+    mock_path.return_value.__truediv__.return_value.__truediv__.return_value = (
+        mock_nelson_state_path
+    )
 
     # Mock Nelson state with None phase (edge case)
     mock_nelson_state = MagicMock()
@@ -1910,8 +1923,8 @@ def test_concurrent_task_double_execution_prevention(tmp_path: Path):
         assert task_id2 == "PRD-002"  # Should get different task
 
         # Both orchestrators see consistent state
-        summary1 = orchestrator1.get_status_summary()
-        summary2 = orchestrator2.get_status_summary()
+        orchestrator1.get_status_summary()
+        orchestrator2.get_status_summary()
 
         # Both should see PRD-001 as in-progress (via re-parsing)
         orchestrator1.tasks = orchestrator1.parser.parse()
@@ -1954,8 +1967,8 @@ def test_concurrent_blocked_task_handling(tmp_path: Path):
     assert task_id2 == "PRD-002"
 
     # Both should recognize PRD-001 as blocked
-    info1 = orchestrator1.get_task_info("PRD-001")
-    info2 = orchestrator2.get_task_info("PRD-001")
+    orchestrator1.get_task_info("PRD-001")
+    orchestrator2.get_task_info("PRD-001")
 
     # Tasks without state files will show as pending by default
     # The PRD file parser shows blocked, state shows pending for new tasks
@@ -2129,7 +2142,6 @@ def test_concurrent_branch_creation_same_task(tmp_path: Path):
 
     prd_dir = tmp_path / ".nelson/prd"
 
-    from nelson.git_utils import GitError
 
     with patch("nelson.prd_orchestrator.ensure_branch_for_task") as mock_ensure_branch, \
          patch("nelson.prd_orchestrator.subprocess.run") as mock_run:
@@ -2207,7 +2219,10 @@ def test_concurrent_execution_with_failures(tmp_path: Path):
 
 
 def test_resume_context_prepending_format(tmp_path: Path):
-    """Test that resume context is prepended with exact format: 'RESUME CONTEXT: {context}\\n\\n{prompt}'."""
+    """Test that resume context is prepended with correct format.
+
+    Format: 'RESUME CONTEXT: {context}\\n\\n{prompt}'
+    """
     prd_file = tmp_path / "test.md"
     prd_file.write_text("""# Test PRD
 
@@ -2240,7 +2255,10 @@ def test_resume_context_prepending_format(tmp_path: Path):
         prompt = args[1]
 
         # Check exact format with newlines
-        expected_start = "RESUME CONTEXT: API keys have been added to .env file\n\nImplement authentication"
+        expected_start = (
+            "RESUME CONTEXT: API keys have been added to .env file\n\n"
+            "Implement authentication"
+        )
         assert prompt == expected_start, f"Expected: {expected_start!r}, Got: {prompt!r}"
 
 
@@ -2322,7 +2340,10 @@ def test_resume_context_with_custom_prompt(tmp_path: Path):
         args = mock_run.call_args[0][0]
         prompt = args[1]
 
-        expected = "RESUME CONTEXT: Stripe API credentials configured\n\nDetailed instructions for payment integration with Stripe"
+        expected = (
+            "RESUME CONTEXT: Stripe API credentials configured\n\n"
+            "Detailed instructions for payment integration with Stripe"
+        )
         assert prompt == expected
 
 
@@ -2381,7 +2402,10 @@ def test_resume_context_with_special_characters(tmp_path: Path):
             "PRD-001", "Setup CI/CD pipeline", "high"
         )
         # Context with newlines, quotes, and special chars
-        task_state.resume_context = 'GitHub Actions configured:\n- API_KEY="secret123"\n- DEPLOY_ENV=\'production\''
+        task_state.resume_context = (
+            'GitHub Actions configured:\n- API_KEY="secret123"\n- '
+            "DEPLOY_ENV='production'"
+        )
         orchestrator.state_manager.save_task_state(task_state)
 
         # Execute task
@@ -2392,7 +2416,8 @@ def test_resume_context_with_special_characters(tmp_path: Path):
         prompt = args[1]
 
         # Check that special characters are preserved
-        assert 'GitHub Actions configured:\n- API_KEY="secret123"\n- DEPLOY_ENV=\'production\'' in prompt
+        assert 'GitHub Actions configured:\n- API_KEY="secret123"' in prompt
+        assert "DEPLOY_ENV='production'" in prompt
         assert prompt.startswith("RESUME CONTEXT:")
         assert "Setup CI/CD pipeline" in prompt
 
@@ -2421,12 +2446,12 @@ def test_resume_context_with_long_text(tmp_path: Path):
             "PRD-001", "Implement search functionality", "high"
         )
         long_context = (
-            "The search infrastructure has been set up with the following components: "
-            "1) Elasticsearch cluster deployed to production with 3 nodes for high availability. "
-            "2) Search indexer service running as a background worker to keep indices up to date. "
-            "3) API endpoints created for search queries at /api/v1/search with pagination support. "
-            "4) Frontend search UI components implemented with autocomplete and filters. "
-            "5) Performance benchmarks show sub-100ms response times for 95th percentile queries."
+            "The search infrastructure has been set up: "
+            "1) Elasticsearch cluster with 3 nodes. "
+            "2) Search indexer service as background worker. "
+            "3) API endpoints at /api/v1/search with pagination. "
+            "4) Frontend search UI with autocomplete and filters. "
+            "5) Performance: sub-100ms response times for 95th percentile."
         )
         task_state.resume_context = long_context
         orchestrator.state_manager.save_task_state(task_state)
@@ -2474,7 +2499,9 @@ def test_cost_accumulation_across_multiple_runs(
     # Mock Path.exists() to return True for Nelson state files
     mock_nelson_state_path = MagicMock()
     mock_nelson_state_path.exists.return_value = True
-    mock_path.return_value.__truediv__.return_value.__truediv__.return_value = mock_nelson_state_path
+    mock_path.return_value.__truediv__.return_value.__truediv__.return_value = (
+        mock_nelson_state_path
+    )
 
     orchestrator = PRDOrchestrator(temp_prd_file, temp_prd_dir)
 

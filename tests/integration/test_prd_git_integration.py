@@ -7,7 +7,7 @@ Nelson subprocess calls are still mocked to avoid heavy integration overhead.
 
 import subprocess
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
 
@@ -18,8 +18,6 @@ from nelson.prd_branch import (
     generate_branch_name,
     switch_branch,
 )
-from nelson.prd_orchestrator import PRDOrchestrator
-
 
 # Sample PRD content for testing
 SAMPLE_PRD = """# Git Integration Test PRD
@@ -219,10 +217,10 @@ class TestPRDOrchestratorWithRealGit:
 
     def test_ensure_branch_for_task_with_real_git(self, git_repo: Path):
         """Test that ensure_branch_for_task works with real git repo."""
-        from nelson.prd_branch import ensure_branch_for_task
-
         # Change to git repo directory so ensure_branch works
         import os
+
+        from nelson.prd_branch import ensure_branch_for_task
         original_cwd = os.getcwd()
         try:
             os.chdir(git_repo)
@@ -483,7 +481,7 @@ class TestGitBranchAdditionalOperations:
 
     def test_delete_branch_success(self, git_repo: Path):
         """Test successful branch deletion."""
-        from nelson.prd_branch import create_branch, delete_branch, branch_exists
+        from nelson.prd_branch import branch_exists, create_branch, delete_branch
 
         branch_name = "feature/PRD-001-to-delete"
 
@@ -512,7 +510,7 @@ class TestGitBranchAdditionalOperations:
 
     def test_delete_branch_with_unmerged_commits(self, git_repo: Path):
         """Test deleting branch with unmerged commits requires force."""
-        from nelson.prd_branch import create_and_switch_branch, delete_branch, branch_exists
+        from nelson.prd_branch import branch_exists, create_and_switch_branch, delete_branch
 
         branch_name = "feature/PRD-001-unmerged"
 
@@ -555,7 +553,8 @@ class TestGitBranchAdditionalOperations:
     def test_ensure_branch_for_task_existing_branch(self, git_repo: Path):
         """Test ensure_branch_for_task with existing branch just switches."""
         import os
-        from nelson.prd_branch import ensure_branch_for_task, create_branch
+
+        from nelson.prd_branch import create_branch, ensure_branch_for_task
 
         original_cwd = os.getcwd()
         try:
@@ -590,8 +589,8 @@ class TestGitErrorHandling:
         from nelson.prd_branch import (
             branch_exists,
             create_branch,
-            switch_branch,
             ensure_branch_for_task,
+            switch_branch,
         )
 
         # Create a non-git directory

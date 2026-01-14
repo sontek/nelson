@@ -14,16 +14,14 @@ and mock only the subprocess calls to Nelson CLI and git operations.
 """
 
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, call, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
 from nelson.prd_orchestrator import PRDOrchestrator
-from nelson.prd_parser import PRDParser, PRDTaskStatus
-from nelson.prd_state import PRDStateManager
+from nelson.prd_parser import PRDTaskStatus
 from nelson.prd_task_state import TaskStatus
 from nelson.state import NelsonState
-
 
 # Sample PRD content for testing
 SAMPLE_PRD = """# E2E Test PRD
@@ -102,8 +100,10 @@ class TestPRDEndToEnd:
     ):
         """Test complete PRD execution from start to finish."""
         # Mock subprocess and git operations
-        with patch("subprocess.run", side_effect=mock_nelson_success), \
-             patch("nelson.prd_branch.ensure_branch_for_task", return_value="feature/PRD-001-implement-user-auth"):
+        with patch("subprocess.run", side_effect=mock_nelson_success), patch(
+            "nelson.prd_branch.ensure_branch_for_task",
+            return_value="feature/PRD-001-implement-user-auth",
+        ):
 
             # Create orchestrator
             orchestrator = PRDOrchestrator(prd_file, prd_dir)
@@ -236,8 +236,12 @@ class TestPRDEndToEnd:
             orchestrator.execute_task(task2_id, "Create API endpoints", "high")
 
             # Verify task states were created
-            task1_state = orchestrator.state_manager.load_task_state(task1_id, "Implement user authentication", "high")
-            task2_state = orchestrator.state_manager.load_task_state(task2_id, "Create API endpoints", "high")
+            task1_state = orchestrator.state_manager.load_task_state(
+                task1_id, "Implement user authentication", "high"
+            )
+            task2_state = orchestrator.state_manager.load_task_state(
+                task2_id, "Create API endpoints", "high"
+            )
 
             assert task1_state.status == TaskStatus.COMPLETED
             assert task2_state.status == TaskStatus.COMPLETED
@@ -396,8 +400,8 @@ class TestPRDEndToEnd:
 
             # Should have executed 2 tasks (one success, one failure)
             assert len(result) == 2
-            assert result["PRD-001"] == True
-            assert result["PRD-002"] == False
+            assert result["PRD-001"]
+            assert not result["PRD-002"]
 
             # Verify only 2 tasks were attempted (stopped after failure)
             # The remaining 2 tasks should still be pending

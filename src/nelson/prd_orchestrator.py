@@ -128,11 +128,35 @@ class PRDOrchestrator:
         try:
             result = subprocess.run(cmd, check=False)
             success = result.returncode == 0
+
+            # Provide specific feedback for non-zero exit codes
+            if not success:
+                print(f"\nNelson exited with code {result.returncode}")
+                if result.returncode == 1:
+                    print("This usually indicates Nelson encountered an error during execution.")
+                elif result.returncode == 130:
+                    print("Task was interrupted (SIGINT/Ctrl+C).")
+                else:
+                    print(f"Unexpected exit code: {result.returncode}")
         except KeyboardInterrupt:
-            print("\n\nTask interrupted by user")
+            print("\n\nTask interrupted by user (KeyboardInterrupt)")
+            success = False
+        except FileNotFoundError:
+            print("\nError: 'nelson' command not found in PATH")
+            print("Please ensure Nelson is installed and available in your PATH.")
+            print("Install with: pip install nelson-cli")
+            success = False
+        except PermissionError as e:
+            print(f"\nError: Permission denied when executing Nelson: {e}")
+            print("Please check that the nelson command has execute permissions.")
+            success = False
+        except OSError as e:
+            print(f"\nError: OS error when executing Nelson: {e}")
+            print("This may indicate system-level issues (e.g., resource exhaustion).")
             success = False
         except Exception as e:
-            print(f"\nError executing Nelson: {e}")
+            print(f"\nUnexpected error executing Nelson: {type(e).__name__}: {e}")
+            print("This is an unexpected error. Please report this issue.")
             success = False
 
         # Update task state based on result

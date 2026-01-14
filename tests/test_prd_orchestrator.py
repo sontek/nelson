@@ -702,3 +702,156 @@ def test_execute_task_handles_missing_nelson_state(
         "PRD-001", "Implement user authentication", "high"
     )
     assert task_state.status.value == "completed"
+
+
+@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.subprocess.run")
+def test_execute_task_handles_file_not_found_error(
+    mock_run: Mock,
+    mock_ensure_branch: Mock,
+    orchestrator: PRDOrchestrator,
+    capsys: pytest.CaptureFixture,
+):
+    """Test that execute_task handles FileNotFoundError (nelson not in PATH)."""
+    # Setup mocks
+    mock_ensure_branch.return_value = "feature/PRD-001-implement-user-authentication"
+    mock_run.side_effect = FileNotFoundError("nelson command not found")
+
+    # Execute task
+    success = orchestrator.execute_task("PRD-001", "Implement user authentication", "high")
+
+    # Verify failure
+    assert success is False
+
+    # Check error message
+    captured = capsys.readouterr()
+    assert "'nelson' command not found in PATH" in captured.out
+    assert "Install with: pip install nelson-cli" in captured.out
+
+
+@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.subprocess.run")
+def test_execute_task_handles_permission_error(
+    mock_run: Mock,
+    mock_ensure_branch: Mock,
+    orchestrator: PRDOrchestrator,
+    capsys: pytest.CaptureFixture,
+):
+    """Test that execute_task handles PermissionError."""
+    # Setup mocks
+    mock_ensure_branch.return_value = "feature/PRD-001-implement-user-authentication"
+    mock_run.side_effect = PermissionError("Permission denied")
+
+    # Execute task
+    success = orchestrator.execute_task("PRD-001", "Implement user authentication", "high")
+
+    # Verify failure
+    assert success is False
+
+    # Check error message
+    captured = capsys.readouterr()
+    assert "Permission denied when executing Nelson" in captured.out
+    assert "execute permissions" in captured.out
+
+
+@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.subprocess.run")
+def test_execute_task_handles_os_error(
+    mock_run: Mock,
+    mock_ensure_branch: Mock,
+    orchestrator: PRDOrchestrator,
+    capsys: pytest.CaptureFixture,
+):
+    """Test that execute_task handles OSError."""
+    # Setup mocks
+    mock_ensure_branch.return_value = "feature/PRD-001-implement-user-authentication"
+    mock_run.side_effect = OSError("Too many open files")
+
+    # Execute task
+    success = orchestrator.execute_task("PRD-001", "Implement user authentication", "high")
+
+    # Verify failure
+    assert success is False
+
+    # Check error message
+    captured = capsys.readouterr()
+    assert "OS error when executing Nelson" in captured.out
+    assert "system-level issues" in captured.out
+
+
+@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.subprocess.run")
+def test_execute_task_provides_exit_code_feedback(
+    mock_run: Mock,
+    mock_ensure_branch: Mock,
+    orchestrator: PRDOrchestrator,
+    capsys: pytest.CaptureFixture,
+):
+    """Test that execute_task provides specific feedback for exit codes."""
+    # Setup mocks
+    mock_ensure_branch.return_value = "feature/PRD-001-implement-user-authentication"
+
+    # Test exit code 1 (general error)
+    mock_run.return_value = Mock(returncode=1)
+    success = orchestrator.execute_task("PRD-001", "Implement user authentication", "high")
+    assert success is False
+
+    captured = capsys.readouterr()
+    assert "Nelson exited with code 1" in captured.out
+    assert "encountered an error" in captured.out
+
+    # Reset parser state
+    orchestrator.parser.update_task_status("PRD-001", PRDTaskStatus.PENDING)
+
+    # Test exit code 130 (SIGINT)
+    mock_run.return_value = Mock(returncode=130)
+    success = orchestrator.execute_task("PRD-001", "Implement user authentication", "high")
+    assert success is False
+
+    captured = capsys.readouterr()
+    assert "Nelson exited with code 130" in captured.out
+    assert "interrupted (SIGINT/Ctrl+C)" in captured.out
+
+    # Reset parser state
+    orchestrator.parser.update_task_status("PRD-001", PRDTaskStatus.PENDING)
+
+    # Test unexpected exit code
+    mock_run.return_value = Mock(returncode=42)
+    success = orchestrator.execute_task("PRD-001", "Implement user authentication", "high")
+    assert success is False
+
+    captured = capsys.readouterr()
+    assert "Nelson exited with code 42" in captured.out
+    assert "Unexpected exit code: 42" in captured.out
+
+
+@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.subprocess.run")
+def test_execute_task_handles_unexpected_exception(
+    mock_run: Mock,
+    mock_ensure_branch: Mock,
+    orchestrator: PRDOrchestrator,
+    capsys: pytest.CaptureFixture,
+):
+    """Test that execute_task handles unexpected exceptions gracefully."""
+    # Setup mocks
+    mock_ensure_branch.return_value = "feature/PRD-001-implement-user-authentication"
+
+    # Create an unexpected exception type
+    class UnexpectedError(Exception):
+        pass
+
+    mock_run.side_effect = UnexpectedError("Something went wrong")
+
+    # Execute task
+    success = orchestrator.execute_task("PRD-001", "Implement user authentication", "high")
+
+    # Verify failure
+    assert success is False
+
+    # Check error message includes exception type and details
+    captured = capsys.readouterr()
+    assert "Unexpected error executing Nelson" in captured.out
+    assert "UnexpectedError" in captured.out
+    assert "Something went wrong" in captured.out
+    assert "Please report this issue" in captured.out

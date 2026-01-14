@@ -307,6 +307,9 @@ class PRDOrchestrator:
         prd_state = self.state_manager.prd_state
         task_states = self.state_manager.get_all_task_states()
 
+        # Convert TaskState objects to dictionaries for iteration
+        tasks_list = [state.to_dict() for state in task_states.values()]
+
         return {
             "prd_file": str(self.prd_file),
             "total_tasks": len(self.tasks),
@@ -316,7 +319,7 @@ class PRDOrchestrator:
             "pending": prd_state.pending_count,
             "failed": prd_state.failed_count,
             "total_cost": prd_state.total_cost_usd,
-            "tasks": task_states,
+            "tasks": tasks_list,
         }
 
     def get_task_info(self, task_id: str) -> dict | None:

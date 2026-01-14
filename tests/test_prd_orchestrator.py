@@ -2073,3 +2073,94 @@ def test_resume_context_with_long_text(tmp_path: Path):
         assert prompt.endswith("Implement search functionality")
         # Verify double newline separator
         assert f"RESUME CONTEXT: {long_context}\n\nImplement search functionality" == prompt
+
+
+@patch("nelson.prd_orchestrator.Path")
+@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.subprocess.run")
+@patch("nelson.prd_orchestrator.NelsonState.load")
+def test_cost_accumulation_across_multiple_runs(
+    mock_load: Mock,
+    mock_run: Mock,
+    mock_ensure_branch: Mock,
+    mock_path: Mock,
+    temp_prd_file: Path,
+    temp_prd_dir: Path,
+):
+    """Test that costs accumulate across multiple runs of the same task.
+
+    Simulates scenario:
+    1. Task runs, incurs $1.50 cost
+    2. Task is blocked/resumed, incurs $2.25 more cost
+    3. Task completes, incurs $0.75 more cost
+    4. Total cost should be $4.50 (accumulated, not replaced)
+    """
+    # Setup mocks
+    mock_ensure_branch.return_value = "feature/PRD-001-test"
+    mock_run.return_value = Mock(returncode=0)
+
+    # Mock Path.exists() to return True for Nelson state files
+    mock_nelson_state_path = MagicMock()
+    mock_nelson_state_path.exists.return_value = True
+    mock_path.return_value.__truediv__.return_value.__truediv__.return_value = mock_nelson_state_path
+
+    orchestrator = PRDOrchestrator(temp_prd_file, temp_prd_dir)
+
+    # Run 1: Task incurs $1.50 cost
+    mock_nelson_state_1 = Mock()
+    mock_nelson_state_1.cost_usd = 1.50
+    mock_nelson_state_1.total_iterations = 10
+    mock_nelson_state_1.current_phase = 2
+    mock_nelson_state_1.phase_name = "IMPLEMENT"
+    mock_load.return_value = mock_nelson_state_1
+
+    orchestrator.execute_task("PRD-001", "Implement user authentication", "high")
+
+    # Verify first run cost
+    task_state = orchestrator.state_manager.load_task_state(
+        "PRD-001", "Implement user authentication", "high"
+    )
+    assert task_state.cost_usd == 1.50
+    assert task_state.iterations == 10
+
+    # Update PRD file to pending (simulate resume scenario)
+    orchestrator.parser.update_task_status("PRD-001", PRDTaskStatus.PENDING)
+
+    # Run 2: Task resumes, incurs $2.25 more cost
+    mock_nelson_state_2 = Mock()
+    mock_nelson_state_2.cost_usd = 2.25
+    mock_nelson_state_2.total_iterations = 15
+    mock_nelson_state_2.current_phase = 3
+    mock_nelson_state_2.phase_name = "REVIEW"
+    mock_load.return_value = mock_nelson_state_2
+
+    orchestrator.execute_task("PRD-001", "Implement user authentication", "high")
+
+    # Verify accumulated cost after second run
+    task_state = orchestrator.state_manager.load_task_state(
+        "PRD-001", "Implement user authentication", "high"
+    )
+    assert task_state.cost_usd == 3.75  # 1.50 + 2.25
+    assert task_state.iterations == 25  # 10 + 15
+
+    # Update PRD file to pending again
+    orchestrator.parser.update_task_status("PRD-001", PRDTaskStatus.PENDING)
+
+    # Run 3: Task completes, incurs $0.75 more cost
+    mock_nelson_state_3 = Mock()
+    mock_nelson_state_3.cost_usd = 0.75
+    mock_nelson_state_3.total_iterations = 5
+    mock_nelson_state_3.current_phase = 6
+    mock_nelson_state_3.phase_name = "COMMIT"
+    mock_load.return_value = mock_nelson_state_3
+
+    orchestrator.execute_task("PRD-001", "Implement user authentication", "high")
+
+    # Verify final accumulated cost
+    task_state = orchestrator.state_manager.load_task_state(
+        "PRD-001", "Implement user authentication", "high"
+    )
+    assert task_state.cost_usd == 4.50  # 1.50 + 2.25 + 0.75
+    assert task_state.iterations == 30  # 10 + 15 + 5
+
+

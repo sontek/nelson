@@ -265,14 +265,180 @@ Nelson is a Python reimplementation of the original bash script (`ralph`) with t
 
 Core behavior remains identical to the battle-tested bash implementation.
 
+## Multi-Task Orchestration with nelson-prd
+
+`nelson-prd` is a companion CLI tool that orchestrates multiple Nelson workflows from a Product Requirements Document (PRD). This enables autonomous execution of multi-task projects with state tracking, blocking support, and resume capabilities.
+
+### Why nelson-prd?
+
+While Nelson handles single tasks autonomously, real projects often require completing multiple related tasks. `nelson-prd`:
+
+- **Orchestrates Multiple Tasks**: Execute dozens of tasks automatically
+- **Priority-Based Execution**: Tasks run in order: High → Medium → Low
+- **Branch Management**: Auto-creates git branches per task (e.g., `feature/PRD-001-task-name`)
+- **Blocking Support**: Pause tasks waiting on external dependencies
+- **Resume Capability**: Continue blocked tasks with context preservation
+- **Cost & Progress Tracking**: Per-task and aggregate metrics
+- **State Persistence**: Recovers from interruptions seamlessly
+
+### Quick Start
+
+Create a PRD markdown file with explicit task IDs:
+
+```markdown
+# My Project PRD
+
+## High Priority
+- [ ] PRD-001 Implement user authentication system
+- [ ] PRD-002 Create user profile management
+- [ ] PRD-003 Add payment integration
+
+## Medium Priority
+- [ ] PRD-004 Add email notifications
+- [ ] PRD-005 Implement search functionality
+
+## Low Priority
+- [ ] PRD-006 Add dark mode toggle
+```
+
+Execute all tasks:
+
+```bash
+# Run all pending tasks
+nelson-prd requirements.md
+
+# Check status
+nelson-prd --status requirements.md
+
+# Preview without execution
+nelson-prd --dry-run requirements.md
+```
+
+### Blocking & Resume Workflow
+
+When a task hits an external dependency:
+
+```bash
+# Block the task
+nelson-prd --block PRD-003 --reason "Waiting for Stripe API keys" requirements.md
+
+# Continue with other tasks (PRD-003 is skipped)
+nelson-prd requirements.md
+
+# Later, when dependency is resolved
+nelson-prd --unblock PRD-003 --context "API keys added to .env as STRIPE_SECRET_KEY" requirements.md
+
+# Resume the blocked task with context
+nelson-prd --resume-task PRD-003 requirements.md
+```
+
+The resume context is prepended to Nelson's prompt, helping it understand what changed since the task was blocked.
+
+### Task Status Indicators
+
+- `[ ]` - Pending (not started)
+- `[~]` - In Progress (currently executing)
+- `[x]` - Completed (successfully finished)
+- `[!]` - Blocked (waiting on external dependency)
+
+### Features
+
+- **Explicit Task IDs**: Required format `PRD-NNN` for stable references
+- **Priority Ordering**: High priority tasks execute before medium/low
+- **Automatic Branching**: Each task gets `feature/PRD-NNN-description` branch
+- **State Management**: Stores state in `.nelson/prd/` directory
+- **Cost Tracking**: Accumulates and displays per-task costs
+- **Iteration Tracking**: Monitors how many cycles each task requires
+- **Resume Context**: Free-form text to help Nelson resume blocked tasks
+
+### Configuration
+
+Pass additional Nelson options:
+
+```bash
+# Use opus for all PRD tasks
+nelson-prd --nelson-args "--model opus" requirements.md
+
+# Increase iteration limit per task
+nelson-prd --nelson-args "--max-iterations 20" requirements.md
+
+# Multiple arguments
+nelson-prd --nelson-args "--model opus --max-iterations 20" requirements.md
+```
+
+Environment variables are automatically inherited:
+
+```bash
+export NELSON_MAX_ITERATIONS=15
+export NELSON_AUTO_APPROVE_PUSH=true
+nelson-prd requirements.md  # Uses these settings
+```
+
+### Examples
+
+See the `examples/` directory for comprehensive guides:
+
+- **[sample-prd.md](examples/sample-prd.md)**: Example PRD with 13 tasks showing format and all CLI commands
+- **[blocking-workflow.md](examples/blocking-workflow.md)**: Step-by-step guide for handling blocked tasks
+
+### Advanced Usage
+
+```bash
+# Get detailed task information
+nelson-prd --task-info PRD-001 requirements.md
+
+# Resume from last incomplete task
+nelson-prd --resume requirements.md
+
+# Use custom PRD directory
+nelson-prd --prd-dir /path/to/state requirements.md
+```
+
+### Directory Structure
+
+```
+.nelson/
+  prd/
+    prd-state.json           # Overall PRD state
+    backups/                 # PRD file backups (last 10)
+    PRD-001/
+      state.json             # Task-specific state
+    PRD-002/
+      state.json
+    ...
+```
+
+### Best Practices
+
+1. **Use Descriptive Task IDs**: Start at PRD-001 and increment sequentially
+2. **Write Clear Task Descriptions**: The description becomes the branch name and Nelson's prompt
+3. **Block Early**: Don't waste cycles if you know a dependency is missing
+4. **Provide Rich Context**: When unblocking, explain what changed in detail
+5. **Check Status Frequently**: Use `--status` to monitor progress
+6. **Organize by Priority**: Put urgent/foundational tasks in High priority
+
+### Troubleshooting
+
+**Q: What if I forget a task ID?**
+A: The parser validates all tasks and will error with helpful messages showing which tasks are missing IDs.
+
+**Q: Can I reorder tasks?**
+A: Yes! Task IDs are stable, so reordering in the markdown doesn't break anything.
+
+**Q: What if a task fails?**
+A: Use `--stop-on-failure=false` to continue with remaining tasks, or fix the issue and resume.
+
+**Q: How do I see what work was done?**
+A: Each task links to its Nelson run directory with full logs and decision history.
+
 ## Future Features
 
 See [FUTURE_FEATURES.md](FUTURE_FEATURES.md) for planned enhancements:
 
-- PRD orchestration (nelson-prd) for multi-task projects
 - Support for additional AI providers (OpenAI, etc.)
 - Enhanced cost tracking and reporting
-- Parallel task execution
+- Parallel task execution for independent PRD tasks
+- Task dependency graphs (DAG-based execution)
 
 ## License
 

@@ -363,7 +363,7 @@ class PRDOrchestrator:
             return False
 
         # Update task state
-        self.state_manager.block_task(task_id, reason)
+        self.state_manager.block_task(task_id, task.task_text, task.priority, reason)
 
         # Update PRD file
         self.parser.update_task_status(task_id, PRDTaskStatus.BLOCKED, reason)
@@ -392,7 +392,7 @@ class PRDOrchestrator:
             return False
 
         # Update task state
-        self.state_manager.unblock_task(task_id, context)
+        self.state_manager.unblock_task(task_id, task.task_text, task.priority, context)
 
         # Update PRD file
         self.parser.update_task_status(task_id, PRDTaskStatus.PENDING)

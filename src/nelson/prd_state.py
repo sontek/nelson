@@ -386,32 +386,40 @@ class PRDStateManager:
         self.save_task_state(task_state)
         return task_state
 
-    def block_task(self, task_id: str, reason: str) -> TaskState:
+    def block_task(
+        self, task_id: str, task_text: str, priority: str, reason: str
+    ) -> TaskState:
         """Block a task with reason.
 
         Args:
             task_id: Task ID
+            task_text: Task description
+            priority: Task priority
             reason: Blocking reason
 
         Returns:
             Updated TaskState
         """
-        task_state = TaskState.load(self.get_task_state_path(task_id))
+        task_state = self.load_task_state(task_id, task_text, priority)
         task_state.block(reason)
         self.save_task_state(task_state)
         return task_state
 
-    def unblock_task(self, task_id: str, context: str | None = None) -> TaskState:
+    def unblock_task(
+        self, task_id: str, task_text: str, priority: str, context: str | None = None
+    ) -> TaskState:
         """Unblock a task with optional resume context.
 
         Args:
             task_id: Task ID
+            task_text: Task description
+            priority: Task priority
             context: Optional resume context
 
         Returns:
             Updated TaskState
         """
-        task_state = TaskState.load(self.get_task_state_path(task_id))
+        task_state = self.load_task_state(task_id, task_text, priority)
         task_state.unblock(context)
         self.save_task_state(task_state)
         return task_state

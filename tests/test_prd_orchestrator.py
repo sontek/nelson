@@ -816,9 +816,12 @@ def test_execute_all_pending_stops_on_failure(
     def execute_side_effect(task_id, *args, **kwargs):
         call_count[0] += 1
         success = call_count[0] != 2  # Fail on second call
+        # Always update PRD file to prevent re-execution
         if success:
-            # Update PRD file to mark as complete
             orchestrator.parser.update_task_status(task_id, PRDTaskStatus.COMPLETED)
+        else:
+            # Mark as BLOCKED so it won't be picked up again by get_next_pending_task()
+            orchestrator.parser.update_task_status(task_id, PRDTaskStatus.BLOCKED)
         return success
 
     mock_execute.side_effect = execute_side_effect
@@ -847,9 +850,12 @@ def test_execute_all_pending_continues_on_failure(
     def execute_side_effect(task_id, *args, **kwargs):
         call_count[0] += 1
         success = call_count[0] != 2  # Fail on second call
+        # Always update PRD file to prevent re-execution
         if success:
-            # Update PRD file to mark as complete
             orchestrator.parser.update_task_status(task_id, PRDTaskStatus.COMPLETED)
+        else:
+            # Mark as BLOCKED so it won't be picked up again by get_next_pending_task()
+            orchestrator.parser.update_task_status(task_id, PRDTaskStatus.BLOCKED)
         return success
 
     mock_execute.side_effect = execute_side_effect

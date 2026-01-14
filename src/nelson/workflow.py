@@ -332,11 +332,6 @@ class WorkflowOrchestrator:
                     self.state.transition_phase(next_phase.value, next_phase_name)
                     logger.info(f"State updated: now in Phase {self.state.current_phase} ({self.state.phase_name})")
 
-            # Small delay between iterations to avoid tight loops
-            import time
-
-            time.sleep(2)
-
         # Save final state
         state_file = self.config.nelson_dir / "state.json"
         self.state.save(state_file)

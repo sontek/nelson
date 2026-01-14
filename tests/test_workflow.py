@@ -463,8 +463,12 @@ class TestWorkflowRun:
         """Test workflow run saves output to file."""
         orchestrator.plan_file.write_text("# Plan\n- [x] Task 1")
 
+        # Set max_iterations=1 to complete after first cycle
+        orchestrator.config = dataclasses.replace(orchestrator.config, max_iterations=1)
+
         # EXIT_SIGNAL in Phase 1 completes workflow successfully
-        orchestrator.run("Test prompt")
+        with pytest.raises(WorkflowError, match="Stopping due to limits"):
+            orchestrator.run("Test prompt")
 
         # Verify last_output.txt was created
         assert orchestrator.last_output_file.exists()

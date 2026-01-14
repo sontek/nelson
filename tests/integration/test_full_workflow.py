@@ -355,5 +355,6 @@ class TestWorkflowIntegration:
 
         # Verify PLAN phase used plan_model
         assert mock_provider.execute.called
-        call_kwargs = mock_provider.execute.call_args.kwargs
-        assert call_kwargs["model"] == "claude-opus-4"
+        # Check the FIRST call (Phase 1/PLAN), not the last call
+        first_call_kwargs = mock_provider.execute.call_args_list[0].kwargs
+        assert first_call_kwargs["model"] == "claude-opus-4"

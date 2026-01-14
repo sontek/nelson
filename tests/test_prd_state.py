@@ -1,6 +1,9 @@
 """Tests for prd_state module."""
 
+import json
 from pathlib import Path
+
+import pytest
 
 from nelson.prd_state import PRDState, PRDStateManager
 from nelson.prd_task_state import TaskState, TaskStatus
@@ -344,3 +347,277 @@ def test_prd_state_manager_get_all_task_states(tmp_path: Path):
     assert "PRD-002" in states
     assert states["PRD-001"].task_text == "Task 1"
     assert states["PRD-002"].task_text == "Task 2"
+
+
+# Corruption recovery tests
+
+
+def test_prd_state_load_corrupted_json(tmp_path: Path):
+    """Test loading corrupted PRD state JSON file raises JSONDecodeError.
+
+    When prd-state.json is corrupted with invalid JSON, the load method
+    should raise JSONDecodeError, allowing the caller to handle recovery.
+    """
+    state_file = tmp_path / "prd-state.json"
+
+    # Write corrupted JSON (missing closing brace, invalid syntax)
+    state_file.write_text('{"prd_file": "test.md", "total_cost_usd": 5.5, invalid json')
+
+    with pytest.raises(json.JSONDecodeError):
+        PRDState.load(state_file)
+
+
+def test_prd_state_load_partially_written_json(tmp_path: Path):
+    """Test loading partially written PRD state file.
+
+    Simulates scenario where write was interrupted (power loss, kill signal).
+    File exists but contains incomplete JSON.
+    """
+    state_file = tmp_path / "prd-state.json"
+
+    # Write partial JSON (cut off mid-write)
+    state_file.write_text('{"prd_file": "test.md", "started_at": "2025-01-')
+
+    with pytest.raises(json.JSONDecodeError):
+        PRDState.load(state_file)
+
+
+def test_prd_state_load_empty_file(tmp_path: Path):
+    """Test loading empty PRD state file.
+
+    Empty file could result from failed write or filesystem issues.
+    """
+    state_file = tmp_path / "prd-state.json"
+    state_file.write_text("")
+
+    with pytest.raises(json.JSONDecodeError):
+        PRDState.load(state_file)
+
+
+def test_prd_state_load_or_create_handles_corruption(tmp_path: Path):
+    """Test load_or_create does NOT handle corruption gracefully.
+
+    Important: load_or_create only creates new state if file doesn't exist.
+    If file exists but is corrupted, it raises JSONDecodeError.
+    Caller must explicitly handle corruption and delete/recover the file.
+    """
+    state_file = tmp_path / "prd-state.json"
+
+    # Write corrupted JSON
+    state_file.write_text('{"invalid": json}')
+
+    # load_or_create should raise error, not silently create new state
+    with pytest.raises(json.JSONDecodeError):
+        PRDState.load_or_create(state_file, "new.md")
+
+
+def test_prd_state_recovery_by_deleting_corrupted_file(tmp_path: Path):
+    """Test recovery pattern: delete corrupted file and recreate.
+
+    This demonstrates the recommended recovery pattern when corruption is detected.
+    """
+    state_file = tmp_path / "prd-state.json"
+
+    # Write corrupted JSON
+    state_file.write_text('{"bad": json}')
+
+    # Attempt to load, catch error, delete, and recreate
+    try:
+        PRDState.load(state_file)
+    except json.JSONDecodeError:
+        # Recovery: delete corrupted file
+        state_file.unlink()
+
+        # Now load_or_create will create fresh state
+        recovered_state = PRDState.load_or_create(state_file, "recovered.md")
+
+        assert recovered_state.prd_file == "recovered.md"
+        assert recovered_state.total_cost_usd == 0.0
+        assert len(recovered_state.task_mapping) == 0
+
+
+def test_task_state_load_corrupted_json(tmp_path: Path):
+    """Test loading corrupted task state JSON file raises JSONDecodeError.
+
+    When PRD-NNN/state.json is corrupted, load should raise error.
+    """
+    task_state_file = tmp_path / "PRD-001" / "state.json"
+    task_state_file.parent.mkdir(parents=True)
+
+    # Write corrupted JSON
+    task_state_file.write_text('{"task_id": "PRD-001", "status": invalid}')
+
+    with pytest.raises(json.JSONDecodeError):
+        TaskState.load(task_state_file)
+
+
+def test_task_state_load_partially_written_json(tmp_path: Path):
+    """Test loading partially written task state file.
+
+    Simulates interrupted write during task state persistence.
+    """
+    task_state_file = tmp_path / "PRD-001" / "state.json"
+    task_state_file.parent.mkdir(parents=True)
+
+    # Write partial JSON
+    task_state_file.write_text('{"task_id": "PRD-001", "task_text": "Incomplete')
+
+    with pytest.raises(json.JSONDecodeError):
+        TaskState.load(task_state_file)
+
+
+def test_task_state_load_with_missing_required_fields(tmp_path: Path):
+    """Test loading task state with missing required fields.
+
+    Valid JSON but missing required dataclass fields should raise error.
+    """
+    task_state_file = tmp_path / "PRD-001" / "state.json"
+    task_state_file.parent.mkdir(parents=True)
+
+    # Write valid JSON but missing required fields (task_id, task_text)
+    task_state_file.write_text('{"status": "pending", "cost_usd": 0.0}')
+
+    with pytest.raises(TypeError):
+        TaskState.load(task_state_file)
+
+
+def test_task_state_load_or_create_handles_corruption(tmp_path: Path):
+    """Test task state load_or_create does NOT handle corruption.
+
+    Like PRD state, if file exists but is corrupted, it raises error.
+    """
+    task_state_file = tmp_path / "PRD-001" / "state.json"
+    task_state_file.parent.mkdir(parents=True)
+
+    # Write corrupted JSON
+    task_state_file.write_text('{invalid json}')
+
+    # Should raise error, not create new state
+    with pytest.raises(json.JSONDecodeError):
+        TaskState.load_or_create(task_state_file, "PRD-001", "Test task", "high")
+
+
+def test_task_state_recovery_by_deleting_corrupted_file(tmp_path: Path):
+    """Test recovery pattern for corrupted task state.
+
+    Demonstrates recommended recovery: detect corruption, delete, recreate.
+    """
+    task_state_file = tmp_path / "PRD-001" / "state.json"
+    task_state_file.parent.mkdir(parents=True)
+
+    # Write corrupted JSON
+    task_state_file.write_text('{"corrupted": data}')
+
+    # Attempt to load, catch error, delete, and recreate
+    try:
+        TaskState.load(task_state_file)
+    except json.JSONDecodeError:
+        # Recovery: delete corrupted file
+        task_state_file.unlink()
+
+        # Now load_or_create will create fresh state
+        recovered = TaskState.load_or_create(
+            task_state_file, "PRD-001", "Recovered task", "high"
+        )
+
+        assert recovered.task_id == "PRD-001"
+        assert recovered.task_text == "Recovered task"
+        assert recovered.status == TaskStatus.PENDING
+        assert recovered.cost_usd == 0.0
+
+
+def test_prd_state_manager_handles_corrupted_task_state(tmp_path: Path):
+    """Test PRDStateManager behavior when task state file is corrupted.
+
+    Manager's load_task_state should propagate the JSONDecodeError to caller.
+    """
+    prd_dir = tmp_path / "prd"
+    manager = PRDStateManager(prd_dir, "test.md")
+    manager.prd_state.add_task("PRD-001", "Test task", "high", 1)
+
+    # Create corrupted task state file
+    task_state_path = manager.get_task_state_path("PRD-001")
+    task_state_path.parent.mkdir(parents=True)
+    task_state_path.write_text('{bad json}')
+
+    # Manager should propagate the error
+    with pytest.raises(json.JSONDecodeError):
+        manager.load_task_state("PRD-001", "Test task", "high")
+
+
+def test_prd_state_with_extra_fields_is_compatible(tmp_path: Path):
+    """Test PRD state gracefully handles extra fields (forward compatibility).
+
+    If a newer version adds fields, older version should still load.
+    """
+    state_file = tmp_path / "prd-state.json"
+
+    # Write state with extra future fields
+    state_data = {
+        "prd_file": "test.md",
+        "started_at": "2025-01-15T14:00:00Z",
+        "updated_at": "2025-01-15T15:00:00Z",
+        "total_cost_usd": 2.5,
+        "task_mapping": {},
+        "tasks": {},
+        "current_task_id": None,
+        "completed_count": 0,
+        "in_progress_count": 0,
+        "blocked_count": 0,
+        "pending_count": 0,
+        "failed_count": 0,
+        # Future fields that don't exist yet
+        "future_field_1": "some_value",
+        "future_field_2": 123,
+    }
+
+    with open(state_file, "w") as f:
+        json.dump(state_data, f)
+
+    # Should load successfully, ignoring extra fields
+    state = PRDState.load(state_file)
+
+    assert state.prd_file == "test.md"
+    assert state.total_cost_usd == 2.5
+
+
+def test_task_state_with_extra_fields_is_compatible(tmp_path: Path):
+    """Test task state gracefully handles extra fields (forward compatibility).
+
+    Newer versions may add fields; older versions should still load.
+    """
+    task_state_file = tmp_path / "PRD-001" / "state.json"
+    task_state_file.parent.mkdir(parents=True)
+
+    # Write state with extra future fields
+    state_data = {
+        "task_id": "PRD-001",
+        "task_text": "Test task",
+        "status": "pending",
+        "priority": "high",
+        "branch": None,
+        "blocking_reason": None,
+        "resume_context": None,
+        "nelson_run_id": None,
+        "started_at": None,
+        "updated_at": "2025-01-15T14:00:00Z",
+        "completed_at": None,
+        "blocked_at": None,
+        "cost_usd": 0.0,
+        "iterations": 0,
+        "phase": None,
+        "phase_name": None,
+        # Future fields
+        "future_metric": 42,
+        "future_data": {"nested": "value"},
+    }
+
+    with open(task_state_file, "w") as f:
+        json.dump(state_data, f)
+
+    # Should load successfully, ignoring extra fields
+    state = TaskState.load(task_state_file)
+
+    assert state.task_id == "PRD-001"
+    assert state.task_text == "Test task"
+    assert state.status == TaskStatus.PENDING

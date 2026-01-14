@@ -1035,6 +1035,51 @@ def test_get_status_summary(orchestrator: PRDOrchestrator):
     assert summary["in_progress"] == 0
 
 
+def test_get_status_summary_reads_from_prd_file(tmp_path: Path):
+    """Test that status summary reads actual status from PRD file, not state files.
+
+    This test catches the bug where get_status_summary() was reading from state files
+    instead of the PRD markdown file, causing it to show 0 completed tasks even when
+    the PRD file had [x] completed tasks.
+    """
+    # Create a PRD file with mixed statuses
+    prd_file = tmp_path / "mixed_status.md"
+    prd_file.write_text(MIXED_STATUS_PRD)
+
+    # Create orchestrator - no state files exist yet
+    prd_dir = tmp_path / ".nelson" / "prd"
+    orchestrator = PRDOrchestrator(prd_file, prd_dir)
+
+    # Get status summary WITHOUT any state files existing
+    summary = orchestrator.get_status_summary()
+
+    # Should read status from PRD file, not state files
+    assert summary["total_tasks"] == 5
+    assert summary["completed"] == 1  # PRD-001 is [x]
+    assert summary["in_progress"] == 1  # PRD-002 is [~]
+    assert summary["blocked"] == 1  # PRD-003 is [!]
+    assert summary["pending"] == 2  # PRD-004 and PRD-005 are [ ]
+    assert summary["failed"] == 0
+
+    # Verify task details also use PRD file status
+    tasks = {task["task_id"]: task for task in summary["tasks"]}
+
+    assert tasks["PRD-001"]["status"] == TaskStatus.COMPLETED.value
+    assert tasks["PRD-001"]["task_text"] == "Completed task"
+
+    assert tasks["PRD-002"]["status"] == TaskStatus.IN_PROGRESS.value
+    assert tasks["PRD-002"]["task_text"] == "In progress task"
+
+    assert tasks["PRD-003"]["status"] == TaskStatus.BLOCKED.value
+    assert tasks["PRD-003"]["task_text"] == "Blocked task"
+
+    assert tasks["PRD-004"]["status"] == TaskStatus.PENDING.value
+    assert tasks["PRD-004"]["task_text"] == "Pending task"
+
+    assert tasks["PRD-005"]["status"] == TaskStatus.PENDING.value
+    assert tasks["PRD-005"]["task_text"] == "Another pending task"
+
+
 def test_get_task_info_existing(orchestrator: PRDOrchestrator):
     """Test getting info for an existing task."""
     info = orchestrator.get_task_info("PRD-001")

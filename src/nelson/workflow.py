@@ -141,6 +141,7 @@ class WorkflowOrchestrator:
             phase_name = current_phase.name_str
 
             # Show clear cycle/phase/iteration info with rich Rule and timestamp
+            # Cycles are 0-indexed internally, display as 1-indexed (Cycle 0 -> "Cycle 1")
             display_cycle = self.state.cycle_iterations + 1
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             logger.console.rule(
@@ -270,10 +271,11 @@ class WorkflowOrchestrator:
                         self.state.increment_cycle()
                         new_cycle = self.state.cycle_iterations
 
+                        # Display cycles as 1-indexed for user-friendliness (internal is 0-indexed)
                         logger.success(
-                            f"Cycle {new_cycle - 1} complete - no implementation work"
+                            f"Cycle {new_cycle} complete - no implementation work"
                         )
-                        logger.info(f"Starting cycle {new_cycle} - returning to Phase 1 (PLAN)")
+                        logger.info(f"Starting cycle {new_cycle + 1} - returning to Phase 1 (PLAN)")
 
                         # Archive the old plan.md
                         if self.plan_file.exists():
@@ -281,8 +283,8 @@ class WorkflowOrchestrator:
                             logger.info(f"Archiving plan to: {archived_plan.name}")
                             self.plan_file.rename(archived_plan)
 
-                        # Log cycle completion to decisions file
-                        self._log_cycle_completion(new_cycle - 1, new_cycle)
+                        # Log cycle completion to decisions file (use 1-indexed for display)
+                        self._log_cycle_completion(new_cycle, new_cycle + 1)
 
                         # Reset to Phase 1
                         self.state.transition_phase(Phase.PLAN.value, Phase.PLAN.name_str)
@@ -296,8 +298,9 @@ class WorkflowOrchestrator:
                     self.state.increment_cycle()
                     new_cycle = self.state.cycle_iterations
 
-                    logger.success(f"Cycle {new_cycle - 1} complete - Phase 6 (COMMIT) finished")
-                    logger.info(f"Starting cycle {new_cycle} - returning to Phase 1 (PLAN)")
+                    # Display cycles as 1-indexed for user-friendliness (internal is 0-indexed)
+                    logger.success(f"Cycle {new_cycle} complete - Phase 6 (COMMIT) finished")
+                    logger.info(f"Starting cycle {new_cycle + 1} - returning to Phase 1 (PLAN)")
 
                     # Archive the old plan.md (makes next cycle stateless)
                     if self.plan_file.exists():
@@ -305,8 +308,8 @@ class WorkflowOrchestrator:
                         logger.info(f"Archiving plan to: {archived_plan.name}")
                         self.plan_file.rename(archived_plan)
 
-                    # Log cycle completion to decisions file
-                    self._log_cycle_completion(new_cycle - 1, new_cycle)
+                    # Log cycle completion to decisions file (use 1-indexed for display)
+                    self._log_cycle_completion(new_cycle, new_cycle + 1)
 
                     # Reset to Phase 1
                     self.state.transition_phase(Phase.PLAN.value, Phase.PLAN.name_str)

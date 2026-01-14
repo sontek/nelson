@@ -23,7 +23,9 @@ The parser handles:
 from __future__ import annotations
 
 import re
+import shutil
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 
@@ -59,13 +61,18 @@ class PRDParser:
     TASK_PATTERN = re.compile(r"^-\s+\[([x~! ])\]\s+(PRD-\d+)\s+(.+)$")
     BLOCKING_REASON_PATTERN = re.compile(r"\(blocked:\s*(.+?)\)\s*$", re.IGNORECASE)
 
-    def __init__(self, prd_file: Path) -> None:
+    # Backup configuration
+    MAX_BACKUPS = 10  # Keep last N backups
+
+    def __init__(self, prd_file: Path, backup_dir: Path | None = None) -> None:
         """Initialize parser with path to PRD file.
 
         Args:
             prd_file: Path to PRD markdown file
+            backup_dir: Directory for backups (default: .nelson/prd/backups)
         """
         self.prd_file = prd_file
+        self.backup_dir = backup_dir or Path(".nelson/prd/backups")
         self._tasks: list[PRDTask] = []
         self._current_priority: str | None = None
         self._task_ids: set[str] = set()
@@ -276,6 +283,55 @@ class PRDParser:
                 return task
         return None
 
+    def _create_backup(self) -> None:
+        """Create timestamped backup of PRD file.
+
+        Backs up to backup_dir with timestamp in filename.
+        Cleans up old backups to keep only MAX_BACKUPS most recent.
+
+        Raises:
+            IOError: If backup creation fails
+        """
+        if not self.prd_file.exists():
+            return  # Nothing to backup
+
+        # Create backup directory if needed
+        self.backup_dir.mkdir(parents=True, exist_ok=True)
+
+        # Generate timestamped backup filename with microseconds for uniqueness
+        now = datetime.now(UTC)
+        timestamp = now.strftime("%Y%m%d-%H%M%S")
+        microseconds = now.strftime("%f")
+        backup_name = f"{self.prd_file.stem}-{timestamp}-{microseconds}{self.prd_file.suffix}"
+        backup_path = self.backup_dir / backup_name
+
+        # Copy file to backup location
+        shutil.copy2(self.prd_file, backup_path)
+
+        # Clean up old backups
+        self._cleanup_old_backups()
+
+    def _cleanup_old_backups(self) -> None:
+        """Remove old backup files, keeping only MAX_BACKUPS most recent."""
+        if not self.backup_dir.exists():
+            return
+
+        # Find all backup files for this PRD
+        pattern = f"{self.prd_file.stem}-*{self.prd_file.suffix}"
+        backups = sorted(
+            self.backup_dir.glob(pattern),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+
+        # Remove oldest backups if we exceed MAX_BACKUPS
+        for old_backup in backups[self.MAX_BACKUPS :]:
+            try:
+                old_backup.unlink()
+            except OSError:
+                # Ignore errors during cleanup
+                pass
+
     def update_task_status(
         self,
         task_id: str,
@@ -285,7 +341,7 @@ class PRDParser:
         """Update task status in PRD file.
 
         Reads the file, updates the status indicator for the specified task,
-        and writes back atomically.
+        and writes back atomically. Creates a timestamped backup before modification.
 
         Args:
             task_id: Task ID to update
@@ -294,10 +350,14 @@ class PRDParser:
 
         Raises:
             ValueError: If task ID not found
+            IOError: If backup or file write fails
         """
         task = self.get_task_by_id(task_id)
         if task is None:
             raise ValueError(f"Task not found: {task_id}")
+
+        # Create backup before modification
+        self._create_backup()
 
         # Read all lines
         with open(self.prd_file) as f:

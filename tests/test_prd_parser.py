@@ -479,3 +479,128 @@ def test_file_not_found_error_is_helpful(tmp_path: Path):
     assert "Please create a PRD markdown file" in error_msg
     assert "## High Priority" in error_msg
     assert "- [ ] PRD-001" in error_msg
+
+
+def test_backup_created_on_update(tmp_path: Path):
+    """Test that backup is created when updating task status."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(VALID_PRD)
+
+    backup_dir = tmp_path / "backups"
+    parser = PRDParser(prd_file, backup_dir=backup_dir)
+    parser.parse()
+
+    # Update a task status
+    parser.update_task_status("PRD-001", PRDTaskStatus.IN_PROGRESS)
+
+    # Verify backup was created
+    assert backup_dir.exists()
+    backups = list(backup_dir.glob("test-*.md"))
+    assert len(backups) == 1
+
+    # Verify backup contains original content
+    backup_content = backups[0].read_text()
+    assert "[ ] PRD-001 Add user authentication" in backup_content
+
+
+def test_backup_cleanup_keeps_max_backups(tmp_path: Path):
+    """Test that old backups are cleaned up, keeping only MAX_BACKUPS."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(VALID_PRD)
+
+    backup_dir = tmp_path / "backups"
+    parser = PRDParser(prd_file, backup_dir=backup_dir)
+    parser.parse()
+
+    # Create more backups than MAX_BACKUPS (10)
+    for i in range(12):
+        parser.update_task_status("PRD-001", PRDTaskStatus.IN_PROGRESS)
+        # Need to re-read to update tasks after modification
+        parser._tasks = []
+        parser._task_ids = set()
+        parser._current_priority = None
+        parser.parse()
+
+    # Verify only MAX_BACKUPS remain
+    backups = list(backup_dir.glob("test-*.md"))
+    assert len(backups) == PRDParser.MAX_BACKUPS
+
+
+def test_backup_restores_on_failure(tmp_path: Path):
+    """Test that backup can be used to restore after corruption."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(VALID_PRD)
+
+    backup_dir = tmp_path / "backups"
+    parser = PRDParser(prd_file, backup_dir=backup_dir)
+    parser.parse()
+
+    # Create a backup
+    parser.update_task_status("PRD-001", PRDTaskStatus.IN_PROGRESS)
+
+    # Verify original file was modified
+    modified_content = prd_file.read_text()
+    assert "[~] PRD-001" in modified_content
+
+    # Get backup file
+    backups = list(backup_dir.glob("test-*.md"))
+    assert len(backups) == 1
+    backup_file = backups[0]
+
+    # Verify backup has original content
+    backup_content = backup_file.read_text()
+    assert "[ ] PRD-001 Add user authentication" in backup_content
+
+    # Simulate restoration
+    prd_file.write_text(backup_content)
+
+    # Verify we can parse the restored file
+    parser2 = PRDParser(prd_file)
+    tasks = parser2.parse()
+    task_001 = next(t for t in tasks if t.task_id == "PRD-001")
+    assert task_001.status == PRDTaskStatus.PENDING
+
+
+def test_backup_with_blocking_reason(tmp_path: Path):
+    """Test that backup is created when blocking task with reason."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(VALID_PRD)
+
+    backup_dir = tmp_path / "backups"
+    parser = PRDParser(prd_file, backup_dir=backup_dir)
+    parser.parse()
+
+    # Block a task with reason
+    parser.update_task_status("PRD-001", PRDTaskStatus.BLOCKED, "waiting for API")
+
+    # Verify backup was created
+    backups = list(backup_dir.glob("test-*.md"))
+    assert len(backups) == 1
+
+    # Verify backup has original content without blocking reason
+    backup_content = backups[0].read_text()
+    assert "[ ] PRD-001 Add user authentication" in backup_content
+    assert "blocked:" not in backup_content or "PRD-004" in backup_content  # Only existing blocked task
+
+
+def test_backup_directory_created_automatically(tmp_path: Path):
+    """Test that backup directory is created if it doesn't exist."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(VALID_PRD)
+
+    backup_dir = tmp_path / "nested" / "backups"
+    assert not backup_dir.exists()
+
+    parser = PRDParser(prd_file, backup_dir=backup_dir)
+    parser.parse()
+
+    # Update task status (should create backup dir)
+    parser.update_task_status("PRD-001", PRDTaskStatus.COMPLETED)
+
+    # Verify directory was created
+    assert backup_dir.exists()
+    assert backup_dir.is_dir()
+
+    # Verify backup exists
+    backups = list(backup_dir.glob("test-*.md"))
+    assert len(backups) == 1

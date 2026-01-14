@@ -31,8 +31,9 @@ class PRDOrchestrator:
         # Initialize state manager
         self.state_manager = PRDStateManager(self.prd_dir, str(prd_file))
 
-        # Parse PRD file
-        self.parser = PRDParser(prd_file)
+        # Parse PRD file (backups go to prd_dir/backups)
+        backup_dir = self.prd_dir / "backups"
+        self.parser = PRDParser(prd_file, backup_dir=backup_dir)
         self.tasks = self.parser.parse()
 
         # Initialize task mapping in state if needed

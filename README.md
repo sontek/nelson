@@ -470,9 +470,9 @@ A: Each task links to its Nelson run directory with full logs and decision histo
 
 See [FUTURE_FEATURES.md](FUTURE_FEATURES.md) for planned enhancements:
 
-- Support for additional AI providers (OpenAI, etc.)
+- Additional AI provider support (OpenAI, Google Gemini, local models)
 - Enhanced cost tracking and reporting
-- Parallel task execution for independent PRD tasks
+- Parallel task execution (currently sequential by priority)
 - Task dependency graphs (DAG-based execution)
 
 ## License

@@ -107,6 +107,7 @@ class TaskState:
             context: Optional context for resuming the task
         """
         self.status = TaskStatus.PENDING
+        self.blocking_reason = None  # Clear the blocking reason
         if context:
             self.resume_context = context
         # Keep blocked_at for history, but task is now unblocked

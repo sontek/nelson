@@ -331,15 +331,22 @@ class PRDOrchestrator:
             print(f"Error: Task not found: {task_id}")
             return False
 
-        # Check if task is resumable (blocked or in-progress)
-        if task.status not in [PRDTaskStatus.BLOCKED, PRDTaskStatus.IN_PROGRESS]:
+        # Check if task is resumable (blocked, in-progress, or pending with resume context)
+        if task.status not in [
+            PRDTaskStatus.BLOCKED,
+            PRDTaskStatus.IN_PROGRESS,
+            PRDTaskStatus.PENDING,
+        ]:
             print(
                 f"Error: Task {task_id} is not in a resumable state (status: {task.status})"
             )
             return False
 
-        # Update status to pending in PRD file so it can be picked up
-        self.parser.update_task_status(task_id, PRDTaskStatus.PENDING)
+        # Update status to pending in PRD file so it can be picked up (if not already)
+        if task.status != PRDTaskStatus.PENDING:
+            self.parser.update_task_status(task_id, PRDTaskStatus.PENDING)
+            # Re-parse to refresh cache
+            self.tasks = self.parser.parse()
 
         # Execute task
         return self.execute_task(
@@ -367,6 +374,9 @@ class PRDOrchestrator:
 
         # Update PRD file
         self.parser.update_task_status(task_id, PRDTaskStatus.BLOCKED, reason)
+
+        # Re-parse to refresh cache
+        self.tasks = self.parser.parse()
 
         print(f"Task {task_id} blocked: {reason}")
         return True
@@ -396,6 +406,9 @@ class PRDOrchestrator:
 
         # Update PRD file
         self.parser.update_task_status(task_id, PRDTaskStatus.PENDING)
+
+        # Re-parse to refresh cache
+        self.tasks = self.parser.parse()
 
         print(f"Task {task_id} unblocked")
         if context:

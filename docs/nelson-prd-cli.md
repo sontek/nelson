@@ -417,6 +417,376 @@ watch -n 30 "nelson-prd --status requirements.md"
 7. **Review task info** after failures to understand what happened
 8. **Keep PRD file in version control** to track project progress
 
+## Troubleshooting
+
+### Task ID Format Errors
+
+**Problem:** Error message like `"Invalid task ID format: found 'PRD-1', expected 'PRD-NNN'"`
+
+**Cause:** Task IDs must have exactly 3 digits (PRD-001 to PRD-999)
+
+**Solution:**
+```bash
+# ❌ Wrong
+- [ ] PRD-1 Add authentication
+- [ ] PRD-12 Create profile
+- [ ] PRD-1234 Add payment
+
+# ✅ Correct
+- [ ] PRD-001 Add authentication
+- [ ] PRD-012 Create profile
+- [ ] PRD-123 Add payment
+```
+
+---
+
+### Duplicate Task ID Error
+
+**Problem:** Error message like `"Duplicate task IDs found: PRD-001 appears 2 times"`
+
+**Cause:** Multiple tasks have the same ID in the PRD file
+
+**Solution:**
+1. Search for the duplicate ID: `grep "PRD-001" requirements.md`
+2. Assign unique IDs to each task
+3. Check line numbers in error message for locations
+
+---
+
+### Task Outside Priority Section
+
+**Problem:** Error message like `"Task 'PRD-001 ...' has no priority context"`
+
+**Cause:** Task appears before any priority header or in unrecognized section
+
+**Solution:**
+```bash
+# ❌ Wrong - task before priority section
+- [ ] PRD-001 Add authentication
+
+## High Priority
+- [ ] PRD-002 Create profile
+
+# ✅ Correct - all tasks under priority sections
+## High Priority
+- [ ] PRD-001 Add authentication
+- [ ] PRD-002 Create profile
+```
+
+---
+
+### Branch Already Exists Error
+
+**Problem:** Git error when trying to create branch `feature/PRD-001-...`
+
+**Cause:** Branch already exists from previous run
+
+**Solutions:**
+1. **Delete the branch:**
+   ```bash
+   git branch -D feature/PRD-001-add-authentication
+   nelson-prd requirements.md
+   ```
+
+2. **Switch to existing branch:**
+   ```bash
+   git checkout feature/PRD-001-add-authentication
+   nelson-prd --resume-task PRD-001 requirements.md
+   ```
+
+3. **Clean up all PRD branches:**
+   ```bash
+   git branch | grep "feature/PRD-" | xargs git branch -D
+   nelson-prd requirements.md
+   ```
+
+---
+
+### Uncommitted Changes Error
+
+**Problem:** Git refuses to switch branches due to uncommitted changes
+
+**Cause:** Current branch has uncommitted changes that would be overwritten
+
+**Solutions:**
+1. **Commit changes:**
+   ```bash
+   git add .
+   git commit -m "WIP: Current progress"
+   nelson-prd requirements.md
+   ```
+
+2. **Stash changes:**
+   ```bash
+   git stash
+   nelson-prd requirements.md
+   git stash pop  # Later when you return
+   ```
+
+3. **Use --nelson-args to stay on current branch (not recommended):**
+   ```bash
+   # This bypasses branch switching - use cautiously
+   nelson-prd --resume-task PRD-001 requirements.md
+   ```
+
+---
+
+### State File Corruption
+
+**Problem:** Error message like `"Failed to load PRD state: JSONDecodeError"`
+
+**Cause:** State file corrupted (crash during write, disk full, manual edit)
+
+**Solution:**
+```bash
+# 1. Backup corrupted state
+cp .nelson/prd/prd-state.json .nelson/prd/prd-state.json.corrupted
+
+# 2. Remove corrupted file
+rm .nelson/prd/prd-state.json
+
+# 3. Re-run (will recreate state from PRD file)
+nelson-prd requirements.md
+```
+
+**For task-specific state corruption:**
+```bash
+# Remove corrupted task state
+rm .nelson/prd/PRD-001/state.json
+
+# Task will restart from beginning
+nelson-prd --resume-task PRD-001 requirements.md
+```
+
+---
+
+### Task Stuck in "In Progress"
+
+**Problem:** Task shows `[~]` but isn't running, or status shows "in_progress" forever
+
+**Cause:** Previous execution was interrupted (Ctrl+C, crash, kill signal)
+
+**Solutions:**
+1. **Block and resume:**
+   ```bash
+   # Block with reason
+   nelson-prd --block PRD-003 --reason "Interrupted, resuming" requirements.md
+
+   # Unblock and resume
+   nelson-prd --unblock PRD-003 requirements.md
+   nelson-prd --resume-task PRD-003 requirements.md
+   ```
+
+2. **Manual state fix:**
+   ```bash
+   # Edit task state to mark as pending
+   # Change status from "in_progress" to "pending" in:
+   vim .nelson/prd/PRD-003/state.json
+
+   # Then resume
+   nelson-prd requirements.md
+   ```
+
+---
+
+### Cost Tracking Shows $0.00
+
+**Problem:** Task completes but `--status` shows $0.00 cost
+
+**Cause:** Nelson's state.json file not found or cost field missing
+
+**Solutions:**
+1. **Check Nelson state file exists:**
+   ```bash
+   ls -la .nelson/runs/*/state.json
+   cat .nelson/runs/nelson-*/state.json | grep cost_usd
+   ```
+
+2. **Verify Nelson version:**
+   ```bash
+   nelson --version  # Should be >= 1.0.0
+   ```
+
+3. **Check --nelson-args syntax:**
+   ```bash
+   # ❌ Wrong - might break state tracking
+   nelson-prd --nelson-args "--some-invalid-flag" requirements.md
+
+   # ✅ Correct - valid Nelson arguments
+   nelson-prd --nelson-args "--model opus" requirements.md
+   ```
+
+---
+
+### Tasks Execute Out of Order
+
+**Problem:** Medium priority tasks run before High priority tasks
+
+**Cause:** Tasks don't have valid priority section headers
+
+**Solution:**
+```bash
+# ❌ Wrong - typo in priority header
+## High Prority
+- [ ] PRD-001 Important task
+
+## Medium Pririty
+- [ ] PRD-002 Less important
+
+# ✅ Correct - exact headers required
+## High Priority
+- [ ] PRD-001 Important task
+
+## Medium Priority
+- [ ] PRD-002 Less important
+```
+
+Valid headers (case-sensitive):
+- `## High Priority`
+- `## Medium Priority`
+- `## Low Priority`
+
+---
+
+### Resume Context Not Working
+
+**Problem:** Unblock with `--context` but Nelson doesn't see the context
+
+**Cause:** Context not stored correctly or task not resumed properly
+
+**Solution:**
+```bash
+# 1. Verify context was stored
+nelson-prd --task-info PRD-003 requirements.md
+# Look for "Resume Context:" section
+
+# 2. Must use --resume-task to use context
+nelson-prd --resume-task PRD-003 requirements.md  # ✅ Includes context
+
+# ❌ Don't do this - won't use stored context
+nelson-prd requirements.md  # Starts fresh without context
+```
+
+---
+
+### PRD File Changes Not Detected
+
+**Problem:** Modified task descriptions but status doesn't show warnings
+
+**Cause:** Changes happened before task was started (no original_text stored)
+
+**Expected Behavior:**
+- Only tasks that have been started have original_text in task_mapping
+- New tasks or pending tasks won't show change warnings
+- Warnings only appear for tasks that have state (started, completed, blocked)
+
+**Check Status:**
+```bash
+nelson-prd --status requirements.md
+# Look for "⚠️ Task text changes detected" section
+```
+
+---
+
+### Too Many Backup Files
+
+**Problem:** `.nelson/backups/` directory has hundreds of backup files
+
+**Cause:** Many PRD file updates (normal behavior)
+
+**Solution:**
+Backups are automatically cleaned up (max 10 per PRD file). Manual cleanup:
+```bash
+# Remove all backups older than 7 days
+find .nelson/backups -name "*.backup-*" -mtime +7 -delete
+
+# Remove all backups (will lose recovery ability)
+rm -rf .nelson/backups/
+```
+
+---
+
+### Nelson Command Not Found
+
+**Problem:** Error message like `"nelson: command not found"` during task execution
+
+**Cause:** Nelson not installed or not in PATH
+
+**Solution:**
+```bash
+# 1. Verify Nelson installation
+which nelson
+nelson --version
+
+# 2. If not installed, install Nelson
+pip install nelson-cli  # Or appropriate installation method
+
+# 3. If installed but not in PATH
+export PATH="$HOME/.local/bin:$PATH"  # Add to ~/.bashrc or ~/.zshrc
+```
+
+---
+
+### Permission Denied on State Files
+
+**Problem:** Error message like `"Permission denied: '.nelson/prd/prd-state.json'"`
+
+**Cause:** File ownership or permissions issue (possibly from sudo execution)
+
+**Solution:**
+```bash
+# 1. Check current ownership
+ls -la .nelson/prd/
+
+# 2. Fix ownership (replace USERNAME with your username)
+sudo chown -R USERNAME:USERNAME .nelson/
+
+# 3. Fix permissions
+chmod -R u+rw .nelson/prd/
+
+# 4. Re-run
+nelson-prd requirements.md
+```
+
+---
+
+### Task Fails Immediately
+
+**Problem:** Task shows as failed without making progress
+
+**Possible Causes & Solutions:**
+
+1. **Nelson configuration issue:**
+   ```bash
+   # Test Nelson directly
+   echo "Add a simple function" | nelson
+   ```
+
+2. **Invalid --nelson-args:**
+   ```bash
+   # Check Nelson help for valid arguments
+   nelson --help
+   ```
+
+3. **Git repository issues:**
+   ```bash
+   # Verify git repo is initialized
+   git status
+
+   # Initialize if needed
+   git init
+   git add .
+   git commit -m "Initial commit"
+   ```
+
+4. **Check detailed error:**
+   ```bash
+   nelson-prd --task-info PRD-001 requirements.md
+   # Look for error messages in output
+   ```
+
+---
+
 ## See Also
 
 - [nelson(1)](nelson-cli.md) - Single-task autonomous development tool

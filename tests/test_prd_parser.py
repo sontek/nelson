@@ -1041,3 +1041,146 @@ def test_valid_task_id_boundaries(tmp_path: Path):
     assert tasks[0].task_id == "PRD-000"
     assert tasks[1].task_id == "PRD-999"
     assert tasks[2].task_id == "PRD-042"
+
+
+def test_task_after_priority_sections_end(tmp_path: Path):
+    """Test that tasks appearing after priority sections inherit last priority context.
+
+    This verifies that non-priority section headers (like '## Notes') don't reset
+    the priority context. Tasks maintain the priority from the last priority section
+    encountered. This is the expected behavior - priority context persists until
+    a new priority section is encountered.
+    """
+    content = """## High Priority
+- [ ] PRD-001 Valid high priority task
+
+## Medium Priority
+- [ ] PRD-002 Valid medium priority task
+
+## Notes
+This is a notes section, not a priority section.
+
+- [ ] PRD-003 Task in notes section (inherits medium priority)
+"""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(content)
+
+    parser = PRDParser(prd_file)
+    tasks = parser.parse()
+
+    # All tasks should be parsed successfully
+    assert len(tasks) == 3
+    assert tasks[0].priority == "high"
+    assert tasks[1].priority == "medium"
+    # PRD-003 inherits "medium" priority from last priority section
+    assert tasks[2].priority == "medium"
+
+
+def test_task_between_priority_sections_with_content(tmp_path: Path):
+    """Test task appearing between priority sections where context is lost."""
+    content = """## High Priority
+- [ ] PRD-001 Valid high priority task
+
+---
+Divider or other content here
+---
+
+- [ ] PRD-002 Task after divider but before next priority section
+
+## Medium Priority
+- [ ] PRD-003 Valid medium priority task
+"""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(content)
+
+    parser = PRDParser(prd_file)
+
+    # This should actually SUCCEED because _current_priority remains "high"
+    # until a new priority section is encountered
+    tasks = parser.parse()
+    assert len(tasks) == 3
+    assert tasks[0].task_id == "PRD-001"
+    assert tasks[0].priority == "high"
+    assert tasks[1].task_id == "PRD-002"
+    assert tasks[1].priority == "high"  # Still in high priority context
+    assert tasks[2].task_id == "PRD-003"
+    assert tasks[2].priority == "medium"
+
+
+def test_multiple_tasks_without_any_priority_sections(tmp_path: Path):
+    """Test multiple tasks with no priority sections at all."""
+    content = """# My Project
+
+This is a regular markdown document.
+
+- [ ] PRD-001 First task without priority
+- [ ] PRD-002 Second task without priority
+- [ ] PRD-003 Third task without priority
+"""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(content)
+
+    parser = PRDParser(prd_file)
+
+    with pytest.raises(ValueError) as exc_info:
+        parser.parse()
+
+    error_msg = str(exc_info.value)
+    # All three tasks should be reported as outside priority sections
+    assert "PRD-001" in error_msg
+    assert "PRD-002" in error_msg
+    assert "PRD-003" in error_msg
+    assert "outside priority section" in error_msg
+    assert "3 validation error(s)" in error_msg
+
+
+def test_task_in_unrecognized_section(tmp_path: Path):
+    """Test task in section that looks like priority but isn't recognized."""
+    content = """## Very High Priority
+- [ ] PRD-001 Task in non-standard priority section
+
+## High Priority
+- [ ] PRD-002 Task in valid priority section
+"""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(content)
+
+    parser = PRDParser(prd_file)
+
+    with pytest.raises(ValueError) as exc_info:
+        parser.parse()
+
+    error_msg = str(exc_info.value)
+    # PRD-001 should be rejected because "Very High Priority" is not recognized
+    assert "PRD-001" in error_msg
+    assert "outside priority section" in error_msg
+    # Should suggest adding a proper priority header
+    assert "## High Priority" in error_msg
+
+
+def test_task_context_reset_between_files(tmp_path: Path):
+    """Test that priority context doesn't leak between parser instances."""
+    # Create two files
+    file1 = tmp_path / "file1.md"
+    file1.write_text("""## High Priority
+- [ ] PRD-001 Task in file 1
+""")
+
+    file2 = tmp_path / "file2.md"
+    file2.write_text("""- [ ] PRD-002 Task without priority section in file 2
+""")
+
+    # Parse file1 (should succeed)
+    parser1 = PRDParser(file1)
+    tasks1 = parser1.parse()
+    assert len(tasks1) == 1
+    assert tasks1[0].priority == "high"
+
+    # Parse file2 with new parser (should fail - no priority context)
+    parser2 = PRDParser(file2)
+    with pytest.raises(ValueError) as exc_info:
+        parser2.parse()
+
+    error_msg = str(exc_info.value)
+    assert "outside priority section" in error_msg
+    assert "PRD-002" in error_msg

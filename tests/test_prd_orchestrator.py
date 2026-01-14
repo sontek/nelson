@@ -7,6 +7,7 @@ import pytest
 
 from nelson.prd_orchestrator import PRDOrchestrator
 from nelson.prd_parser import PRDTaskStatus
+from nelson.prd_task_state import TaskStatus
 
 
 # Sample PRD content for testing
@@ -1402,3 +1403,432 @@ def test_full_workflow_with_failure_handling(tmp_path: Path):
         final_summary = orchestrator.get_status_summary()
         assert final_summary["completed"] == 2  # PRD-001, PRD-003
         assert final_summary["failed"] == 1  # PRD-002
+
+
+def test_concurrent_state_file_read_write(tmp_path: Path):
+    """Test that concurrent orchestrators can read shared state without corruption.
+
+    Simulates scenario where two nelson-prd processes are reading the same
+    PRD state directory. Each orchestrator should be able to read without
+    interfering with the other.
+    """
+    # Create PRD file
+    prd_file = tmp_path / "concurrent.md"
+    prd_file.write_text("""## High Priority
+- [ ] PRD-001 First task
+- [ ] PRD-002 Second task
+- [ ] PRD-003 Third task
+""")
+
+    prd_dir = tmp_path / ".nelson/prd"
+
+    # Create first orchestrator and execute a task
+    orchestrator1 = PRDOrchestrator(prd_file, prd_dir)
+
+    with patch("nelson.prd_orchestrator.ensure_branch_for_task") as mock_branch, \
+         patch("nelson.prd_orchestrator.subprocess.run") as mock_run:
+
+        mock_branch.return_value = "feature/PRD-001-first-task"
+        mock_run.return_value = Mock(returncode=0)
+
+        # Orchestrator 1 completes PRD-001
+        orchestrator1.execute_task("PRD-001", "First task", "high")
+
+        # Create second orchestrator (simulates concurrent process)
+        # This should read the updated state showing PRD-001 is complete
+        orchestrator2 = PRDOrchestrator(prd_file, prd_dir)
+
+        # Verify orchestrator2 sees the completed task
+        summary = orchestrator2.get_status_summary()
+        assert summary["completed"] == 1
+
+        # Verify orchestrator2 can read task state from orchestrator1
+        task_info = orchestrator2.get_task_info("PRD-001")
+        assert task_info is not None
+        assert task_info["status"] == "completed"
+
+        # Verify orchestrator2 gets a different pending task
+        next_task = orchestrator2.get_next_pending_task()
+        assert next_task is not None
+        task_id, _, _ = next_task
+        assert task_id != "PRD-001"  # Should skip completed task
+        assert task_id == "PRD-002"  # Should get next pending
+
+
+def test_concurrent_prd_file_modifications(tmp_path: Path):
+    """Test that concurrent PRD file updates don't corrupt task statuses.
+
+    Simulates scenario where one process is updating PRD file while another
+    is reading it. Parser should handle this gracefully by re-parsing.
+    """
+    # Create PRD file
+    prd_file = tmp_path / "concurrent.md"
+    prd_file.write_text("""## High Priority
+- [ ] PRD-001 First task
+- [ ] PRD-002 Second task
+""")
+
+    prd_dir = tmp_path / ".nelson/prd"
+    orchestrator1 = PRDOrchestrator(prd_file, prd_dir)
+
+    with patch("nelson.prd_orchestrator.ensure_branch_for_task") as mock_branch, \
+         patch("nelson.prd_orchestrator.subprocess.run") as mock_run:
+
+        mock_branch.return_value = "feature/PRD-001-first-task"
+        mock_run.return_value = Mock(returncode=0)
+
+        # Orchestrator 1 updates PRD-001 to in-progress
+        orchestrator1.parser.update_task_status("PRD-001", PRDTaskStatus.IN_PROGRESS)
+
+        # Simulate concurrent process reading the file
+        orchestrator2 = PRDOrchestrator(prd_file, prd_dir)
+
+        # Verify orchestrator2 sees the in-progress task
+        tasks = orchestrator2.parser.parse()
+        task1 = next(t for t in tasks if t.task_id == "PRD-001")
+        assert task1.status == PRDTaskStatus.IN_PROGRESS
+
+        # Verify orchestrator2 skips in-progress task
+        next_task = orchestrator2.get_next_pending_task()
+        assert next_task is not None
+        task_id, _, _ = next_task
+        assert task_id == "PRD-002"  # Should skip in-progress task
+
+
+def test_concurrent_task_double_execution_prevention(tmp_path: Path):
+    """Test that task status markers prevent double-execution.
+
+    When task is marked in-progress, a concurrent process should not
+    pick it up for execution.
+    """
+    # Create PRD file
+    prd_file = tmp_path / "concurrent.md"
+    prd_file.write_text("""## High Priority
+- [ ] PRD-001 First task
+- [ ] PRD-002 Second task
+""")
+
+    prd_dir = tmp_path / ".nelson/prd"
+
+    with patch("nelson.prd_orchestrator.ensure_branch_for_task") as mock_branch, \
+         patch("nelson.prd_orchestrator.subprocess.run") as mock_run:
+
+        mock_branch.return_value = "feature/PRD-001-first-task"
+        mock_run.return_value = Mock(returncode=0)
+
+        # Orchestrator 1 starts execution
+        orchestrator1 = PRDOrchestrator(prd_file, prd_dir)
+
+        # Get next task
+        next_task = orchestrator1.get_next_pending_task()
+        assert next_task is not None
+        task_id1, task_text1, priority1 = next_task
+        assert task_id1 == "PRD-001"
+
+        # Mark as in-progress (happens at start of execute_task)
+        orchestrator1.parser.update_task_status("PRD-001", PRDTaskStatus.IN_PROGRESS)
+
+        # Before task completes, simulate concurrent process starting
+        orchestrator2 = PRDOrchestrator(prd_file, prd_dir)
+
+        # Orchestrator 2 should NOT pick up PRD-001 (it's in-progress)
+        next_task2 = orchestrator2.get_next_pending_task()
+        assert next_task2 is not None
+        task_id2, _, _ = next_task2
+        assert task_id2 == "PRD-002"  # Should get different task
+
+        # Both orchestrators see consistent state
+        summary1 = orchestrator1.get_status_summary()
+        summary2 = orchestrator2.get_status_summary()
+
+        # Both should see PRD-001 as in-progress (via re-parsing)
+        orchestrator1.tasks = orchestrator1.parser.parse()
+        orchestrator2.tasks = orchestrator2.parser.parse()
+
+        task1_orch1 = next(t for t in orchestrator1.tasks if t.task_id == "PRD-001")
+        task1_orch2 = next(t for t in orchestrator2.tasks if t.task_id == "PRD-001")
+
+        assert task1_orch1.status == PRDTaskStatus.IN_PROGRESS
+        assert task1_orch2.status == PRDTaskStatus.IN_PROGRESS
+
+
+def test_concurrent_blocked_task_handling(tmp_path: Path):
+    """Test that blocked tasks are consistently skipped by concurrent processes."""
+    # Create PRD with blocked task
+    prd_file = tmp_path / "concurrent.md"
+    prd_file.write_text("""## High Priority
+- [!] PRD-001 Blocked task (blocked: waiting for API)
+- [ ] PRD-002 Available task
+- [ ] PRD-003 Another task
+""")
+
+    prd_dir = tmp_path / ".nelson/prd"
+
+    # Both orchestrators should skip the blocked task
+    orchestrator1 = PRDOrchestrator(prd_file, prd_dir)
+    orchestrator2 = PRDOrchestrator(prd_file, prd_dir)
+
+    # Both should get PRD-002 as next task (skipping blocked PRD-001)
+    next1 = orchestrator1.get_next_pending_task()
+    next2 = orchestrator2.get_next_pending_task()
+
+    assert next1 is not None
+    assert next2 is not None
+
+    task_id1, _, _ = next1
+    task_id2, _, _ = next2
+
+    assert task_id1 == "PRD-002"
+    assert task_id2 == "PRD-002"
+
+    # Both should recognize PRD-001 as blocked
+    info1 = orchestrator1.get_task_info("PRD-001")
+    info2 = orchestrator2.get_task_info("PRD-001")
+
+    # Tasks without state files will show as pending by default
+    # The PRD file parser shows blocked, state shows pending for new tasks
+    tasks1 = orchestrator1.parser.parse()
+    tasks2 = orchestrator2.parser.parse()
+
+    task1_orch1 = next(t for t in tasks1 if t.task_id == "PRD-001")
+    task1_orch2 = next(t for t in tasks2 if t.task_id == "PRD-001")
+
+    assert task1_orch1.status == PRDTaskStatus.BLOCKED
+    assert task1_orch2.status == PRDTaskStatus.BLOCKED
+
+
+def test_concurrent_cost_tracking_isolation(tmp_path: Path):
+    """Test that cost tracking remains accurate with concurrent updates.
+
+    Each task maintains its own cost state, so concurrent execution
+    should not corrupt individual task costs.
+    """
+    # Create PRD file
+    prd_file = tmp_path / "concurrent.md"
+    prd_file.write_text("""## High Priority
+- [ ] PRD-001 First task
+- [ ] PRD-002 Second task
+""")
+
+    prd_dir = tmp_path / ".nelson/prd"
+    orchestrator1 = PRDOrchestrator(prd_file, prd_dir)
+
+    with patch("nelson.prd_orchestrator.ensure_branch_for_task") as mock_branch, \
+         patch("nelson.prd_orchestrator.subprocess.run") as mock_run:
+
+        mock_branch.return_value = "feature/PRD-001-first-task"
+        mock_run.return_value = Mock(returncode=0)
+
+        # Orchestrator 1 completes PRD-001 - cost will be 0 since no Nelson state file
+        orchestrator1.execute_task("PRD-001", "First task", "high")
+
+        # Manually set cost to simulate what would happen with real Nelson execution
+        task1_state = orchestrator1.state_manager.load_task_state("PRD-001", "First task", "high")
+        task1_state.update_cost(1.50)
+        task1_state.increment_iterations(10)
+        orchestrator1.state_manager.save_task_state(task1_state)
+
+        # Create second orchestrator
+        orchestrator2 = PRDOrchestrator(prd_file, prd_dir)
+
+        # Orchestrator 2 completes PRD-002
+        orchestrator2.execute_task("PRD-002", "Second task", "high")
+
+        # Manually set cost for task 2
+        task2_state = orchestrator2.state_manager.load_task_state("PRD-002", "Second task", "high")
+        task2_state.update_cost(2.75)
+        task2_state.increment_iterations(15)
+        orchestrator2.state_manager.save_task_state(task2_state)
+
+        # Verify each task has its own cost
+        task1_info = orchestrator2.get_task_info("PRD-001")
+        task2_info = orchestrator2.get_task_info("PRD-002")
+
+        assert task1_info["cost_usd"] == 1.50
+        assert task2_info["cost_usd"] == 2.75
+
+        # Verify total cost is sum of both
+        summary = orchestrator2.get_status_summary()
+        assert summary["total_cost"] == 1.50 + 2.75
+
+
+def test_concurrent_backup_file_creation(tmp_path: Path):
+    """Test that concurrent backup creation doesn't corrupt files.
+
+    Multiple processes updating the PRD file should each create their own
+    timestamped backups without interfering.
+    """
+    # Create PRD file
+    prd_file = tmp_path / "concurrent.md"
+    prd_file.write_text("""## High Priority
+- [ ] PRD-001 First task
+- [ ] PRD-002 Second task
+""")
+
+    prd_dir = tmp_path / ".nelson/prd"
+    backup_dir = prd_dir / "backups"
+
+    orchestrator1 = PRDOrchestrator(prd_file, prd_dir)
+    orchestrator2 = PRDOrchestrator(prd_file, prd_dir)
+
+    with patch("nelson.prd_orchestrator.ensure_branch_for_task") as mock_branch, \
+         patch("nelson.prd_orchestrator.subprocess.run"):
+
+        mock_branch.return_value = "feature/PRD-001-first-task"
+
+        # Both orchestrators update task status (creates backups)
+        orchestrator1.parser.update_task_status("PRD-001", PRDTaskStatus.IN_PROGRESS)
+        orchestrator2.parser.update_task_status("PRD-002", PRDTaskStatus.IN_PROGRESS)
+
+        # Verify backup directory exists
+        assert backup_dir.exists()
+
+        # Verify backups were created
+        backups = list(backup_dir.glob("concurrent-*.md"))
+        assert len(backups) >= 2  # At least 2 backups from both updates
+
+        # Verify backups are readable and not corrupted
+        for backup in backups:
+            content = backup.read_text()
+            assert "PRD-001" in content
+            assert "PRD-002" in content
+            assert "## High Priority" in content
+
+
+def test_concurrent_state_persistence_consistency(tmp_path: Path):
+    """Test that state persistence remains consistent across concurrent processes.
+
+    When multiple processes save state, the last write should win, and
+    state should remain valid JSON.
+    """
+    # Create PRD file
+    prd_file = tmp_path / "concurrent.md"
+    prd_file.write_text("""## High Priority
+- [ ] PRD-001 First task
+- [ ] PRD-002 Second task
+""")
+
+    prd_dir = tmp_path / ".nelson/prd"
+
+    orchestrator1 = PRDOrchestrator(prd_file, prd_dir)
+    orchestrator2 = PRDOrchestrator(prd_file, prd_dir)
+
+    # Both orchestrators modify state
+    orchestrator1.state_manager.prd_state.update_task_status("PRD-001", TaskStatus.IN_PROGRESS)
+    orchestrator1.state_manager.save_prd_state()
+
+    orchestrator2.state_manager.prd_state.update_task_status("PRD-002", TaskStatus.IN_PROGRESS)
+    orchestrator2.state_manager.save_prd_state()
+
+    # Create third orchestrator to verify state is valid
+    orchestrator3 = PRDOrchestrator(prd_file, prd_dir)
+
+    # Verify state is readable and valid
+    prd_state = orchestrator3.state_manager.prd_state
+
+    # State should be valid (last write wins)
+    assert prd_state is not None
+    assert "PRD-001" in prd_state.task_mapping
+    assert "PRD-002" in prd_state.task_mapping
+
+    # Verify state file is valid JSON
+    state_file = prd_dir / "prd-state.json"
+    assert state_file.exists()
+
+    import json
+    with open(state_file) as f:
+        state_data = json.load(f)
+
+    assert "task_mapping" in state_data
+    assert "tasks" in state_data
+
+
+def test_concurrent_branch_creation_same_task(tmp_path: Path):
+    """Test that concurrent branch creation for same task is idempotent.
+
+    If two processes try to create the same branch, git should handle it
+    gracefully (branch already exists is not a fatal error).
+    """
+    # Create PRD file
+    prd_file = tmp_path / "concurrent.md"
+    prd_file.write_text("""## High Priority
+- [ ] PRD-001 First task
+""")
+
+    prd_dir = tmp_path / ".nelson/prd"
+
+    from nelson.git_utils import GitError
+
+    with patch("nelson.prd_orchestrator.ensure_branch_for_task") as mock_ensure_branch, \
+         patch("nelson.prd_orchestrator.subprocess.run") as mock_run:
+
+        # First call succeeds
+        mock_ensure_branch.return_value = "feature/PRD-001-first-task"
+        mock_run.return_value = Mock(returncode=0)
+
+        orchestrator1 = PRDOrchestrator(prd_file, prd_dir)
+        success1 = orchestrator1.execute_task("PRD-001", "First task", "high")
+        assert success1 is True
+
+        # Reset task status for retry
+        orchestrator1.parser.update_task_status("PRD-001", PRDTaskStatus.PENDING)
+
+        # Second call to same branch (simulates concurrent creation)
+        # Should return existing branch name (idempotent)
+        orchestrator2 = PRDOrchestrator(prd_file, prd_dir)
+        success2 = orchestrator2.execute_task("PRD-001", "First task", "high")
+        assert success2 is True
+
+        # Both calls should result in same branch
+        assert mock_ensure_branch.call_count == 2
+        all_calls = mock_ensure_branch.call_args_list
+        assert all_calls[0][0] == ("PRD-001", "First task")
+        assert all_calls[1][0] == ("PRD-001", "First task")
+
+
+def test_concurrent_execution_with_failures(tmp_path: Path):
+    """Test that concurrent execution handles failures independently.
+
+    If one process has a task failure, it shouldn't affect the other
+    process's task execution.
+    """
+    # Create PRD file
+    prd_file = tmp_path / "concurrent.md"
+    prd_file.write_text("""## High Priority
+- [ ] PRD-001 First task
+- [ ] PRD-002 Second task
+""")
+
+    prd_dir = tmp_path / ".nelson/prd"
+
+    with patch("nelson.prd_orchestrator.ensure_branch_for_task") as mock_branch, \
+         patch("nelson.prd_orchestrator.subprocess.run") as mock_run:
+
+        mock_branch.return_value = "feature/PRD-001-first-task"
+
+        # Orchestrator 1 - task succeeds
+        orchestrator1 = PRDOrchestrator(prd_file, prd_dir)
+        mock_run.return_value = Mock(returncode=0)
+        success1 = orchestrator1.execute_task("PRD-001", "First task", "high")
+        assert success1 is True
+
+        # Orchestrator 2 - task fails
+        orchestrator2 = PRDOrchestrator(prd_file, prd_dir)
+        mock_run.return_value = Mock(returncode=1)
+        success2 = orchestrator2.execute_task("PRD-002", "Second task", "high")
+        assert success2 is False
+
+        # Verify independent state
+        # Create fresh orchestrator to check final state
+        orchestrator3 = PRDOrchestrator(prd_file, prd_dir)
+
+        task1_info = orchestrator3.get_task_info("PRD-001")
+        task2_info = orchestrator3.get_task_info("PRD-002")
+
+        assert task1_info["status"] == "completed"
+        assert task2_info["status"] == "failed"
+
+        # Verify summary reflects both outcomes
+        summary = orchestrator3.get_status_summary()
+        assert summary["completed"] == 1
+        assert summary["failed"] == 1

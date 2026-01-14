@@ -220,24 +220,6 @@ class WorkflowOrchestrator:
                 logger.success("EXIT_SIGNAL detected - phase complete")
                 self._log_completion_status(status_block)
 
-                # Special case: Phase 1 in a NEW cycle (cycle > 0) with EXIT_SIGNAL
-                # Only exit if Phase 2 (IMPLEMENT) has no unchecked tasks
-                # If there's no implementation work, skip review/test/final-review/commit
-                if current_phase == Phase.PLAN and self.state.cycle_iterations > 0:
-                    # Check if Phase 2 has any unchecked implementation tasks
-                    has_implementation_work = has_unchecked_tasks(Phase.IMPLEMENT, self.plan_file)
-
-                    if not has_implementation_work:
-                        # No implementation work - skip remaining phases
-                        logger.success("Phase 1 in new cycle found no implementation work")
-                        logger.success("Workflow complete - exiting")
-                        break
-                    else:
-                        # There are unchecked tasks in Phase 2 - continue to implement them
-                        logger.info("Phase 1 complete, continuing to Phase 2 (IMPLEMENT)")
-
-                # For all other cases: let normal phase transition logic handle it below
-
             elif breaker_result == CircuitBreakerResult.TRIGGERED:
                 # Circuit breaker tripped - stagnation detected
                 logger.error("Circuit breaker triggered - halting workflow")
@@ -266,6 +248,47 @@ class WorkflowOrchestrator:
 
             if should_transition_phase(current_phase, self.plan_file, exit_signal):
                 next_phase = determine_next_phase(current_phase, self.plan_file)
+
+                # Special case: About to enter Phase 2 in a new cycle
+                # Check if there's any implementation work to do
+                # This check happens AFTER Phase 1 writes the plan, so it's safe to read
+                # Only check if the plan file exists (Phase 1 may have returned EXIT_SIGNAL
+                # before creating a plan file)
+                if (
+                    next_phase == Phase.IMPLEMENT
+                    and current_phase == Phase.PLAN
+                    and self.state.cycle_iterations > 0
+                    and self.plan_file.exists()
+                ):
+                    # Check if Phase 2 has any unchecked tasks
+                    if not has_unchecked_tasks(Phase.IMPLEMENT, self.plan_file):
+                        # No implementation work - skip to next cycle
+                        logger.success("Phase 1 in new cycle found no implementation work")
+                        logger.info("Skipping phases 2-6 and advancing to next cycle")
+
+                        # Complete the current cycle
+                        self.state.increment_cycle()
+                        new_cycle = self.state.cycle_iterations
+
+                        logger.success(
+                            f"Cycle {new_cycle - 1} complete - no implementation work"
+                        )
+                        logger.info(f"Starting cycle {new_cycle} - returning to Phase 1 (PLAN)")
+
+                        # Archive the old plan.md
+                        if self.plan_file.exists():
+                            archived_plan = self.run_dir / f"plan-cycle-{new_cycle - 1}.md"
+                            logger.info(f"Archiving plan to: {archived_plan.name}")
+                            self.plan_file.rename(archived_plan)
+
+                        # Log cycle completion to decisions file
+                        self._log_cycle_completion(new_cycle - 1, new_cycle)
+
+                        # Reset to Phase 1
+                        self.state.transition_phase(Phase.PLAN.value, Phase.PLAN.name_str)
+
+                        # Continue loop - will start new cycle at Phase 1
+                        continue
 
                 if next_phase is None:
                     # Phase 6 (COMMIT) complete - cycle finished

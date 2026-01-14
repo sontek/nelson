@@ -668,3 +668,29 @@ def test_parse_file_with_headers_but_no_tasks(tmp_path: Path):
     # Should parse successfully but return empty list
     tasks = parser.parse()
     assert tasks == []
+
+
+def test_parse_file_with_no_priority_sections_at_all(tmp_path: Path):
+    """Test that files with content but no priority sections and no tasks are handled."""
+    prd_file = tmp_path / "no-priorities.md"
+    prd_file.write_text("""# My Project Documentation
+
+This is just some regular markdown content.
+
+## Introduction
+Some introduction text here.
+
+## Background
+More information about the project.
+
+## Technical Details
+- Regular bullet point (not a task)
+- Another regular bullet
+- Yet another bullet without task format
+""")
+
+    parser = PRDParser(prd_file)
+
+    # Should parse successfully but return empty list (no tasks found)
+    tasks = parser.parse()
+    assert tasks == []

@@ -169,6 +169,17 @@ Create a plan at {plan_file} with 6 phases:
 - Phase 5 (FINAL-REVIEW): Add task '- [ ] Final review: all changes, patterns, completeness'
 - Phase 6 (COMMIT): Add task '- [ ] Commit any remaining changes'
 
+IMPORTANT - For review/audit/code-review tasks:
+- Phase 1: Review the code and identify specific issues/improvements
+- Phase 2: Create fix tasks for EACH issue found (e.g., '- [ ] Fix: SQL injection in auth.py:123')
+- Phase 2 should NOT be empty - if you find issues during review, they go in Phase 2 as fix tasks
+- If no issues found, explain in Phase 1 why code is acceptable, then Phase 2 can note "no changes needed"
+
+EXIT_SIGNAL in Phase 1:
+- If this is a NEW cycle and there's work to plan: EXIT_SIGNAL=true (advance to Phase 2)
+- If reviewing previous cycle's work and ALL work is complete: EXIT_SIGNAL=true with clear note in plan
+- If rebuilding context after a cycle: Check if original task is 100% complete before creating empty phases
+
 Mark Phase 1 tasks [x] as you complete them, log to {decisions_file}, then STOP.
 """
 

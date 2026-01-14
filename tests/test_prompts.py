@@ -50,7 +50,7 @@ class TestSystemPrompt:
         """System prompt should define EXIT_SIGNAL conditions."""
         prompt = get_system_prompt(Path(".nelson/decisions.md"))
         assert "EXIT_SIGNAL=true ONLY when ALL conditions met:" in prompt
-        assert "All plan tasks marked [x] or [~]" in prompt
+        assert "All tasks in CURRENT PHASE marked [x] or [~]" in prompt
         assert "Tests passing" in prompt
         assert "No errors in last execution" in prompt
 
@@ -58,7 +58,7 @@ class TestSystemPrompt:
         """System prompt should include example status blocks."""
         prompt = get_system_prompt(Path(".nelson/decisions.md"))
         assert "Example 1 - Making Progress:" in prompt
-        assert "Example 2 - Cycle Complete" in prompt
+        assert "Example 2 - Phase Complete" in prompt
         assert "Example 3 - Blocked:" in prompt
 
     def test_system_prompt_includes_decisions_file_path(self) -> None:

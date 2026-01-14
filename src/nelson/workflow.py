@@ -213,29 +213,29 @@ class WorkflowOrchestrator:
             breaker_result = self._check_circuit_breaker(status_block)
 
             if breaker_result == CircuitBreakerResult.EXIT_SIGNAL:
-                # EXIT_SIGNAL behavior depends on current phase:
-                # - Phase 1 (PLAN): "no more work to do" → STOP workflow
-                # - Phases 2-6: "cycle complete" → loop back to Phase 1 for next cycle
-                logger.success("EXIT_SIGNAL detected")
+                # EXIT_SIGNAL means current phase is complete
+                logger.success("EXIT_SIGNAL detected - phase complete")
                 self._log_completion_status(status_block)
 
-                if current_phase == Phase.PLAN:
-                    # Phase 1 EXIT_SIGNAL means no additional work needed - stop workflow
-                    logger.success("Phase 1 EXIT_SIGNAL: no additional work found")
+                # Special case: Phase 1 in a NEW cycle (cycle > 0) with EXIT_SIGNAL
+                # means no new work found - stop workflow
+                if current_phase == Phase.PLAN and self.state.cycle_iterations > 0:
+                    # We looped back to Phase 1 after completing a cycle
+                    # EXIT_SIGNAL here means no new work to do
+                    logger.success("Phase 1 in new cycle found no additional work")
                     logger.success("Workflow complete - exiting")
                     break
 
-                # For Phases 2-6: EXIT_SIGNAL means cycle work is complete
-                # Complete current cycle and loop back to Phase 1 for next cycle
-                logger.success("EXIT_SIGNAL detected - current cycle work complete")
+                # Handle EXIT_SIGNAL based on phase:
+                # - Phase 1 (first cycle): Fall through to phase transition → Phase 2
+                # - Phase 2-5: Cycle complete early, loop back to Phase 1
+                # - Phase 6: Fall through to natural cycle completion logic
 
-                # If we're in Phase 6 (COMMIT), let normal cycle logic handle loop-back
-                # Otherwise, trigger immediate cycle completion
-                if current_phase == Phase.COMMIT:
-                    # Let phase transition logic handle cycle completion naturally
-                    pass
-                else:
-                    # Force cycle completion: archive plan, increment cycle, reset to Phase 1
+                if current_phase in (Phase.IMPLEMENT, Phase.REVIEW, Phase.TEST, Phase.FINAL_REVIEW):
+                    # Phases 2-5 with EXIT_SIGNAL: cycle work complete early
+                    # Force cycle completion and return to Phase 1 for next cycle
+                    logger.success("Cycle work complete early via EXIT_SIGNAL")
+
                     self.state.increment_cycle()
                     new_cycle = self.state.cycle_iterations
 
@@ -257,6 +257,8 @@ class WorkflowOrchestrator:
                     # Continue loop - will start new cycle at Phase 1
                     continue
 
+                # For Phase 1 (first cycle) or Phase 6: let phase transition logic handle it
+
             elif breaker_result == CircuitBreakerResult.TRIGGERED:
                 # Circuit breaker tripped - stagnation detected
                 logger.error("Circuit breaker triggered - halting workflow")
@@ -272,7 +274,13 @@ class WorkflowOrchestrator:
             self._update_progress_metrics(status_block)
 
             # Check if phase transition is needed
-            exit_signal = status_block.get("exit_signal", False)
+            # Parse exit_signal from status block (handle both boolean and string values)
+            exit_signal_value = status_block.get("exit_signal", False)
+            if isinstance(exit_signal_value, str):
+                exit_signal = exit_signal_value.lower() in ("true", "1", "yes")
+            else:
+                exit_signal = bool(exit_signal_value)
+
             if should_transition_phase(current_phase, self.plan_file, exit_signal):
                 next_phase = determine_next_phase(current_phase, self.plan_file)
 
@@ -433,15 +441,39 @@ class WorkflowOrchestrator:
             CircuitBreakerResult indicating what action to take
         """
         # Check for EXIT_SIGNAL first
-        if status_block.get("exit_signal", False):
+        # Handle both boolean and string values (Claude may return "true"/"false" strings)
+        exit_signal_value = status_block.get("exit_signal", False)
+        if isinstance(exit_signal_value, str):
+            exit_signal = exit_signal_value.lower() in ("true", "1", "yes")
+        else:
+            exit_signal = bool(exit_signal_value)
+
+        if exit_signal:
             return CircuitBreakerResult.EXIT_SIGNAL
 
         # Extract progress metrics
-        tasks_completed = status_block.get("tasks_completed", 0)
-        files_modified = status_block.get("files_modified", 0)
+        # Convert to int, handling both string and int values
+        tasks_completed = int(status_block.get("tasks_completed", 0) or 0)
+        files_modified_value = status_block.get("files_modified", 0)
 
-        # Record progress with cumulative completed count
-        self.state.record_progress(tasks_completed)
+        # Parse files_modified, handling strings and ints
+        if isinstance(files_modified_value, (int, str)) and str(files_modified_value).isdigit():
+            files_modified = int(files_modified_value)
+        else:
+            files_modified = 0
+
+        # Check for progress this iteration
+        # tasks_completed is per-loop count (TASKS_COMPLETED_THIS_LOOP), not cumulative
+        # Any non-zero tasks or files means progress was made
+        if tasks_completed > 0 or files_modified > 0:
+            # Progress was made, reset counter
+            self.state.no_progress_iterations = 0
+        else:
+            # No progress this iteration
+            self.state.no_progress_iterations += 1
+
+        # Update timestamp for state tracking
+        self.state.update_timestamp()
 
         # Check for no progress (3+ iterations with 0 tasks, 0 files)
         if self.state.no_progress_iterations >= 3:

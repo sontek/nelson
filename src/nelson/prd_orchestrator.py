@@ -39,14 +39,18 @@ def _prd_status_to_task_status(prd_status: PRDTaskStatus) -> str:
 class PRDOrchestrator:
     """Orchestrates Nelson execution across multiple PRD tasks."""
 
-    def __init__(self, prd_file: Path, prd_dir: Path | None = None):
+    def __init__(
+        self, prd_file: Path, prd_dir: Path | None = None, target_path: Path | None = None
+    ):
         """Initialize orchestrator.
 
         Args:
             prd_file: Path to PRD markdown file
             prd_dir: Path to .nelson/prd directory (default: .nelson/prd)
+            target_path: Optional target repository path (default: current directory)
         """
         self.prd_file = prd_file
+        self.target_path = target_path
         self.prd_dir = prd_dir or Path(".nelson/prd")
 
         # Initialize state manager
@@ -141,7 +145,7 @@ class PRDOrchestrator:
         """
         # Generate branch name and ensure it exists
         try:
-            branch_name = ensure_branch_for_task(task_id, task_text)
+            branch_name = ensure_branch_for_task(task_id, task_text, self.target_path)
         except GitError as e:
             print(f"Error creating/switching branch: {e}")
             return False
@@ -168,6 +172,11 @@ class PRDOrchestrator:
             task_prompt = f"RESUME CONTEXT: {task_state.resume_context}\n\n{task_prompt}"
 
         cmd = ["nelson", task_prompt]
+
+        # Add target path if provided (must come after prompt, before flags)
+        if self.target_path:
+            cmd.append(str(self.target_path))
+
         if nelson_args:
             cmd.extend(nelson_args)
 
@@ -217,7 +226,9 @@ class PRDOrchestrator:
         # Update task state based on result
         if success:
             # Try to read Nelson state for cost/iteration info
-            nelson_state_path = Path(".nelson/runs") / run_id / "state.json"
+            # Nelson state is relative to target repository
+            base_path = self.target_path if self.target_path else Path(".")
+            nelson_state_path = base_path / ".nelson" / "runs" / run_id / "state.json"
             if nelson_state_path.exists():
                 try:
                     nelson_state = NelsonState.load(nelson_state_path)

@@ -24,6 +24,11 @@ console = Console()
     "prd_file",
     type=click.Path(exists=True, dir_okay=False, path_type=Path),
 )
+@click.argument(
+    "path",
+    required=False,
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+)
 @click.option(
     "--status",
     "show_status",
@@ -101,6 +106,7 @@ console = Console()
 )
 def main(
     prd_file: Path,
+    path: Path | None,
     show_status: bool,
     status_filter: str | None,
     block_task_id: str | None,
@@ -117,7 +123,11 @@ def main(
 ) -> None:
     """Execute tasks from a PRD (Product Requirements Document) file.
 
-    PRD_FILE should be a markdown file with tasks organized by priority:
+    PRD_FILE should be a markdown file with tasks organized by priority.
+
+    PATH is an optional target repository directory. If not provided, nelson-prd
+    works in the current directory. When provided, all git operations and
+    Nelson commands execute in the target directory.
 
     \b
     ## High Priority
@@ -138,8 +148,14 @@ def main(
       # Execute all pending tasks
       nelson-prd requirements.md
 
+      # Target a specific repository
+      nelson-prd requirements.md /path/to/repo
+
       # Show status
       nelson-prd --status requirements.md
+
+      # Show status for another repo
+      nelson-prd --status requirements.md /path/to/repo
 
       # Show only non-completed tasks (pending, in-progress, blocked)
       nelson-prd --status --filter active requirements.md
@@ -163,8 +179,24 @@ def main(
       nelson-prd --nelson-args "--model opus --max-iterations 100" requirements.md
     """
     try:
+        # Validate and resolve target path if provided
+        target_path: Path | None = None
+        if path is not None:
+            # Resolve to absolute path
+            target_path = path.resolve()
+
+            # Verify it's a git repository
+            from nelson.git_utils import is_git_repo
+            if not is_git_repo(target_path):
+                click.echo(
+                    f"Error: The specified path is not a git repository: {target_path}\n"
+                    "nelson-prd requires a git repository to track changes.",
+                    err=True,
+                )
+                sys.exit(1)
+
         # Initialize orchestrator
-        orchestrator = PRDOrchestrator(prd_file, prd_dir)
+        orchestrator = PRDOrchestrator(prd_file, prd_dir, target_path)
 
         # Parse nelson_args string into list
         parsed_nelson_args: list[str] | None = None

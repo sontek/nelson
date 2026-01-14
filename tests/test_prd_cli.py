@@ -110,10 +110,7 @@ def test_cli_status_command(
         "pending": 0,
         "failed": 0,
         "total_cost": 1.68,
-        "tasks": {
-            "PRD-001": task1,
-            "PRD-002": task2,
-        },
+        "tasks": [task1.to_dict(), task2.to_dict()],
     }
 
     # Run status command
@@ -701,7 +698,7 @@ def test_cli_status_with_failed_tasks(
         "pending": 0,
         "failed": 1,
         "total_cost": 0.5,
-        "tasks": {"PRD-001": task1},
+        "tasks": [task1.to_dict()],
     }
 
     result = cli_runner.invoke(main, ["--status", str(temp_prd_file)])

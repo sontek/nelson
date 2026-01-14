@@ -5,16 +5,21 @@ multiple Nelson runs based on PRD tasks, handling priority-based
 execution, branch management, cost tracking, and state transitions.
 """
 
+import json
 import subprocess
 from pathlib import Path
 from typing import Any
 
-from nelson.git_utils import GitError
-from nelson.prd_branch import ensure_branch_for_task
+from nelson.config import NelsonConfig
+from nelson.git_utils import GitError, get_current_branch
+from nelson.logging_config import get_logger
 from nelson.prd_parser import PRDParser, PRDTaskStatus
 from nelson.prd_state import PRDStateManager
 from nelson.prd_task_state import TaskStatus
+from nelson.providers.claude import ClaudeProvider
 from nelson.state import NelsonState
+
+logger = get_logger()
 
 
 def _prd_status_to_task_status(prd_status: PRDTaskStatus) -> str:
@@ -103,6 +108,153 @@ class PRDOrchestrator:
 
         return changes
 
+    def _parse_branch_info(self, output: str) -> dict[str, str] | None:
+        """Parse BRANCH_INFO from Nelson's output.
+
+        Args:
+            output: Combined stdout/stderr from Nelson
+
+        Returns:
+            Dictionary with branch, base, and reason keys, or None if not found
+        """
+        import re
+
+        # Look for the marker block
+        pattern = r"=== BRANCH_INFO ===\s*\nBRANCH:\s*(.+?)\s*\nBASE:\s*(.+?)\s*\nREASON:\s*(.+?)\s*\n==================="
+        match = re.search(pattern, output, re.DOTALL)
+
+        if match:
+            return {
+                "branch": match.group(1).strip(),
+                "base": match.group(2).strip(),
+                "reason": match.group(3).strip(),
+            }
+
+        return None
+
+    def _setup_branch_for_task(
+        self, task_id: str, task_text: str
+    ) -> dict[str, str | None]:
+        """Analyze task and create appropriate branch using Claude.
+
+        This makes a single, focused Claude API call to:
+        1. Analyze the task requirements
+        2. Determine appropriate branching strategy
+        3. Create/checkout the branch
+        4. Return branch information
+
+        Args:
+            task_id: Task ID (e.g., "PRD-001")
+            task_text: Full task description
+
+        Returns:
+            Dictionary with keys: branch, base_branch, reason
+        """
+        logger.info(f"Analyzing task for branch setup: {task_id}")
+
+        # Load config to get claude command
+        config = NelsonConfig.from_environment(target_path=self.target_path)
+
+        # Create Claude provider
+        provider = ClaudeProvider(
+            claude_command=config.claude_command, target_path=self.target_path
+        )
+
+        # Build focused system prompt for branching
+        system_prompt = """You are a git branching expert helping set up the correct branch for a task.
+
+Your job is to:
+1. Analyze the task description
+2. Determine the appropriate branching strategy
+3. Execute git commands to create/checkout the branch
+4. Return structured information about what you did
+
+Guidelines:
+- If the task involves reviewing/fixing a PR, use gh CLI to checkout that PR branch, then create a fix branch from it
+- If the task is new work, branch from main/master
+- Choose descriptive, concise branch names (e.g., "execution_queue_tables-fixes" not "feature/PRD-001-code-review-pr-https...")
+- Use lowercase with hyphens, keep it under 40 characters
+
+After setting up the branch, you MUST output EXACTLY this format:
+```json
+{
+  "branch": "actual-branch-name",
+  "base_branch": "branch-you-based-it-on",
+  "reason": "brief explanation of your choice"
+}
+```
+
+Output ONLY the JSON, nothing else."""
+
+        # Build user prompt with task details
+        user_prompt = f"""Task ID: {task_id}
+
+Task Description:
+{task_text}
+
+Please analyze this task, create the appropriate git branch, and return the JSON with branch information."""
+
+        try:
+            # Call Claude with haiku (fast and cheap for simple task)
+            response = provider.execute(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                model="haiku",
+                max_retries=2,
+            )
+
+            # Parse JSON from response
+            content = response.content.strip()
+
+            # Extract JSON if wrapped in code block
+            if "```json" in content:
+                json_start = content.index("```json") + 7
+                json_end = content.index("```", json_start)
+                json_str = content[json_start:json_end].strip()
+            elif "```" in content:
+                json_start = content.index("```") + 3
+                json_end = content.index("```", json_start)
+                json_str = content[json_start:json_end].strip()
+            else:
+                json_str = content
+
+            branch_info = json.loads(json_str)
+
+            # Validate we got the required fields
+            if not all(k in branch_info for k in ["branch", "base_branch", "reason"]):
+                raise ValueError("Missing required fields in branch info")
+
+            logger.info(
+                f"Branch setup complete: {branch_info['branch']} (from {branch_info['base_branch']})"
+            )
+
+            # Verify with git that we're actually on this branch
+            actual_branch = get_current_branch(self.target_path)
+            if actual_branch != branch_info["branch"]:
+                logger.warning(
+                    f"Git shows branch '{actual_branch}' but Claude reported '{branch_info['branch']}'"
+                )
+                branch_info["branch"] = actual_branch
+
+            return branch_info
+
+        except Exception as e:
+            logger.error(f"Branch setup failed: {e}")
+            # Fallback: use current branch
+            current_branch = get_current_branch(self.target_path)
+            if current_branch:
+                logger.info(f"Falling back to current branch: {current_branch}")
+                return {
+                    "branch": current_branch,
+                    "base_branch": None,
+                    "reason": f"Fallback due to error: {e}",
+                }
+            else:
+                # No branch at all - this is a problem
+                raise GitError(
+                    f"Failed to setup branch and no current branch exists: {e}"
+                )
+
     def get_next_pending_task(self) -> tuple[str, str, str] | None:
         """Get next pending task by priority.
 
@@ -143,28 +295,49 @@ class PRDOrchestrator:
         Returns:
             True if task succeeded, False if failed
         """
-        # Generate branch name and ensure it exists
-        try:
-            branch_name = ensure_branch_for_task(task_id, task_text, self.target_path)
-        except GitError as e:
-            print(f"Error creating/switching branch: {e}")
-            return False
-
         # Load or create task state
         task_state = self.state_manager.load_task_state(task_id, task_text, priority)
+
+        # Setup branch BEFORE starting Nelson
+        print("\n🌿 Setting up git branch for task...")
+        try:
+            branch_info = self._setup_branch_for_task(task_id, task_text)
+            branch_name = branch_info["branch"]
+            base_branch = branch_info.get("base_branch")
+            branch_reason = branch_info.get("reason")
+
+            print(f"   Branch: {branch_name}")
+            if base_branch:
+                print(f"   Based on: {base_branch}")
+            if branch_reason:
+                print(f"   Reason: {branch_reason}")
+        except Exception as e:
+            print(f"   ❌ Branch setup failed: {e}")
+            # Mark task as blocked
+            self.parser.update_task_status(
+                task_id, PRDTaskStatus.BLOCKED, f"Branch setup failed: {e}"
+            )
+            task_state.block(f"Branch setup failed: {e}")
+            self.state_manager.save_task_state(task_state)
+            return False
 
         # Generate Nelson run ID
         from datetime import UTC, datetime
         run_id = datetime.now(UTC).strftime("nelson-%Y%m%d-%H%M%S")
 
-        # Start task (updates state)
-        task_state.start(run_id, branch_name)
+        # Start task (updates state) with branch info
+        task_state.start(
+            run_id,
+            branch=branch_name,
+            base_branch=base_branch,
+            branch_reason=branch_reason,
+        )
         self.state_manager.save_task_state(task_state)
 
         # Update PRD file to in-progress
         self.parser.update_task_status(task_id, PRDTaskStatus.IN_PROGRESS)
 
-        # Build Nelson command
+        # Build Nelson command (NO branching instructions - branch is already set up)
         task_prompt = prompt or task_text
 
         # Prepend resume context if present
@@ -190,6 +363,7 @@ class PRDOrchestrator:
         print(f"{'='*60}\n")
 
         try:
+            # Run Nelson normally (preserves terminal colors and formatting)
             result = subprocess.run(cmd, check=False)
             success = result.returncode == 0
 
@@ -250,6 +424,12 @@ class PRDOrchestrator:
 
             print(f"\n{'='*60}")
             print(f"✅ Task completed: {task_id}")
+            if task_state.branch:
+                print(f"   Branch: {task_state.branch}")
+                if task_state.base_branch:
+                    print(f"   Based on: {task_state.base_branch}")
+                if task_state.branch_reason:
+                    print(f"   Reason: {task_state.branch_reason}")
             print(f"   Cost: ${task_state.cost_usd:.2f}")
             print(f"   Iterations: {task_state.iterations}")
             if task_state.phase_name:
@@ -481,6 +661,8 @@ class PRDOrchestrator:
                     "status": _prd_status_to_task_status(task.status),  # From PRD file
                     "priority": task.priority,
                     "branch": task_state.branch,
+                    "base_branch": task_state.base_branch,
+                    "branch_reason": task_state.branch_reason,
                     "blocking_reason": task_state.blocking_reason,
                     "resume_context": task_state.resume_context,
                     "nelson_run_id": task_state.nelson_run_id,
@@ -501,6 +683,8 @@ class PRDOrchestrator:
                     "status": _prd_status_to_task_status(task.status),  # From PRD file
                     "priority": task.priority,
                     "branch": None,
+                    "base_branch": None,
+                    "branch_reason": None,
                     "blocking_reason": None,
                     "resume_context": None,
                     "nelson_run_id": None,
@@ -570,6 +754,8 @@ class PRDOrchestrator:
             "status": task_state.status.value,
             "priority": task.priority,
             "branch": task_state.branch,
+            "base_branch": task_state.base_branch,
+            "branch_reason": task_state.branch_reason,
             "nelson_run_id": task_state.nelson_run_id,
             "blocking_reason": task_state.blocking_reason,
             "resume_context": task_state.resume_context,

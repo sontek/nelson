@@ -122,15 +122,10 @@ def get_git_status(path: Path | None = None) -> GitStatus:
     result_modified = subprocess.run(cmd_modified, capture_output=True, text=True, check=True)
     modified_files = [f for f in result_modified.stdout.strip().split("\n") if f]
 
-    # Get untracked files
-    cmd_untracked = ["git"]
-    if path:
-        cmd_untracked.extend(["-C", str(path)])
-    cmd_untracked.extend(["ls-files", "--others", "--exclude-standard"])
-    result_untracked = subprocess.run(cmd_untracked, capture_output=True, text=True, check=True)
-    untracked_files = [f for f in result_untracked.stdout.strip().split("\n") if f]
-
-    has_changes = bool(staged_files or modified_files or untracked_files)
+    # Check for uncommitted changes (staged or modified files only)
+    # Note: Untracked files are ignored since git allows branch switching with untracked files
+    # (unless they would conflict with the target branch, which git will handle)
+    has_changes = bool(staged_files or modified_files)
 
     return GitStatus(
         is_repo=True,

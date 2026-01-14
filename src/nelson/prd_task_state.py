@@ -38,6 +38,8 @@ class TaskState:
 
     # Git tracking
     branch: str | None = None  # Branch name for this task
+    base_branch: str | None = None  # Base branch this was created from
+    branch_reason: str | None = None  # Why this branch/base was chosen
 
     # Blocking and resume
     blocking_reason: str | None = None  # Why task is blocked
@@ -64,16 +66,29 @@ class TaskState:
         """Update the updated_at timestamp to current UTC time."""
         self.updated_at = _utc_timestamp()
 
-    def start(self, nelson_run_id: str, branch: str) -> None:
+    def start(
+        self,
+        nelson_run_id: str,
+        branch: str | None = None,
+        base_branch: str | None = None,
+        branch_reason: str | None = None,
+    ) -> None:
         """Mark task as started.
 
         Args:
             nelson_run_id: ID of the Nelson run executing this task
-            branch: Git branch name for this task
+            branch: Git branch name for this task (optional, will be detected if not provided)
+            base_branch: Base branch this was created from (optional)
+            branch_reason: Why this branch/base was chosen (optional)
         """
         self.status = TaskStatus.IN_PROGRESS
         self.nelson_run_id = nelson_run_id
-        self.branch = branch
+        if branch:
+            self.branch = branch
+        if base_branch:
+            self.base_branch = base_branch
+        if branch_reason:
+            self.branch_reason = branch_reason
         if self.started_at is None:
             self.started_at = _utc_timestamp()
         self.update_timestamp()

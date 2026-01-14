@@ -291,7 +291,7 @@ def test_prd_state_manager_block_task(tmp_path: Path):
     manager.prd_state.add_task("PRD-001", "Test task", "high", 1)
 
     manager.start_task("PRD-001", "Test task", "high", "run-123", "feature/test")
-    task_state = manager.block_task("PRD-001", "Waiting for API")
+    task_state = manager.block_task("PRD-001", "Test task", "high", "Waiting for API")
 
     assert task_state.status == TaskStatus.BLOCKED
     assert task_state.blocking_reason == "Waiting for API"
@@ -306,8 +306,8 @@ def test_prd_state_manager_unblock_task(tmp_path: Path):
 
     # Start, block, then unblock
     manager.start_task("PRD-001", "Test task", "high", "run-123", "feature/test")
-    manager.block_task("PRD-001", "Waiting for API")
-    task_state = manager.unblock_task("PRD-001", "API ready")
+    manager.block_task("PRD-001", "Test task", "high", "Waiting for API")
+    task_state = manager.unblock_task("PRD-001", "Test task", "high", "API ready")
 
     assert task_state.status == TaskStatus.PENDING
     assert task_state.resume_context == "API ready"
@@ -690,7 +690,7 @@ def test_state_file_persistence_across_workflow_operations(tmp_path: Path):
     assert loaded_prd_state["pending_count"] == 1
 
     # Phase 4: Block task PRD-002
-    task_state_2 = manager.block_task("PRD-002", "Waiting for API keys")
+    task_state_2 = manager.block_task("PRD-002", "Task 2", "medium", "Waiting for API keys")
     task_state_2.resume_context = "API keys added to .env"
     manager.save_task_state(task_state_2)
 
@@ -706,7 +706,7 @@ def test_state_file_persistence_across_workflow_operations(tmp_path: Path):
     assert loaded_prd_state["in_progress_count"] == 0
 
     # Phase 5: Unblock and complete PRD-002
-    task_state_2 = manager.unblock_task("PRD-002", "Ready to resume")
+    task_state_2 = manager.unblock_task("PRD-002", "Task 2", "medium", "Ready to resume")
     manager.save_task_state(task_state_2)
 
     task_data_2 = json.loads(task_state_file_2.read_text())
@@ -871,7 +871,7 @@ def test_state_synchronization_between_prd_and_task_states(tmp_path: Path):
     assert manager.prd_state.total_cost_usd == 3.5
 
     # Block task
-    blocked_task = manager.block_task("PRD-001", "Blocked reason")
+    blocked_task = manager.block_task("PRD-001", "Task 1", "high", "Blocked reason")
 
     # Verify blocking synchronized
     assert manager.prd_state.tasks["PRD-001"]["status"] == "blocked"
@@ -881,7 +881,7 @@ def test_state_synchronization_between_prd_and_task_states(tmp_path: Path):
     assert blocked_task.blocking_reason == "Blocked reason"
 
     # Unblock task
-    unblocked_task = manager.unblock_task("PRD-001", "Resume context")
+    unblocked_task = manager.unblock_task("PRD-001", "Task 1", "high", "Resume context")
 
     # Verify unblocking synchronized
     assert manager.prd_state.tasks["PRD-001"]["status"] == "pending"

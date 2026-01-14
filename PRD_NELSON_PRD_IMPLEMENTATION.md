@@ -20,90 +20,84 @@ Implement `nelson-prd`, a companion CLI tool that orchestrates multiple Nelson w
 
 ## Implementation Tasks
 
-### High Priority - Core Functionality
+## High Priority
 
-- [ ] Create PRD parser to extract tasks from markdown with priority sections
-- [ ] Add support for parsing explicit task IDs in format: `- [ ] PRD-NNN Task description`
-- [ ] Add support for parsing status indicators: `[ ]`, `[~]`, `[x]`, `[!]`
-- [ ] Implement task ID validation (check for missing IDs, duplicate IDs, invalid format)
-- [ ] Build TaskState dataclass with all required fields (task_id, status, branch, cost, timestamps, etc.)
-- [ ] Implement TaskState serialization to/from JSON in `.nelson/prd/PRD-NNN/state.json`
-- [ ] Create PRDState dataclass for overall orchestration state
-- [ ] Implement task mapping storage in `.nelson/prd/prd-state.json`
-- [ ] Build PRDStateManager for coordinating task state transitions
-- [ ] Implement git branch creation logic with format: `feature/PRD-NNN-description`
-- [ ] Add branch slugification from task description (lowercase, alphanumeric, ~40 chars)
-- [ ] Create basic PRD orchestrator that invokes Nelson CLI for each task
-- [ ] Implement priority-based task ordering (High → Medium → Low)
-- [ ] Add automatic branch creation and switching when starting tasks
-- [ ] Add basic CLI entry point using Click framework
-- [ ] Implement `nelson-prd <file>` command to execute all pending tasks
-- [ ] Add state persistence after each task execution
-- [ ] Create `.nelson/prd/` directory structure automatically
-- [ ] Add cost tracking integration with Nelson's cost reporting
+- [x] PRD-001 Create PRD parser to extract tasks from markdown with priority sections
+- [x] PRD-002 Add support for parsing explicit task IDs in format: `- [ ] PRD-NNN Task description`
+- [x] PRD-003 Add support for parsing status indicators: `[ ]`, `[~]`, `[x]`, `[!]`
+- [x] PRD-004 Implement task ID validation (check for missing IDs, duplicate IDs, invalid format)
+- [x] PRD-005 Build TaskState dataclass with all required fields (task_id, status, branch, cost, timestamps, etc.)
+- [x] PRD-006 Implement TaskState serialization to/from JSON in `.nelson/prd/PRD-NNN/state.json`
+- [x] PRD-007 Create PRDState dataclass for overall orchestration state
+- [x] PRD-008 Implement task mapping storage in `.nelson/prd/prd-state.json`
+- [x] PRD-009 Build PRDStateManager for coordinating task state transitions
+- [x] PRD-010 Implement git branch creation logic with format: `feature/PRD-NNN-description`
+- [x] PRD-011 Add branch slugification from task description (lowercase, alphanumeric, ~40 chars)
+- [x] PRD-012 Create basic PRD orchestrator that invokes Nelson CLI for each task
+- [x] PRD-013 Implement priority-based task ordering (High → Medium → Low)
+- [x] PRD-014 Add automatic branch creation and switching when starting tasks
+- [x] PRD-015 Add basic CLI entry point using Click framework
+- [x] PRD-016 Implement `nelson-prd <file>` command to execute all pending tasks
+- [x] PRD-017 Add state persistence after each task execution
+- [x] PRD-018 Create `.nelson/prd/` directory structure automatically
+- [x] PRD-019 Add cost tracking integration with Nelson's cost reporting
 
-### Medium Priority - Blocking and Resume Features
+## Medium Priority
 
-- [ ] Implement `--block <task-id> --reason <text>` command to mark tasks as blocked
-- [ ] Add blocking state transition logic (in_progress → blocked)
-- [ ] Update PRD markdown file when task is blocked (status indicator + reason)
-- [ ] Implement task skipping logic in orchestrator for blocked tasks
-- [ ] Create `--unblock <task-id>` command to mark tasks as ready
-- [ ] Add optional `--context <text>` parameter for unblock command to store resume info
-- [ ] Implement resume context storage in TaskState (free-form text field)
-- [ ] Build `--resume-task <task-id>` command to resume specific blocked task
-- [ ] Add resume context injection into Nelson prompt when resuming (prepend to prompt)
-- [ ] Implement automatic branch switching when resuming blocked tasks
-- [ ] Implement `--status` command showing all tasks with IDs and current state
-- [ ] Create rich status output with visual indicators (✓, ~, !, ○)
-- [ ] Display branch names in status output (e.g., `Branch: feature/PRD-001-add-auth`)
-- [ ] Implement `--task-info <task-id>` command for detailed task information
-- [ ] Store Nelson run ID in TaskState for linking to run directories
-- [ ] Add phase and phase_name tracking from Nelson state
-
-### Low Priority - Enhanced Features and Polish
-
-- [ ] Implement `--resume` command to continue from last incomplete task
-- [ ] Add `--dry-run` mode to preview tasks without execution
-- [ ] Create per-task cost accumulation from Nelson's cost reporting
-- [ ] Add aggregate cost display in status output
-- [ ] Implement iteration count tracking per task
-- [ ] Add blocking reason parsing from markdown (for manual edits)
-- [ ] Create task text change detection with warnings (when text after PRD-NNN changes)
-- [ ] Implement line number tracking for tasks in PRD file
-- [ ] Create comprehensive error handling with helpful messages
-- [ ] Implement atomic PRD file updates to prevent corruption
-- [ ] Create backup mechanism for PRD file before modifications
-- [ ] Add verbose logging mode for debugging
-- [ ] Implement environment variable inheritance for Nelson config
-- [ ] Add support for NELSON_MAX_ITERATIONS per task
-- [ ] Create rich console output with progress indicators
-- [ ] Add timestamp formatting in human-readable format
-- [ ] Implement completed task archival (optional)
-- [ ] Add git branch cleanup command for completed tasks
-
-### Documentation and Testing
-
-- [ ] Write comprehensive unit tests for task ID validation (PRD-NNN format)
-- [ ] Add tests for duplicate ID detection
-- [ ] Add tests for PRD parser with various markdown formats
-- [ ] Create tests for branch name generation and slugification
-- [ ] Create tests for TaskState serialization/deserialization
-- [ ] Write tests for PRDStateManager state transitions
-- [ ] Add integration tests for end-to-end PRD execution with mock Nelson
-- [ ] Create tests for blocking/unblocking workflow
-- [ ] Add tests for resume context storage and retrieval
-- [ ] Add tests for resume context injection into prompts
-- [ ] Add tests for automatic branch creation and switching
-- [ ] Create fixture PRD files for testing (with explicit IDs)
-- [ ] Add tests for cost aggregation
-- [ ] Write CLI usage documentation
-- [ ] Create example PRD files with PRD-NNN format
-- [ ] Add troubleshooting guide
-- [ ] Document state file formats
-- [ ] Document branch naming conventions
-- [ ] Add architecture documentation
-- [ ] Write contributing guidelines for PRD features
+- [x] PRD-020 Implement `--block <task-id> --reason <text>` command to mark tasks as blocked
+- [x] PRD-021 Add blocking state transition logic (in_progress → blocked)
+- [x] PRD-022 Update PRD markdown file when task is blocked (status indicator + reason)
+- [x] PRD-023 Implement task skipping logic in orchestrator for blocked tasks
+- [x] PRD-024 Create `--unblock <task-id>` command to mark tasks as ready
+- [x] PRD-025 Add optional `--context <text>` parameter for unblock command to store resume info
+- [x] PRD-026 Implement resume context storage in TaskState (free-form text field)
+- [x] PRD-027 Build `--resume-task <task-id>` command to resume specific blocked task
+- [x] PRD-028 Add resume context injection into Nelson prompt when resuming (prepend to prompt)
+- [x] PRD-029 Implement automatic branch switching when resuming blocked tasks
+- [x] PRD-030 Implement `--status` command showing all tasks with IDs and current state
+- [x] PRD-031 Create rich status output with visual indicators (✓, ~, !, ○)
+- [x] PRD-032 Display branch names in status output (e.g., `Branch: feature/PRD-001-add-auth`)
+- [x] PRD-033 Implement `--task-info <task-id>` command for detailed task information
+- [x] PRD-034 Store Nelson run ID in TaskState for linking to run directories
+- [x] PRD-035 Add phase and phase_name tracking from Nelson state
+- [x] PRD-036 Implement `--resume` command to continue from last incomplete task
+- [x] PRD-037 Add `--dry-run` mode to preview tasks without execution
+- [x] PRD-038 Create per-task cost accumulation from Nelson's cost reporting
+- [x] PRD-039 Add aggregate cost display in status output
+- [x] PRD-040 Implement iteration count tracking per task
+- [x] PRD-041 Add blocking reason parsing from markdown (for manual edits)
+- [x] PRD-042 Create task text change detection with warnings (when text after PRD-NNN changes)
+- [x] PRD-043 Implement line number tracking for tasks in PRD file
+- [x] PRD-044 Create comprehensive error handling with helpful messages
+- [x] PRD-045 Implement atomic PRD file updates to prevent corruption
+- [x] PRD-046 Create backup mechanism for PRD file before modifications
+- [ ] PRD-047 Add verbose logging mode for debugging
+- [x] PRD-048 Implement environment variable inheritance for Nelson config
+- [x] PRD-049 Add support for NELSON_MAX_ITERATIONS per task
+- [x] PRD-050 Create rich console output with progress indicators
+- [x] PRD-051 Add timestamp formatting in human-readable format
+- [ ] PRD-052 Implement completed task archival (optional)
+- [ ] PRD-053 Add git branch cleanup command for completed tasks
+- [x] PRD-054 Write comprehensive unit tests for task ID validation (PRD-NNN format)
+- [x] PRD-055 Add tests for duplicate ID detection
+- [x] PRD-056 Add tests for PRD parser with various markdown formats
+- [x] PRD-057 Create tests for branch name generation and slugification
+- [x] PRD-058 Create tests for TaskState serialization/deserialization
+- [x] PRD-059 Write tests for PRDStateManager state transitions
+- [x] PRD-060 Add integration tests for end-to-end PRD execution with mock Nelson
+- [x] PRD-061 Create tests for blocking/unblocking workflow
+- [x] PRD-062 Add tests for resume context storage and retrieval
+- [x] PRD-063 Add tests for resume context injection into prompts
+- [x] PRD-064 Add tests for automatic branch creation and switching
+- [x] PRD-065 Create fixture PRD files for testing (with explicit IDs)
+- [x] PRD-066 Add tests for cost aggregation
+- [x] PRD-067 Write CLI usage documentation
+- [x] PRD-068 Create example PRD files with PRD-NNN format
+- [x] PRD-069 Add troubleshooting guide
+- [x] PRD-070 Document state file formats
+- [x] PRD-071 Document branch naming conventions
+- [x] PRD-072 Add architecture documentation
+- [ ] PRD-073 Write contributing guidelines for PRD features
 
 ## Success Criteria
 
@@ -189,16 +183,16 @@ Implement `nelson-prd`, a companion CLI tool that orchestrates multiple Nelson w
 # My Feature Implementation PRD
 
 ## High Priority
-- [ ] PRD-001 Add user authentication system
-- [ ] PRD-002 Create user profile management
-- [!] PRD-003 Add payment integration (blocked: waiting for Stripe API access)
+- [ ] PRD-101 Add user authentication system
+- [ ] PRD-102 Create user profile management
+- [!] PRD-103 Add payment integration (blocked: waiting for Stripe API access)
 
 ## Medium Priority
-- [~] PRD-004 Add email notification system
-- [ ] PRD-005 Implement search functionality
+- [~] PRD-104 Add email notification system
+- [ ] PRD-105 Implement search functionality
 
 ## Low Priority
-- [ ] PRD-006 Dark mode toggle
+- [ ] PRD-106 Dark mode toggle
 ```
 
 ### Key Components

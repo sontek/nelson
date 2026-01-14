@@ -874,3 +874,170 @@ More information about the project.
     # Should parse successfully but return empty list (no tasks found)
     tasks = parser.parse()
     assert tasks == []
+
+
+def test_invalid_task_id_format_single_digit(tmp_path: Path):
+    """Test that task ID with single digit (PRD-1) is rejected with clear error."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text("""## High Priority
+- [ ] PRD-1 Task with single digit ID
+""")
+
+    parser = PRDParser(prd_file)
+
+    with pytest.raises(ValueError) as exc_info:
+        parser.parse()
+
+    error_msg = str(exc_info.value)
+    assert "Invalid task ID format 'PRD-1'" in error_msg
+    assert "PRD-NNN where NNN is exactly 3 digits" in error_msg
+    assert "PRD-001" in error_msg  # Should suggest correct format
+
+
+def test_invalid_task_id_format_two_digits(tmp_path: Path):
+    """Test that task ID with two digits (PRD-12) is rejected with clear error."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text("""## Medium Priority
+- [ ] PRD-12 Task with two digit ID
+""")
+
+    parser = PRDParser(prd_file)
+
+    with pytest.raises(ValueError) as exc_info:
+        parser.parse()
+
+    error_msg = str(exc_info.value)
+    assert "Invalid task ID format 'PRD-12'" in error_msg
+    assert "PRD-NNN where NNN is exactly 3 digits" in error_msg
+    assert "PRD-001" in error_msg  # Should suggest correct format
+
+
+def test_invalid_task_id_format_four_digits(tmp_path: Path):
+    """Test that task ID with four digits (PRD-1234) is rejected with clear error."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text("""## Low Priority
+- [ ] PRD-1234 Task with four digit ID
+""")
+
+    parser = PRDParser(prd_file)
+
+    with pytest.raises(ValueError) as exc_info:
+        parser.parse()
+
+    error_msg = str(exc_info.value)
+    assert "Invalid task ID format 'PRD-1234'" in error_msg
+    assert "PRD-NNN where NNN is exactly 3 digits" in error_msg
+    assert "PRD-001" in error_msg  # Should suggest correct format
+
+
+def test_invalid_task_id_formats_multiple_errors(tmp_path: Path):
+    """Test that multiple invalid task IDs are all reported together."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text("""## High Priority
+- [ ] PRD-1 Single digit ID
+- [ ] PRD-12 Two digit ID
+- [ ] PRD-001 Valid ID
+- [ ] PRD-1234 Four digit ID
+
+## Medium Priority
+- [ ] PRD-99 Another two digit ID
+""")
+
+    parser = PRDParser(prd_file)
+
+    with pytest.raises(ValueError) as exc_info:
+        parser.parse()
+
+    error_msg = str(exc_info.value)
+    # Should report all invalid IDs
+    assert "PRD-1" in error_msg
+    assert "PRD-12" in error_msg
+    assert "PRD-1234" in error_msg
+    assert "PRD-99" in error_msg
+    # Should NOT complain about valid ID
+    assert "PRD-001" in error_msg or "PRD-001" not in error_msg.split("Invalid task ID format")[0]
+    # Should indicate how many errors
+    assert "4 validation error" in error_msg
+
+
+def test_invalid_task_id_format_with_line_numbers(tmp_path: Path):
+    """Test that invalid task ID errors include accurate line numbers."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text("""# PRD File
+
+## High Priority
+- [ ] PRD-1 Task on line 4
+- [ ] PRD-002 Valid task on line 5
+
+## Medium Priority
+- [ ] PRD-12 Task on line 8
+""")
+
+    parser = PRDParser(prd_file)
+
+    with pytest.raises(ValueError) as exc_info:
+        parser.parse()
+
+    error_msg = str(exc_info.value)
+    # Should report correct line numbers
+    assert "Line 4" in error_msg
+    assert "PRD-1" in error_msg
+    assert "Line 8" in error_msg
+    assert "PRD-12" in error_msg
+
+
+def test_invalid_task_id_format_provides_fix_suggestion(tmp_path: Path):
+    """Test that invalid task ID errors provide actionable fix suggestions."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text("""## High Priority
+- [ ] PRD-1 Need to fix this ID
+""")
+
+    parser = PRDParser(prd_file)
+
+    with pytest.raises(ValueError) as exc_info:
+        parser.parse()
+
+    error_msg = str(exc_info.value)
+    # Should provide fix suggestion
+    assert "Fix:" in error_msg
+    assert "Change 'PRD-1' to format like 'PRD-001'" in error_msg
+
+
+def test_invalid_task_id_format_shows_found_vs_expected(tmp_path: Path):
+    """Test that error message shows what was found vs what was expected."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text("""## High Priority
+- [ ] PRD-1234 Too many digits
+""")
+
+    parser = PRDParser(prd_file)
+
+    with pytest.raises(ValueError) as exc_info:
+        parser.parse()
+
+    error_msg = str(exc_info.value)
+    # Should show what was found
+    assert "Found: - [ ] PRD-1234 Too many digits" in error_msg
+    # Should show what was expected
+    assert "Expected format: PRD-NNN where NNN is exactly 3 digits" in error_msg
+    # Should provide examples
+    assert "PRD-001" in error_msg or "PRD-042" in error_msg
+
+
+def test_valid_task_id_boundaries(tmp_path: Path):
+    """Test that valid task IDs at boundaries (PRD-000, PRD-999) are accepted."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text("""## High Priority
+- [ ] PRD-000 Task with ID 000
+- [ ] PRD-999 Task with ID 999
+- [ ] PRD-042 Task with ID 042
+""")
+
+    parser = PRDParser(prd_file)
+    tasks = parser.parse()
+
+    assert len(tasks) == 3
+    assert tasks[0].task_id == "PRD-000"
+    assert tasks[1].task_id == "PRD-999"
+    assert tasks[2].task_id == "PRD-042"

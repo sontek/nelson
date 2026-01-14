@@ -221,23 +221,20 @@ class WorkflowOrchestrator:
                 self._log_completion_status(status_block)
 
                 # Special case: Phase 1 in a NEW cycle (cycle > 0) with EXIT_SIGNAL
-                # Only exit if there are truly no unchecked tasks in the plan
+                # Only exit if Phase 2 (IMPLEMENT) has no unchecked tasks
+                # If there's no implementation work, skip review/test/final-review/commit
                 if current_phase == Phase.PLAN and self.state.cycle_iterations > 0:
-                    # Check if plan has any unchecked tasks in phases 2-6
-                    has_work_remaining = any(
-                        has_unchecked_tasks(phase, self.plan_file)
-                        for phase in [Phase.IMPLEMENT, Phase.REVIEW, Phase.TEST,
-                                     Phase.FINAL_REVIEW, Phase.COMMIT]
-                    )
+                    # Check if Phase 2 has any unchecked implementation tasks
+                    has_implementation_work = has_unchecked_tasks(Phase.IMPLEMENT, self.plan_file)
 
-                    if not has_work_remaining:
-                        # No unchecked tasks anywhere - truly done
-                        logger.success("Phase 1 in new cycle found no additional work")
+                    if not has_implementation_work:
+                        # No implementation work - skip remaining phases
+                        logger.success("Phase 1 in new cycle found no implementation work")
                         logger.success("Workflow complete - exiting")
                         break
                     else:
-                        # There are unchecked tasks in later phases - continue to Phase 2
-                        logger.info("Phase 1 complete, continuing to remaining phases")
+                        # There are unchecked tasks in Phase 2 - continue to implement them
+                        logger.info("Phase 1 complete, continuing to Phase 2 (IMPLEMENT)")
 
                 # For all other cases: let normal phase transition logic handle it below
 

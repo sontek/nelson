@@ -367,13 +367,16 @@ Please analyze this task, create the appropriate git branch, and return the JSON
             result = subprocess.run(cmd, check=False)
             success = result.returncode == 0
 
-            # Provide specific feedback for non-zero exit codes
+            # Check for SIGINT (Ctrl-C) - user wants to stop everything
+            if result.returncode == 130:
+                print("\nTask was interrupted (SIGINT/Ctrl+C).")
+                raise KeyboardInterrupt("User interrupted nelson with Ctrl-C")
+
+            # Provide specific feedback for other non-zero exit codes
             if not success:
                 print(f"\nNelson exited with code {result.returncode}")
                 if result.returncode == 1:
                     print("This usually indicates Nelson encountered an error during execution.")
-                elif result.returncode == 130:
-                    print("Task was interrupted (SIGINT/Ctrl+C).")
                 else:
                     print(f"Unexpected exit code: {result.returncode}")
         except KeyboardInterrupt:
@@ -484,43 +487,47 @@ Please analyze this task, create the appropriate git branch, and return the JSON
             print(f"{'='*60}\n")
 
         current_task_num = 0
-        while True:
-            # Get next pending task
-            next_task = self.get_next_pending_task()
-            if next_task is None:
-                # No more pending tasks
-                break
+        try:
+            while True:
+                # Get next pending task
+                next_task = self.get_next_pending_task()
+                if next_task is None:
+                    # No more pending tasks
+                    break
 
-            task_id, task_text, priority = next_task
-            current_task_num += 1
+                task_id, task_text, priority = next_task
+                current_task_num += 1
 
-            # Show progress indicator
-            print(f"\n{'─'*60}")
-            print(f"📋 Task {current_task_num} of {total_pending} | Priority: {priority.upper()}")
-            print(f"{'─'*60}")
+                # Show progress indicator
+                print(f"\n{'─'*60}")
+                print(f"📋 Task {current_task_num} of {total_pending} | Priority: {priority.upper()}")
+                print(f"{'─'*60}")
 
-            # Execute task
-            success = self.execute_task(
-                task_id, task_text, priority, nelson_args=nelson_args
-            )
-            results[task_id] = success
+                # Execute task
+                success = self.execute_task(
+                    task_id, task_text, priority, nelson_args=nelson_args
+                )
+                results[task_id] = success
 
-            # Show interim progress
-            completed_so_far = completed_before + sum(1 for s in results.values() if s)
-            remaining = total_tasks - completed_so_far
-            completion_pct = (completed_so_far / total_tasks * 100) if total_tasks > 0 else 0
+                # Show interim progress
+                completed_so_far = completed_before + sum(1 for s in results.values() if s)
+                remaining = total_tasks - completed_so_far
+                completion_pct = (completed_so_far / total_tasks * 100) if total_tasks > 0 else 0
 
-            print(f"\n{'─'*60}")
-            print(
-                f"📊 Progress: {completed_so_far}/{total_tasks} tasks "
-                f"({completion_pct:.1f}% complete)"
-            )
-            print(f"   Remaining: {remaining} tasks")
-            print(f"{'─'*60}")
+                print(f"\n{'─'*60}")
+                print(
+                    f"📊 Progress: {completed_so_far}/{total_tasks} tasks "
+                    f"({completion_pct:.1f}% complete)"
+                )
+                print(f"   Remaining: {remaining} tasks")
+                print(f"{'─'*60}")
 
-            if not success and stop_on_failure:
-                print(f"\n⚠️  Stopping execution due to task failure: {task_id}")
-                break
+                if not success and stop_on_failure:
+                    print(f"\n⚠️  Stopping execution due to task failure: {task_id}")
+                    break
+        except KeyboardInterrupt:
+            print("\n\n⚠️  Execution interrupted by user (Ctrl-C)")
+            print("Stopping task execution...")
 
         return results
 

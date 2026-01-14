@@ -174,16 +174,19 @@ class TestDetermineNextPhase:
         next_phase = determine_next_phase(Phase.TEST, all_complete_plan_file)
         assert next_phase == Phase.FINAL_REVIEW
 
-    def test_final_review_returns_to_test_when_unchecked(self, tmp_path: Path) -> None:
-        """Phase 5 returns to Phase 4 when it has unchecked tasks (fixes needed)."""
+    def test_final_review_returns_to_implement_when_fixes_needed(self, tmp_path: Path) -> None:
+        """Phase 5 returns to Phase 2 when it adds Fix tasks to Phase 2 (critical issues found)."""
         plan_content = """
+## Phase 2: IMPLEMENT
+- [ ] Fix: Critical bug in auth.py:123
+
 ## Phase 5: FINAL_REVIEW
-- [ ] Issues found
+- [x] Review completed
 """
         plan_file = tmp_path / "plan.md"
         plan_file.write_text(plan_content)
         next_phase = determine_next_phase(Phase.FINAL_REVIEW, plan_file)
-        assert next_phase == Phase.TEST
+        assert next_phase == Phase.IMPLEMENT
 
     def test_final_review_advances_when_complete(
         self, all_complete_plan_file: Path
@@ -306,17 +309,20 @@ class TestTransitionIntegration:
         next_phase = determine_next_phase(Phase.REVIEW, plan_file)
         assert next_phase == Phase.TEST
 
-    def test_final_review_returns_to_test(self, tmp_path: Path) -> None:
-        """Test Phase 5 returns to Phase 4 when issues found."""
+    def test_final_review_returns_to_implement(self, tmp_path: Path) -> None:
+        """Test Phase 5 returns to Phase 2 when critical issues found (adds Fix tasks to Phase 2)."""
         plan_content = """
+## Phase 2: IMPLEMENT
+- [ ] Fix: Critical issue found during final review
+
 ## Phase 5: FINAL_REVIEW
-- [ ] Issues found
+- [x] Review completed
 """
         plan_file = tmp_path / "plan.md"
         plan_file.write_text(plan_content)
 
         next_phase = determine_next_phase(Phase.FINAL_REVIEW, plan_file)
-        assert next_phase == Phase.TEST
+        assert next_phase == Phase.IMPLEMENT
 
     def test_transition_decision_with_exit_signal(self, sample_plan_file: Path) -> None:
         """Test transition decision based on EXIT_SIGNAL and phase completion."""

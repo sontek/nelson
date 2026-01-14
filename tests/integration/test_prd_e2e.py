@@ -65,6 +65,13 @@ def prd_dir(temp_workspace: Path) -> Path:
 
 
 @pytest.fixture
+def mock_git_repo():
+    """Mock is_git_repo to return True for all E2E tests."""
+    with patch("nelson.prd_branch.is_git_repo", return_value=True):
+        yield
+
+
+@pytest.fixture
 def mock_nelson_success():
     """Create a mock for successful Nelson execution."""
     def _mock_run(*args, **kwargs):
@@ -96,7 +103,7 @@ class TestPRDEndToEnd:
     """End-to-end integration tests for PRD orchestration."""
 
     def test_full_prd_execution_flow(
-        self, prd_file: Path, prd_dir: Path, mock_nelson_success
+        self, prd_file: Path, prd_dir: Path, mock_nelson_success, mock_git_repo
     ):
         """Test complete PRD execution from start to finish."""
         # Mock subprocess and git operations
@@ -135,7 +142,7 @@ class TestPRDEndToEnd:
             assert prd_state.tasks[task_id]["status"] == "completed"
 
     def test_priority_based_execution_order(
-        self, prd_file: Path, prd_dir: Path
+        self, prd_file: Path, prd_dir: Path, mock_git_repo
     ):
         """Test that tasks execute in priority order: high → medium → low."""
         orchestrator = PRDOrchestrator(prd_file, prd_dir)
@@ -164,7 +171,7 @@ class TestPRDEndToEnd:
         assert tasks_in_order == expected_order
 
     def test_blocking_workflow_end_to_end(
-        self, prd_file: Path, prd_dir: Path, mock_nelson_success
+        self, prd_file: Path, prd_dir: Path, mock_nelson_success, mock_git_repo
     ):
         """Test complete blocking/unblocking/resume workflow."""
         with patch("subprocess.run", side_effect=mock_nelson_success), \
@@ -216,7 +223,7 @@ class TestPRDEndToEnd:
             assert success
 
     def test_cost_tracking_across_tasks(
-        self, prd_file: Path, prd_dir: Path, mock_nelson_success
+        self, prd_file: Path, prd_dir: Path, mock_nelson_success, mock_git_repo
     ):
         """Test cost tracking and aggregation across multiple task executions."""
         with patch("subprocess.run", side_effect=mock_nelson_success), \
@@ -261,7 +268,7 @@ class TestPRDEndToEnd:
             assert total_cost >= 0
 
     def test_prd_file_status_updates(
-        self, prd_file: Path, prd_dir: Path, mock_nelson_success
+        self, prd_file: Path, prd_dir: Path, mock_nelson_success, mock_git_repo
     ):
         """Test that PRD file is updated with correct status indicators."""
         with patch("subprocess.run", side_effect=mock_nelson_success), \
@@ -284,7 +291,7 @@ class TestPRDEndToEnd:
             assert "[ ] PRD-002" in updated_content  # Others still pending
 
     def test_resume_context_injection(
-        self, prd_file: Path, prd_dir: Path, mock_nelson_success
+        self, prd_file: Path, prd_dir: Path, mock_nelson_success, mock_git_repo
     ):
         """Test that resume context is properly injected into Nelson prompts."""
         with patch("subprocess.run", side_effect=mock_nelson_success) as mock_run, \
@@ -315,7 +322,7 @@ class TestPRDEndToEnd:
             assert task_text in command_str
 
     def test_branch_creation_during_execution(
-        self, prd_file: Path, prd_dir: Path, mock_nelson_success
+        self, prd_file: Path, prd_dir: Path, mock_nelson_success, mock_git_repo
     ):
         """Test that git branches are created/switched during task execution."""
         mock_branch_func = Mock(return_value="feature/PRD-001-implement-user-auth")
@@ -338,7 +345,7 @@ class TestPRDEndToEnd:
             assert task_state.branch == "feature/PRD-001-implement-user-auth"
 
     def test_state_persistence_and_recovery(
-        self, prd_file: Path, prd_dir: Path
+        self, prd_file: Path, prd_dir: Path, mock_git_repo
     ):
         """Test that state persists across orchestrator instances."""
         # Create first orchestrator and initialize state
@@ -366,7 +373,7 @@ class TestPRDEndToEnd:
         assert recovered_state.iterations == 5
 
     def test_execute_all_pending_with_stop_on_failure(
-        self, prd_file: Path, prd_dir: Path
+        self, prd_file: Path, prd_dir: Path, mock_git_repo
     ):
         """Test execute_all_pending stops on first failure when flag is set."""
         # Mock Nelson to succeed first, then fail
@@ -410,7 +417,7 @@ class TestPRDEndToEnd:
             assert remaining is not None  # At least one task still pending
 
     def test_get_status_summary(
-        self, prd_file: Path, prd_dir: Path
+        self, prd_file: Path, prd_dir: Path, mock_git_repo
     ):
         """Test status summary generation with various task states."""
         orchestrator = PRDOrchestrator(prd_file, prd_dir)

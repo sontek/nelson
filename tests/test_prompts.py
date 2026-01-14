@@ -119,7 +119,7 @@ class TestPhasePrompts:
         assert "CODEBASE PATTERNS & CONSISTENCY" in prompt
         assert "CODE QUALITY" in prompt
         assert "SECURITY" in prompt
-        assert "'- [ ] Fix: description'" in prompt
+        assert "- [ ] Fix:" in prompt  # Check for the actual format without quotes
 
     def test_test_phase_prompt(self) -> None:
         """Phase 4 prompt should include testing instructions."""
@@ -147,7 +147,8 @@ class TestPhasePrompts:
         assert "CODEBASE CONSISTENCY" in prompt
         assert "UNWANTED FILES/CHANGES" in prompt
         assert ".claude/ or .nelson/" in prompt
-        assert "returns to Phase 4" in prompt
+        # Phase 5 now adds Fix tasks to Phase 2, not Phase 4
+        assert "loop back to Phase 2" in prompt
 
     def test_commit_phase_prompt(self) -> None:
         """Phase 6 prompt should include commit instructions."""

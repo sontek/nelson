@@ -8,6 +8,7 @@ This module implements the main execution loop that coordinates:
 - Decision logging
 """
 
+from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -139,12 +140,14 @@ class WorkflowOrchestrator:
             current_phase = Phase(self.state.current_phase)
             phase_name = current_phase.name_str
 
-            # Show clear cycle/phase/iteration info with rich Rule
+            # Show clear cycle/phase/iteration info with rich Rule and timestamp
             display_cycle = self.state.cycle_iterations + 1
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             logger.console.rule(
                 f"[bold yellow]Cycle {display_cycle} | "
                 f"Phase {current_phase.value}: {phase_name} | "
-                f"API Call #{self.state.total_iterations}[/bold yellow]",
+                f"API Call #{self.state.total_iterations} | "
+                f"{timestamp}[/bold yellow]",
                 style="yellow"
             )
             logger.console.print("")
@@ -272,6 +275,10 @@ class WorkflowOrchestrator:
 
             # Update state with progress metrics
             self._update_progress_metrics(status_block)
+
+            # Save state after each iteration to keep state.json synchronized
+            state_file = self.config.nelson_dir / "state.json"
+            self.state.save(state_file)
 
             # Check if phase transition is needed
             # Parse exit_signal from status block (handle both boolean and string values)

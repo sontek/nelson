@@ -1832,3 +1832,244 @@ def test_concurrent_execution_with_failures(tmp_path: Path):
         summary = orchestrator3.get_status_summary()
         assert summary["completed"] == 1
         assert summary["failed"] == 1
+
+
+def test_resume_context_prepending_format(tmp_path: Path):
+    """Test that resume context is prepended with exact format: 'RESUME CONTEXT: {context}\\n\\n{prompt}'."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text("""# Test PRD
+
+## High Priority
+- [ ] PRD-001 Implement authentication
+""")
+
+    prd_dir = tmp_path / ".nelson/prd"
+
+    with patch("nelson.prd_orchestrator.ensure_branch_for_task") as mock_branch, \
+         patch("nelson.prd_orchestrator.subprocess.run") as mock_run:
+
+        mock_branch.return_value = "feature/PRD-001-test"
+        mock_run.return_value = Mock(returncode=0)
+
+        orchestrator = PRDOrchestrator(prd_file, prd_dir)
+
+        # Set resume context
+        task_state = orchestrator.state_manager.load_task_state(
+            "PRD-001", "Implement authentication", "high"
+        )
+        task_state.resume_context = "API keys have been added to .env file"
+        orchestrator.state_manager.save_task_state(task_state)
+
+        # Execute task
+        orchestrator.execute_task("PRD-001", "Implement authentication", "high")
+
+        # Verify exact format
+        args = mock_run.call_args[0][0]
+        prompt = args[1]
+
+        # Check exact format with newlines
+        expected_start = "RESUME CONTEXT: API keys have been added to .env file\n\nImplement authentication"
+        assert prompt == expected_start, f"Expected: {expected_start!r}, Got: {prompt!r}"
+
+
+def test_resume_context_prepending_order(tmp_path: Path):
+    """Test that resume context appears BEFORE task text (prepending, not appending)."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text("""# Test PRD
+
+## High Priority
+- [ ] PRD-001 Create user profile management
+""")
+
+    prd_dir = tmp_path / ".nelson/prd"
+
+    with patch("nelson.prd_orchestrator.ensure_branch_for_task") as mock_branch, \
+         patch("nelson.prd_orchestrator.subprocess.run") as mock_run:
+
+        mock_branch.return_value = "feature/PRD-001-test"
+        mock_run.return_value = Mock(returncode=0)
+
+        orchestrator = PRDOrchestrator(prd_file, prd_dir)
+
+        # Set resume context
+        task_state = orchestrator.state_manager.load_task_state(
+            "PRD-001", "Create user profile management", "high"
+        )
+        task_state.resume_context = "Database schema has been updated with users table"
+        orchestrator.state_manager.save_task_state(task_state)
+
+        # Execute task
+        orchestrator.execute_task("PRD-001", "Create user profile management", "high")
+
+        # Verify order
+        args = mock_run.call_args[0][0]
+        prompt = args[1]
+
+        # Resume context should come before task text
+        resume_idx = prompt.find("RESUME CONTEXT:")
+        task_idx = prompt.find("Create user profile management")
+
+        assert resume_idx != -1, "Resume context not found in prompt"
+        assert task_idx != -1, "Task text not found in prompt"
+        assert resume_idx < task_idx, "Resume context should appear BEFORE task text"
+
+
+def test_resume_context_with_custom_prompt(tmp_path: Path):
+    """Test that resume context is prepended to custom prompts as well."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text("""# Test PRD
+
+## High Priority
+- [ ] PRD-001 Add payment integration
+""")
+
+    prd_dir = tmp_path / ".nelson/prd"
+
+    with patch("nelson.prd_orchestrator.ensure_branch_for_task") as mock_branch, \
+         patch("nelson.prd_orchestrator.subprocess.run") as mock_run:
+
+        mock_branch.return_value = "feature/PRD-001-test"
+        mock_run.return_value = Mock(returncode=0)
+
+        orchestrator = PRDOrchestrator(prd_file, prd_dir)
+
+        # Set resume context
+        task_state = orchestrator.state_manager.load_task_state(
+            "PRD-001", "Add payment integration", "high"
+        )
+        task_state.resume_context = "Stripe API credentials configured"
+        orchestrator.state_manager.save_task_state(task_state)
+
+        # Execute task with custom prompt
+        custom_prompt = "Detailed instructions for payment integration with Stripe"
+        orchestrator.execute_task(
+            "PRD-001", "Add payment integration", "high", prompt=custom_prompt
+        )
+
+        # Verify resume context prepended to custom prompt
+        args = mock_run.call_args[0][0]
+        prompt = args[1]
+
+        expected = "RESUME CONTEXT: Stripe API credentials configured\n\nDetailed instructions for payment integration with Stripe"
+        assert prompt == expected
+
+
+def test_no_resume_context_prepending_when_none(tmp_path: Path):
+    """Test that no prepending occurs when resume_context is None."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text("""# Test PRD
+
+## High Priority
+- [ ] PRD-001 Implement logging
+""")
+
+    prd_dir = tmp_path / ".nelson/prd"
+
+    with patch("nelson.prd_orchestrator.ensure_branch_for_task") as mock_branch, \
+         patch("nelson.prd_orchestrator.subprocess.run") as mock_run:
+
+        mock_branch.return_value = "feature/PRD-001-test"
+        mock_run.return_value = Mock(returncode=0)
+
+        orchestrator = PRDOrchestrator(prd_file, prd_dir)
+
+        # Execute task without setting resume context (defaults to None)
+        orchestrator.execute_task("PRD-001", "Implement logging", "high")
+
+        # Verify no prepending
+        args = mock_run.call_args[0][0]
+        prompt = args[1]
+
+        # Should just be task text, no RESUME CONTEXT prefix
+        assert prompt == "Implement logging"
+        assert "RESUME CONTEXT:" not in prompt
+
+
+def test_resume_context_with_special_characters(tmp_path: Path):
+    """Test resume context prepending with special characters (newlines, quotes, etc)."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text("""# Test PRD
+
+## High Priority
+- [ ] PRD-001 Setup CI/CD pipeline
+""")
+
+    prd_dir = tmp_path / ".nelson/prd"
+
+    with patch("nelson.prd_orchestrator.ensure_branch_for_task") as mock_branch, \
+         patch("nelson.prd_orchestrator.subprocess.run") as mock_run:
+
+        mock_branch.return_value = "feature/PRD-001-test"
+        mock_run.return_value = Mock(returncode=0)
+
+        orchestrator = PRDOrchestrator(prd_file, prd_dir)
+
+        # Set resume context with special characters
+        task_state = orchestrator.state_manager.load_task_state(
+            "PRD-001", "Setup CI/CD pipeline", "high"
+        )
+        # Context with newlines, quotes, and special chars
+        task_state.resume_context = 'GitHub Actions configured:\n- API_KEY="secret123"\n- DEPLOY_ENV=\'production\''
+        orchestrator.state_manager.save_task_state(task_state)
+
+        # Execute task
+        orchestrator.execute_task("PRD-001", "Setup CI/CD pipeline", "high")
+
+        # Verify special characters preserved
+        args = mock_run.call_args[0][0]
+        prompt = args[1]
+
+        # Check that special characters are preserved
+        assert 'GitHub Actions configured:\n- API_KEY="secret123"\n- DEPLOY_ENV=\'production\'' in prompt
+        assert prompt.startswith("RESUME CONTEXT:")
+        assert "Setup CI/CD pipeline" in prompt
+
+
+def test_resume_context_with_long_text(tmp_path: Path):
+    """Test resume context prepending with long text (hundreds of characters)."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text("""# Test PRD
+
+## High Priority
+- [ ] PRD-001 Implement search functionality
+""")
+
+    prd_dir = tmp_path / ".nelson/prd"
+
+    with patch("nelson.prd_orchestrator.ensure_branch_for_task") as mock_branch, \
+         patch("nelson.prd_orchestrator.subprocess.run") as mock_run:
+
+        mock_branch.return_value = "feature/PRD-001-test"
+        mock_run.return_value = Mock(returncode=0)
+
+        orchestrator = PRDOrchestrator(prd_file, prd_dir)
+
+        # Set very long resume context
+        task_state = orchestrator.state_manager.load_task_state(
+            "PRD-001", "Implement search functionality", "high"
+        )
+        long_context = (
+            "The search infrastructure has been set up with the following components: "
+            "1) Elasticsearch cluster deployed to production with 3 nodes for high availability. "
+            "2) Search indexer service running as a background worker to keep indices up to date. "
+            "3) API endpoints created for search queries at /api/v1/search with pagination support. "
+            "4) Frontend search UI components implemented with autocomplete and filters. "
+            "5) Performance benchmarks show sub-100ms response times for 95th percentile queries."
+        )
+        task_state.resume_context = long_context
+        orchestrator.state_manager.save_task_state(task_state)
+
+        # Execute task
+        orchestrator.execute_task("PRD-001", "Implement search functionality", "high")
+
+        # Verify long context preserved
+        args = mock_run.call_args[0][0]
+        prompt = args[1]
+
+        # Full long context should be present
+        assert long_context in prompt
+        assert prompt.startswith("RESUME CONTEXT:")
+        # Verify task text comes after
+        assert prompt.endswith("Implement search functionality")
+        # Verify double newline separator
+        assert f"RESUME CONTEXT: {long_context}\n\nImplement search functionality" == prompt

@@ -127,6 +127,98 @@ def test_cli_status_command(
 
 
 @patch("nelson.prd_cli.PRDOrchestrator")
+def test_cli_status_command_with_filter(
+    mock_orchestrator_class: Mock, cli_runner: CliRunner, temp_prd_file: Path
+) -> None:
+    """Test --status command with --filter option."""
+    # Setup mock orchestrator
+    mock_orchestrator = MagicMock()
+    mock_orchestrator_class.return_value = mock_orchestrator
+
+    # Create mock task states with mixed statuses
+    completed_task = TaskState(
+        task_id="PRD-001",
+        task_text="Completed task",
+        status=TaskStatus.COMPLETED,
+        priority="high",
+    )
+    in_progress_task = TaskState(
+        task_id="PRD-002",
+        task_text="In progress task",
+        status=TaskStatus.IN_PROGRESS,
+        priority="high",
+    )
+    blocked_task = TaskState(
+        task_id="PRD-003",
+        task_text="Blocked task",
+        status=TaskStatus.BLOCKED,
+        priority="medium",
+    )
+    pending_task = TaskState(
+        task_id="PRD-004",
+        task_text="Pending task",
+        status=TaskStatus.PENDING,
+        priority="low",
+    )
+
+    mock_orchestrator.get_status_summary.return_value = {
+        "prd_file": str(temp_prd_file),
+        "total_tasks": 4,
+        "completed": 1,
+        "in_progress": 1,
+        "blocked": 1,
+        "pending": 1,
+        "failed": 0,
+        "total_cost": 1.23,
+        "tasks": [
+            completed_task.to_dict(),
+            in_progress_task.to_dict(),
+            blocked_task.to_dict(),
+            pending_task.to_dict(),
+        ],
+    }
+
+    # Test filter=active (should show 3 tasks: in-progress, blocked, pending)
+    result = cli_runner.invoke(
+        main, ["--status", "--filter", "active", str(temp_prd_file)]
+    )
+
+    assert result.exit_code == 0
+    assert "Filtered by: active (3 tasks shown)" in result.output
+    assert "Tasks (filtered: active)" in result.output
+    # Should show non-completed tasks
+    assert "PRD-002" in result.output  # in-progress
+    assert "PRD-003" in result.output  # blocked
+    assert "PRD-004" in result.output  # pending
+    # Should NOT show completed task
+    assert "PRD-001" not in result.output  # completed
+
+    # Test filter=pending (should show 1 task)
+    result = cli_runner.invoke(
+        main, ["--status", "--filter", "pending", str(temp_prd_file)]
+    )
+
+    assert result.exit_code == 0
+    assert "Filtered by: pending (1 tasks shown)" in result.output
+    assert "PRD-004" in result.output  # pending
+    assert "PRD-001" not in result.output  # completed
+    assert "PRD-002" not in result.output  # in-progress
+    assert "PRD-003" not in result.output  # blocked
+
+    # Test filter=completed (should show 1 task)
+    result = cli_runner.invoke(
+        main, ["--status", "--filter", "completed", str(temp_prd_file)]
+    )
+
+    assert result.exit_code == 0
+    assert "Filtered by: completed (1 tasks shown)" in result.output
+    assert "PRD-001" in result.output  # completed
+    assert "PRD-002" not in result.output
+    assert "PRD-003" not in result.output
+    assert "PRD-004" not in result.output
+
+
+@patch("nelson.prd_cli.PRDOrchestrator")
 def test_cli_block_command_success(
     mock_orchestrator_class: Mock, cli_runner: CliRunner, temp_prd_file: Path
 ) -> None:

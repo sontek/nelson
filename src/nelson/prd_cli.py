@@ -31,6 +31,15 @@ console = Console()
     help="Show status of all tasks without executing",
 )
 @click.option(
+    "--filter",
+    "status_filter",
+    type=click.Choice(
+        ["pending", "in-progress", "blocked", "completed", "failed", "active"],
+        case_sensitive=False,
+    ),
+    help="Filter tasks by status (active = pending + in-progress + blocked)",
+)
+@click.option(
     "--block",
     "block_task_id",
     type=str,
@@ -93,6 +102,7 @@ console = Console()
 def main(
     prd_file: Path,
     show_status: bool,
+    status_filter: str | None,
     block_task_id: str | None,
     reason: str | None,
     unblock_task_id: str | None,
@@ -131,6 +141,12 @@ def main(
       # Show status
       nelson-prd --status requirements.md
 
+      # Show only non-completed tasks (pending, in-progress, blocked)
+      nelson-prd --status --filter active requirements.md
+
+      # Show only pending tasks
+      nelson-prd --status --filter pending requirements.md
+
       # Block a task
       nelson-prd --block PRD-003 --reason "Waiting for API keys" requirements.md
 
@@ -157,7 +173,7 @@ def main(
 
         # Handle status command
         if show_status:
-            _show_status(orchestrator)
+            _show_status(orchestrator, status_filter)
             return
 
         # Handle block command
@@ -224,9 +240,44 @@ def main(
         sys.exit(1)
 
 
-def _show_status(orchestrator: PRDOrchestrator) -> None:
-    """Display status of all tasks using rich formatting."""
+def _show_status(orchestrator: PRDOrchestrator, status_filter: str | None = None) -> None:
+    """Display status of all tasks using rich formatting.
+
+    Args:
+        orchestrator: PRD orchestrator instance
+        status_filter: Optional filter by status (pending, in-progress, blocked, completed, failed, active)
+    """
     summary = orchestrator.get_status_summary()
+
+    # Filter tasks if requested
+    filtered_tasks = summary["tasks"]
+    if status_filter:
+        status_filter_lower = status_filter.lower()
+        if status_filter_lower == "active":
+            # Active = pending + in-progress + blocked (not completed)
+            filtered_tasks = [
+                task for task in summary["tasks"]
+                if task["status"] in [
+                    TaskStatus.PENDING.value,
+                    TaskStatus.IN_PROGRESS.value,
+                    TaskStatus.BLOCKED.value,
+                ]
+            ]
+        else:
+            # Map filter string to TaskStatus value
+            status_map = {
+                "pending": TaskStatus.PENDING.value,
+                "in-progress": TaskStatus.IN_PROGRESS.value,
+                "blocked": TaskStatus.BLOCKED.value,
+                "completed": TaskStatus.COMPLETED.value,
+                "failed": TaskStatus.FAILED.value,
+            }
+            target_status = status_map.get(status_filter_lower)
+            if target_status:
+                filtered_tasks = [
+                    task for task in summary["tasks"]
+                    if task["status"] == target_status
+                ]
 
     # Create header panel
     console.print()
@@ -241,10 +292,15 @@ def _show_status(orchestrator: PRDOrchestrator) -> None:
         header_text += f" | [bold red]✗ Failed:[/] {summary['failed']}"
     header_text += f"\n[bold]Total Cost:[/] ${summary['total_cost']:.2f}"
 
+    # Add filter info if active
+    if status_filter:
+        header_text += f"\n[dim]Filtered by: {status_filter} ({len(filtered_tasks)} tasks shown)[/dim]"
+
+    title = f"[bold]PRD Status: {summary['prd_file']}[/bold]"
     console.print(
         Panel(
             header_text,
-            title=f"[bold]PRD Status: {summary['prd_file']}[/bold]",
+            title=title,
             border_style="cyan",
         )
     )
@@ -277,8 +333,12 @@ def _show_status(orchestrator: PRDOrchestrator) -> None:
         )
 
     # Create tasks table
+    table_title = "Tasks"
+    if status_filter:
+        table_title = f"Tasks (filtered: {status_filter})"
+
     table = Table(
-        title="Tasks",
+        title=table_title,
         show_header=True,
         header_style="bold cyan",
         border_style="blue",
@@ -289,7 +349,7 @@ def _show_status(orchestrator: PRDOrchestrator) -> None:
     table.add_column("Description", style="white")
     table.add_column("Details", style="dim", width=40)
 
-    for task_dict in summary["tasks"]:
+    for task_dict in filtered_tasks:
         # Extract fields from dict
         task_id = task_dict["task_id"]
         task_text = task_dict["task_text"]

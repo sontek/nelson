@@ -342,6 +342,119 @@ def test_execute_task_with_nelson_args(
     assert "50" in args
 
 
+@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.subprocess.run")
+def test_nelson_cli_command_construction(
+    mock_run: Mock,
+    mock_ensure_branch: Mock,
+    orchestrator: PRDOrchestrator,
+):
+    """Test that nelson CLI commands are constructed correctly with all components."""
+    # Setup mocks
+    mock_ensure_branch.return_value = "feature/PRD-001-test-task"
+    mock_run.return_value = Mock(returncode=0)
+
+    # Test 1: Basic command without args or resume context
+    orchestrator.execute_task("PRD-001", "Implement feature", "high")
+
+    args = mock_run.call_args[0][0]
+    assert args[0] == "nelson", "First argument should be 'nelson' command"
+    assert args[1] == "Implement feature", "Second argument should be the prompt"
+    assert len(args) == 2, "Should only have nelson and prompt for basic command"
+
+    # Verify check=False is used (allows us to handle exit codes)
+    kwargs = mock_run.call_args[1]
+    assert kwargs.get("check") == False, "Should use check=False to handle exit codes"
+
+    # Reset for next test
+    orchestrator.parser.update_task_status("PRD-001", PRDTaskStatus.PENDING)
+    mock_run.reset_mock()
+
+    # Test 2: Command with nelson args
+    orchestrator.execute_task(
+        "PRD-001",
+        "Implement feature",
+        "high",
+        nelson_args=["--max-iterations", "100", "--model", "opus"]
+    )
+
+    args = mock_run.call_args[0][0]
+    assert args[0] == "nelson", "First argument should be 'nelson' command"
+    assert args[1] == "Implement feature", "Second argument should be the prompt"
+    assert args[2] == "--max-iterations", "Nelson args should follow prompt"
+    assert args[3] == "100"
+    assert args[4] == "--model"
+    assert args[5] == "opus"
+    assert len(args) == 6, "Should have nelson, prompt, and 4 arg components"
+
+    # Reset for next test
+    orchestrator.parser.update_task_status("PRD-001", PRDTaskStatus.PENDING)
+    mock_run.reset_mock()
+
+    # Test 3: Command with resume context (no nelson args)
+    # Set up task state with resume context
+    task_state = orchestrator.state_manager.load_task_state(
+        "PRD-001", "Implement feature", "high"
+    )
+    task_state.start("test-run-001", "feature/PRD-001-test-task")
+    task_state.resume_context = "API keys now in .env file"
+    orchestrator.state_manager.save_task_state(task_state)
+
+    # Reset PRD file to pending so execute_task will run
+    orchestrator.parser.update_task_status("PRD-001", PRDTaskStatus.PENDING)
+
+    mock_run.reset_mock()
+
+    # Now execute with resume context
+    orchestrator.execute_task(
+        "PRD-001",
+        "Implement feature",
+        "high"
+    )
+
+    args = mock_run.call_args[0][0]
+    assert args[0] == "nelson", "First argument should be 'nelson' command"
+    # Resume context should be prepended to prompt
+    assert "RESUME CONTEXT:" in args[1], "Prompt should contain resume context prefix"
+    assert "API keys now in .env file" in args[1], "Resume context should be in prompt"
+    assert "Implement feature" in args[1], "Original prompt should follow resume context"
+    assert len(args) == 2, "Should only have nelson and modified prompt"
+
+    # Reset for next test
+    orchestrator.parser.update_task_status("PRD-001", PRDTaskStatus.PENDING)
+    mock_run.reset_mock()
+
+    # Test 4: Command with both resume context AND nelson args
+    # Set up task state with resume context
+    task_state = orchestrator.state_manager.load_task_state(
+        "PRD-001", "Implement feature", "high"
+    )
+    task_state.start("test-run-002", "feature/PRD-001-test-task")
+    task_state.resume_context = "Dependencies installed: requests, pytest"
+    orchestrator.state_manager.save_task_state(task_state)
+
+    # Reset PRD file to pending
+    orchestrator.parser.update_task_status("PRD-001", PRDTaskStatus.PENDING)
+
+    mock_run.reset_mock()
+
+    orchestrator.execute_task(
+        "PRD-001",
+        "Implement feature",
+        "high",
+        nelson_args=["--max-iterations", "50"]
+    )
+
+    args = mock_run.call_args[0][0]
+    assert args[0] == "nelson", "First argument should be 'nelson' command"
+    assert "RESUME CONTEXT:" in args[1], "Prompt should contain resume context"
+    assert "Dependencies installed" in args[1], "Resume context should be in prompt"
+    assert "Implement feature" in args[1], "Original prompt should follow context"
+    assert args[2] == "--max-iterations", "Nelson args should follow modified prompt"
+    assert args[3] == "50"
+    assert len(args) == 4, "Should have nelson, modified prompt, and nelson args"
+
+
 @patch("nelson.prd_orchestrator.Path")
 @patch("nelson.prd_orchestrator.ensure_branch_for_task")
 @patch("nelson.prd_orchestrator.subprocess.run")

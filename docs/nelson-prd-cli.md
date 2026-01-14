@@ -317,8 +317,7 @@ nelson-prd requirements.md  # Uses these settings
 | Code | Meaning |
 |------|---------|
 | 0 | Success - all tasks completed or properly blocked |
-| 1 | Error - invalid arguments, file not found, or execution failure |
-| 2 | Validation error - PRD file has invalid format or missing IDs |
+| 1 | Error - invalid arguments, file not found, validation error, or execution failure |
 | 130 | Interrupted - user cancelled with Ctrl+C |
 
 ## PRD File Format

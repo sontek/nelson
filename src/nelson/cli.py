@@ -24,6 +24,11 @@ logger = get_logger()
 
 @click.command()
 @click.argument("prompt", required=False)
+@click.argument(
+    "path",
+    required=False,
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+)
 @click.option(
     "--resume",
     "resume_path",
@@ -74,6 +79,7 @@ logger = get_logger()
 @click.version_option(version="0.1.0", prog_name="nelson")
 def main(
     prompt: str | None,
+    path: Path | None,
     resume_path: Path | str | None,
     max_iterations: int | None,
     cost_limit: float | None,
@@ -90,10 +96,16 @@ def main(
       - A file path: nelson tasks/task1.md
       - Stdin: echo "task" | nelson
 
+    PATH is an optional target repository directory. If not provided, nelson
+    works in the current directory. When provided, all git operations and
+    commands execute in the target directory.
+
     \b
     Examples:
       nelson "Add user authentication"
+      nelson "Fix bug in tests" /path/to/repo
       nelson docs/implementation.md
+      nelson docs/task.md ~/projects/myrepo
       nelson --resume                                    # Resume from last run
       nelson --resume .nelson/runs/nelson-20260112-120125  # Resume from specific run
       nelson --max-iterations 30 "complex task"
@@ -132,10 +144,33 @@ def main(
                 "Use 'nelson --help' for usage information."
             )
 
+    # Validate and resolve target path if provided
+    target_path: Path | None = None
+    if path is not None:
+        # Resolve to absolute path
+        target_path = path.resolve()
+        logger.info(f"Target repository path: {target_path}")
+
+        # Verify it's a git repository
+        git_dir = target_path / ".git"
+        if not git_dir.exists():
+            logger.error(f"Path is not a git repository: {target_path}")
+            raise click.UsageError(
+                f"The specified path is not a git repository: {target_path}\n"
+                "Nelson requires a git repository to track changes."
+            )
+
     # Get prompt from file if it's a path
-    if prompt and Path(prompt).is_file():
-        logger.info(f"Reading prompt from file: {prompt}")
-        prompt = Path(prompt).read_text().strip()
+    # Check if prompt is a file path (handle OSError for long text prompts)
+    if prompt:
+        try:
+            prompt_path = Path(prompt)
+            if prompt_path.is_file():
+                logger.info(f"Reading prompt from file: {prompt}")
+                prompt = prompt_path.read_text().strip()
+        except (OSError, ValueError):
+            # Not a valid file path (too long, invalid chars, etc.) - treat as text
+            pass
 
     # Handle resume mode
     if resume_path is not None:
@@ -149,6 +184,7 @@ def main(
 
     # Build configuration with CLI overrides
     config = _build_config(
+        target_path=target_path,
         max_iterations=max_iterations,
         cost_limit=cost_limit,
         model=model,
@@ -196,7 +232,7 @@ def _execute_workflow(prompt: str, config: NelsonConfig) -> None:
     claude_command = (
         str(config.claude_command_path) if config.claude_command_path else config.claude_command
     )
-    provider = ClaudeProvider(claude_command=claude_command)
+    provider = ClaudeProvider(claude_command=claude_command, target_path=config.target_path)
 
     # Check provider availability
     if not provider.is_available():
@@ -207,11 +243,13 @@ def _execute_workflow(prompt: str, config: NelsonConfig) -> None:
 
     # Get starting commit for audit trail
     try:
+        git_cmd = ["git", "rev-parse", "HEAD"]
         starting_commit = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
+            git_cmd,
             capture_output=True,
             text=True,
             check=True,
+            cwd=config.target_path,
         ).stdout.strip()
     except subprocess.CalledProcessError:
         logger.warning("Not in a git repository - starting_commit will be empty")
@@ -259,17 +297,18 @@ def _execute_workflow(prompt: str, config: NelsonConfig) -> None:
 
 
 def _build_config(
-    max_iterations: int | None,
-    cost_limit: float | None,
-    model: str | None,
-    plan_model: str | None,
-    review_model: str | None,
-    claude_command: str | None,
-    auto_approve_push: bool,
+    target_path: Path | None = None,
+    max_iterations: int | None = None,
+    cost_limit: float | None = None,
+    model: str | None = None,
+    plan_model: str | None = None,
+    review_model: str | None = None,
+    claude_command: str | None = None,
+    auto_approve_push: bool = False,
 ) -> NelsonConfig:
     """Build configuration with CLI overrides."""
     # Load base config from environment
-    config = NelsonConfig.from_environment()
+    config = NelsonConfig.from_environment(target_path=target_path)
 
     # Determine final values with CLI overrides
     final_max_iterations = max_iterations if max_iterations is not None else config.max_iterations
@@ -305,6 +344,7 @@ def _build_config(
         nelson_dir=config.nelson_dir,
         audit_dir=config.audit_dir,
         runs_dir=config.runs_dir,
+        target_path=config.target_path,
         claude_command=final_claude_command,
         claude_command_path=final_claude_command_path,
         model=final_model,
@@ -396,6 +436,7 @@ def _resume_from_path(run_dir: Path) -> None:
                 nelson_dir=config.nelson_dir,
                 audit_dir=config.audit_dir,
                 runs_dir=config.runs_dir,
+                target_path=config.target_path,
                 claude_command=config.claude_command,
                 claude_command_path=config.claude_command_path,
                 model=config.model,
@@ -426,7 +467,7 @@ def _resume_from_path(run_dir: Path) -> None:
     claude_command = (
         str(config.claude_command_path) if config.claude_command_path else config.claude_command
     )
-    provider = ClaudeProvider(claude_command=claude_command)
+    provider = ClaudeProvider(claude_command=claude_command, target_path=config.target_path)
 
     # Check provider availability
     if not provider.is_available():

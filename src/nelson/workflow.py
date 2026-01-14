@@ -8,17 +8,25 @@ This module implements the main execution loop that coordinates:
 - Decision logging
 """
 
+from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any
 
+from rich.panel import Panel
+
 from nelson.config import NelsonConfig
 from nelson.logging_config import get_logger
 from nelson.phases import Phase
-from nelson.prompts import build_full_prompt, build_loop_context
+from nelson.prompts import (
+    build_full_prompt,
+    build_loop_context,
+    get_phase_prompt,
+    get_system_prompt,
+)
 from nelson.providers.base import AIProvider, ProviderError
 from nelson.state import NelsonState
-from nelson.transitions import determine_next_phase, should_transition_phase
+from nelson.transitions import determine_next_phase, has_unchecked_tasks, should_transition_phase
 
 logger = get_logger()
 
@@ -86,8 +94,35 @@ class WorkflowOrchestrator:
             WorkflowError: If workflow fails due to limits or errors
         """
         logger.info("Starting Nelson autonomous workflow...")
-        logger.info(f"Prompt: {prompt}")
         logger.info("")
+
+        # Display prompt with rich Panel
+        prompt_preview = prompt[:200] + "..." if len(prompt) > 200 else prompt
+        logger.console.print(
+            Panel(
+                prompt_preview,
+                title="[bold blue]Task",
+                border_style="blue",
+                padding=(1, 2),
+            )
+        )
+        logger.console.print("")
+
+        # Display system prompt summary at startup
+        system_prompt = get_system_prompt(self.decisions_file)
+        system_lines = system_prompt.split("\n")[:5]
+        system_summary = (
+            "\n".join(system_lines) + "\n\n[dim](Full system prompt sent to Claude)[/dim]"
+        )
+        logger.console.print(
+            Panel(
+                system_summary,
+                title="[bold cyan]System Prompt",
+                border_style="cyan",
+                padding=(1, 2),
+            )
+        )
+        logger.console.print("")
 
         # Main loop - continues until EXIT_SIGNAL or circuit breaker
         while True:
@@ -105,14 +140,34 @@ class WorkflowOrchestrator:
             current_phase = Phase(self.state.current_phase)
             phase_name = current_phase.name_str
 
-            logger.info(
-                f"Iteration {self.state.total_iterations} - "
-                f"Phase {current_phase.value}: {phase_name}"
+            # Show clear cycle/phase/iteration info with rich Rule and timestamp
+            display_cycle = self.state.cycle_iterations + 1
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            logger.console.rule(
+                f"[bold yellow]Cycle {display_cycle} | "
+                f"Phase {current_phase.value}: {phase_name} | "
+                f"API Call #{self.state.total_iterations} | "
+                f"{timestamp}[/bold yellow]",
+                style="yellow"
             )
-            logger.info("")
+            logger.console.print("")
 
             # Build loop context (recent activity, task count)
             loop_context = self._build_loop_context()
+
+            # Display loop context if this is not the first iteration
+            if self.state.total_iterations > 1 and loop_context:
+                lines = loop_context.split("\n")
+                context_preview = "\n".join(lines[:8]) if len(lines) > 8 else loop_context
+                logger.console.print(
+                    Panel(
+                        f"[dim]{context_preview}[/dim]",
+                        title="[bold cyan]Context",
+                        border_style="cyan",
+                        padding=(0, 1),
+                    )
+                )
+                logger.console.print("")
 
             # Build full prompt with phase instructions
             full_prompt = build_full_prompt(
@@ -122,6 +177,19 @@ class WorkflowOrchestrator:
                 decisions_file=self.decisions_file,
                 loop_context=loop_context,
             )
+
+            # Display phase prompt being used
+            phase_prompt = get_phase_prompt(current_phase, self.plan_file, self.decisions_file)
+            prompt_preview = phase_prompt[:300] + "..." if len(phase_prompt) > 300 else phase_prompt
+            logger.console.print(
+                Panel(
+                    f"[dim]{prompt_preview}[/dim]",
+                    title=f"[bold magenta]Phase {current_phase.value} Instructions",
+                    border_style="magenta",
+                    padding=(0, 1),
+                )
+            )
+            logger.console.print("")
 
             # Execute Claude with retry logic
             try:
@@ -148,49 +216,27 @@ class WorkflowOrchestrator:
             breaker_result = self._check_circuit_breaker(status_block)
 
             if breaker_result == CircuitBreakerResult.EXIT_SIGNAL:
-                # EXIT_SIGNAL behavior depends on current phase:
-                # - Phase 1 (PLAN): "no more work to do" → STOP workflow
-                # - Phases 2-6: "cycle complete" → loop back to Phase 1 for next cycle
-                logger.success("EXIT_SIGNAL detected")
+                # EXIT_SIGNAL means current phase is complete
+                logger.success("EXIT_SIGNAL detected - phase complete")
                 self._log_completion_status(status_block)
 
-                if current_phase == Phase.PLAN:
-                    # Phase 1 EXIT_SIGNAL means no additional work needed - stop workflow
-                    logger.success("Phase 1 EXIT_SIGNAL: no additional work found")
-                    logger.success("Workflow complete - exiting")
-                    break
+                # Special case: Phase 1 in a NEW cycle (cycle > 0) with EXIT_SIGNAL
+                # Only exit if Phase 2 (IMPLEMENT) has no unchecked tasks
+                # If there's no implementation work, skip review/test/final-review/commit
+                if current_phase == Phase.PLAN and self.state.cycle_iterations > 0:
+                    # Check if Phase 2 has any unchecked implementation tasks
+                    has_implementation_work = has_unchecked_tasks(Phase.IMPLEMENT, self.plan_file)
 
-                # For Phases 2-6: EXIT_SIGNAL means cycle work is complete
-                # Complete current cycle and loop back to Phase 1 for next cycle
-                logger.success("EXIT_SIGNAL detected - current cycle work complete")
+                    if not has_implementation_work:
+                        # No implementation work - skip remaining phases
+                        logger.success("Phase 1 in new cycle found no implementation work")
+                        logger.success("Workflow complete - exiting")
+                        break
+                    else:
+                        # There are unchecked tasks in Phase 2 - continue to implement them
+                        logger.info("Phase 1 complete, continuing to Phase 2 (IMPLEMENT)")
 
-                # If we're in Phase 6 (COMMIT), let normal cycle logic handle loop-back
-                # Otherwise, trigger immediate cycle completion
-                if current_phase == Phase.COMMIT:
-                    # Let phase transition logic handle cycle completion naturally
-                    pass
-                else:
-                    # Force cycle completion: archive plan, increment cycle, reset to Phase 1
-                    self.state.increment_cycle()
-                    new_cycle = self.state.cycle_iterations
-
-                    logger.success(f"Cycle {new_cycle - 1} complete via EXIT_SIGNAL")
-                    logger.info(f"Starting cycle {new_cycle} - returning to Phase 1 (PLAN)")
-
-                    # Archive the old plan.md (makes next cycle stateless)
-                    if self.plan_file.exists():
-                        archived_plan = self.run_dir / f"plan-cycle-{new_cycle - 1}.md"
-                        logger.info(f"Archiving plan to: {archived_plan.name}")
-                        self.plan_file.rename(archived_plan)
-
-                    # Log cycle completion to decisions file
-                    self._log_cycle_completion(new_cycle - 1, new_cycle)
-
-                    # Reset to Phase 1
-                    self.state.transition_phase(Phase.PLAN.value, Phase.PLAN.name_str)
-
-                    # Continue loop - will start new cycle at Phase 1
-                    continue
+                # For all other cases: let normal phase transition logic handle it below
 
             elif breaker_result == CircuitBreakerResult.TRIGGERED:
                 # Circuit breaker tripped - stagnation detected
@@ -206,8 +252,18 @@ class WorkflowOrchestrator:
             # Update state with progress metrics
             self._update_progress_metrics(status_block)
 
+            # Save state after each iteration to keep state.json synchronized
+            state_file = self.config.nelson_dir / "state.json"
+            self.state.save(state_file)
+
             # Check if phase transition is needed
-            exit_signal = status_block.get("exit_signal", False)
+            # Parse exit_signal from status block (handle both boolean and string values)
+            exit_signal_value = status_block.get("exit_signal", False)
+            if isinstance(exit_signal_value, str):
+                exit_signal = exit_signal_value.lower() in ("true", "1", "yes")
+            else:
+                exit_signal = bool(exit_signal_value)
+
             if should_transition_phase(current_phase, self.plan_file, exit_signal):
                 next_phase = determine_next_phase(current_phase, self.plan_file)
 
@@ -368,15 +424,39 @@ class WorkflowOrchestrator:
             CircuitBreakerResult indicating what action to take
         """
         # Check for EXIT_SIGNAL first
-        if status_block.get("exit_signal", False):
+        # Handle both boolean and string values (Claude may return "true"/"false" strings)
+        exit_signal_value = status_block.get("exit_signal", False)
+        if isinstance(exit_signal_value, str):
+            exit_signal = exit_signal_value.lower() in ("true", "1", "yes")
+        else:
+            exit_signal = bool(exit_signal_value)
+
+        if exit_signal:
             return CircuitBreakerResult.EXIT_SIGNAL
 
         # Extract progress metrics
-        tasks_completed = status_block.get("tasks_completed", 0)
-        files_modified = status_block.get("files_modified", 0)
+        # Convert to int, handling both string and int values
+        tasks_completed = int(status_block.get("tasks_completed", 0) or 0)
+        files_modified_value = status_block.get("files_modified", 0)
 
-        # Record progress with cumulative completed count
-        self.state.record_progress(tasks_completed)
+        # Parse files_modified, handling strings and ints
+        if isinstance(files_modified_value, (int, str)) and str(files_modified_value).isdigit():
+            files_modified = int(files_modified_value)
+        else:
+            files_modified = 0
+
+        # Check for progress this iteration
+        # tasks_completed is per-loop count (TASKS_COMPLETED_THIS_LOOP), not cumulative
+        # Any non-zero tasks or files means progress was made
+        if tasks_completed > 0 or files_modified > 0:
+            # Progress was made, reset counter
+            self.state.no_progress_iterations = 0
+        else:
+            # No progress this iteration
+            self.state.no_progress_iterations += 1
+
+        # Update timestamp for state tracking
+        self.state.update_timestamp()
 
         # Check for no progress (3+ iterations with 0 tasks, 0 files)
         if self.state.no_progress_iterations >= 3:

@@ -43,13 +43,19 @@ class NelsonConfig:
     # Git/Push configuration
     auto_approve_push: bool
 
+    # Optional target repository path (None = current directory)
+    target_path: Path | None = None
+
     @classmethod
-    def from_environment(cls, script_dir: Path | None = None) -> "NelsonConfig":
+    def from_environment(
+        cls, script_dir: Path | None = None, target_path: Path | None = None
+    ) -> "NelsonConfig":
         """Load configuration from environment variables with defaults.
 
         Args:
             script_dir: Directory containing the nelson script (for claude-jail resolution).
                        If None, uses parent directory of this module.
+            target_path: Optional target repository directory. If None, uses current directory.
 
         Returns:
             Immutable NelsonConfig instance.
@@ -68,7 +74,7 @@ class NelsonConfig:
         runs_dir = Path(os.getenv("NELSON_RUNS_DIR", ".nelson/runs"))
 
         # Claude command configuration
-        claude_command = os.getenv("NELSON_CLAUDE_COMMAND", "claude-jail")
+        claude_command = os.getenv("NELSON_CLAUDE_COMMAND", "claude")
 
         # Model selection with cascading defaults
         model = os.getenv("NELSON_MODEL", "sonnet")
@@ -92,6 +98,7 @@ class NelsonConfig:
             nelson_dir=nelson_dir,
             audit_dir=audit_dir,
             runs_dir=runs_dir,
+            target_path=target_path,
             claude_command=claude_command,
             claude_command_path=claude_command_path,
             model=model,

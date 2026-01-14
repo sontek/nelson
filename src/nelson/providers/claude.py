@@ -42,14 +42,16 @@ class ClaudeProvider(AIProvider):
     }
     """
 
-    def __init__(self, claude_command: str | None = None) -> None:
+    def __init__(self, claude_command: str | None = None, target_path: Path | None = None) -> None:
         """Initialize Claude provider.
 
         Args:
             claude_command: Path to claude command (None = system 'claude', or custom path)
+            target_path: Optional target repository path for command execution
         """
         self.claude_command = claude_command or "claude"
         self._uses_jail_mode = "claude-jail" in str(self.claude_command)
+        self.target_path = target_path
 
     def execute(
         self,
@@ -153,6 +155,7 @@ class ClaudeProvider(AIProvider):
                     capture_output=True,
                     text=True,
                     check=False,
+                    cwd=self.target_path,
                 )
         except FileNotFoundError as e:
             raise ProviderError(
@@ -261,6 +264,7 @@ class ClaudeProvider(AIProvider):
                 capture_output=True,
                 text=True,
                 check=False,
+                cwd=self.target_path,
             )
 
             # Read output from file
@@ -411,6 +415,7 @@ class ClaudeProvider(AIProvider):
                 [str(self.claude_command), "--version"],
                 capture_output=True,
                 check=False,
+                cwd=self.target_path,
             )
             return result.returncode == 0
         except (FileNotFoundError, PermissionError):

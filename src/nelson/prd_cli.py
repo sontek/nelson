@@ -239,20 +239,34 @@ def _show_status(orchestrator: PRDOrchestrator) -> None:
     # Print task details
     click.echo("Tasks:\n")
 
-    for task_id, task_state in summary["tasks"].items():
-        status_icon = _get_status_icon(task_state.status)
-        click.echo(f"  {status_icon} {task_id}: {task_state.task_text}")
+    for task_dict in summary["tasks"]:
+        # Extract fields from dict
+        task_id = task_dict["task_id"]
+        task_text = task_dict["task_text"]
+        status_str = task_dict["status"]
+        branch = task_dict.get("branch")
+        blocking_reason = task_dict.get("blocking_reason")
+        cost_usd = task_dict.get("cost_usd", 0.0)
+        iterations = task_dict.get("iterations", 0)
+        phase = task_dict.get("phase")
+        phase_name = task_dict.get("phase_name")
 
-        if task_state.branch:
-            click.echo(f"     Branch: {task_state.branch}")
-        if task_state.status == TaskStatus.BLOCKED and task_state.blocking_reason:
-            click.echo(f"     Blocked: {task_state.blocking_reason}")
-        if task_state.cost_usd > 0:
-            click.echo(f"     Cost: ${task_state.cost_usd:.2f}")
-        if task_state.iterations > 0:
-            click.echo(f"     Iterations: {task_state.iterations}")
-        if task_state.phase:
-            click.echo(f"     Phase: {task_state.phase} ({task_state.phase_name})")
+        # Convert status string to TaskStatus enum
+        status = TaskStatus(status_str)
+        status_icon = _get_status_icon(status)
+
+        click.echo(f"  {status_icon} {task_id}: {task_text}")
+
+        if branch:
+            click.echo(f"     Branch: {branch}")
+        if status == TaskStatus.BLOCKED and blocking_reason:
+            click.echo(f"     Blocked: {blocking_reason}")
+        if cost_usd > 0:
+            click.echo(f"     Cost: ${cost_usd:.2f}")
+        if iterations > 0:
+            click.echo(f"     Iterations: {iterations}")
+        if phase:
+            click.echo(f"     Phase: {phase} ({phase_name})")
 
         click.echo()
 

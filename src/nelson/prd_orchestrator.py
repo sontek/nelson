@@ -55,6 +55,9 @@ class PRDOrchestrator:
         Returns:
             Tuple of (task_id, task_text, priority) or None if no pending tasks
         """
+        # Re-parse to get current task statuses
+        self.tasks = self.parser.parse()
+
         # Check priorities in order: high, medium, low
         for priority in ["high", "medium", "low"]:
             for task in self.tasks:
@@ -120,9 +123,11 @@ class PRDOrchestrator:
 
         # Execute Nelson
         print(f"\n{'='*60}")
-        print(f"Starting task: {task_id}")
-        print(f"Description: {task_text}")
-        print(f"Branch: {branch_name}")
+        print(f"🚀 Starting task: {task_id}")
+        print(f"   Description: {task_text}")
+        print(f"   Branch: {branch_name}")
+        if task_state.resume_context:
+            print(f"   🔄 Resuming with context")
         print(f"{'='*60}\n")
 
         try:
@@ -183,9 +188,11 @@ class PRDOrchestrator:
             self.parser.update_task_status(task_id, PRDTaskStatus.COMPLETED)
 
             print(f"\n{'='*60}")
-            print(f"Task completed: {task_id}")
-            print(f"Cost: ${task_state.cost_usd:.2f}")
-            print(f"Iterations: {task_state.iterations}")
+            print(f"✅ Task completed: {task_id}")
+            print(f"   Cost: ${task_state.cost_usd:.2f}")
+            print(f"   Iterations: {task_state.iterations}")
+            if task_state.phase_name:
+                print(f"   Final phase: {task_state.phase_name}")
             print(f"{'='*60}\n")
         else:
             # Mark as failed
@@ -194,7 +201,8 @@ class PRDOrchestrator:
 
             # Keep in-progress in PRD file for manual review
             print(f"\n{'='*60}")
-            print(f"Task failed: {task_id}")
+            print(f"❌ Task failed: {task_id}")
+            print(f"   Review the task and fix any issues before resuming")
             print(f"{'='*60}\n")
 
         return success
@@ -213,6 +221,28 @@ class PRDOrchestrator:
         """
         results = {}
 
+        # Get count of pending tasks for progress tracking
+        pending_tasks = [
+            t for t in self.tasks if t.status.value == " "  # PRDTaskStatus.PENDING
+        ]
+        total_pending = len(pending_tasks)
+
+        # Get current completion status
+        summary = self.get_status_summary()
+        total_tasks = summary["total_tasks"]
+        completed_before = summary["completed"]
+
+        # Show initial progress
+        if total_pending > 0:
+            print(f"\n{'='*60}")
+            print(f"PRD Execution Progress")
+            print(f"{'='*60}")
+            print(f"Total tasks in PRD: {total_tasks}")
+            print(f"Already completed: {completed_before}")
+            print(f"Pending to execute: {total_pending}")
+            print(f"{'='*60}\n")
+
+        current_task_num = 0
         while True:
             # Get next pending task
             next_task = self.get_next_pending_task()
@@ -221,6 +251,12 @@ class PRDOrchestrator:
                 break
 
             task_id, task_text, priority = next_task
+            current_task_num += 1
+
+            # Show progress indicator
+            print(f"\n{'─'*60}")
+            print(f"📋 Task {current_task_num} of {total_pending} | Priority: {priority.upper()}")
+            print(f"{'─'*60}")
 
             # Execute task
             success = self.execute_task(
@@ -228,8 +264,18 @@ class PRDOrchestrator:
             )
             results[task_id] = success
 
+            # Show interim progress
+            completed_so_far = completed_before + sum(1 for s in results.values() if s)
+            remaining = total_tasks - completed_so_far
+            completion_pct = (completed_so_far / total_tasks * 100) if total_tasks > 0 else 0
+
+            print(f"\n{'─'*60}")
+            print(f"📊 Progress: {completed_so_far}/{total_tasks} tasks ({completion_pct:.1f}% complete)")
+            print(f"   Remaining: {remaining} tasks")
+            print(f"{'─'*60}")
+
             if not success and stop_on_failure:
-                print(f"\nStopping execution due to task failure: {task_id}")
+                print(f"\n⚠️  Stopping execution due to task failure: {task_id}")
                 break
 
         return results

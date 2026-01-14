@@ -855,3 +855,199 @@ def test_execute_task_handles_unexpected_exception(
     assert "UnexpectedError" in captured.out
     assert "Something went wrong" in captured.out
     assert "Please report this issue" in captured.out
+
+
+@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.subprocess.run")
+def test_execute_all_pending_shows_progress_indicators(
+    mock_run: Mock,
+    mock_ensure_branch: Mock,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture,
+):
+    """Test that execute_all_pending shows progress indicators during execution."""
+    # Create PRD file with multiple pending tasks
+    prd_file = tmp_path / "requirements.md"
+    prd_content = """
+## High Priority
+- [ ] PRD-001 First task
+- [ ] PRD-002 Second task
+
+## Medium Priority
+- [ ] PRD-003 Third task
+"""
+    prd_file.write_text(prd_content)
+
+    # Setup mocks
+    mock_ensure_branch.return_value = "feature/test-branch"
+    mock_run.return_value = Mock(returncode=0)
+
+    # Create orchestrator
+    prd_dir = tmp_path / ".nelson/prd"
+    orchestrator = PRDOrchestrator(prd_file, prd_dir)
+
+    # Execute all pending tasks
+    results = orchestrator.execute_all_pending()
+
+    # Verify all tasks executed
+    assert len(results) == 3
+    assert all(results.values())
+
+    # Check progress indicators in output
+    captured = capsys.readouterr()
+
+    # Initial progress summary
+    assert "PRD Execution Progress" in captured.out
+    assert "Total tasks in PRD: 3" in captured.out
+    assert "Already completed: 0" in captured.out
+    assert "Pending to execute: 3" in captured.out
+
+    # Individual task indicators (with emojis)
+    assert "📋 Task 1 of 3 | Priority: HIGH" in captured.out
+    assert "📋 Task 2 of 3 | Priority: HIGH" in captured.out
+    assert "📋 Task 3 of 3 | Priority: MEDIUM" in captured.out
+
+    # Interim progress after each task
+    assert "📊 Progress:" in captured.out
+    assert "% complete)" in captured.out
+    assert "Remaining:" in captured.out
+
+
+@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.subprocess.run")
+def test_execute_all_pending_shows_completion_percentage(
+    mock_run: Mock,
+    mock_ensure_branch: Mock,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture,
+):
+    """Test that progress shows completion percentage increasing."""
+    # Create PRD with some already completed
+    prd_file = tmp_path / "requirements.md"
+    prd_content = """
+## High Priority
+- [x] PRD-001 Already done
+- [ ] PRD-002 Pending task
+- [ ] PRD-003 Another pending
+"""
+    prd_file.write_text(prd_content)
+
+    # Setup mocks
+    mock_ensure_branch.return_value = "feature/test-branch"
+    mock_run.return_value = Mock(returncode=0)
+
+    # Create orchestrator
+    prd_dir = tmp_path / ".nelson/prd"
+    orchestrator = PRDOrchestrator(prd_file, prd_dir)
+
+    # Execute all pending tasks
+    results = orchestrator.execute_all_pending()
+
+    # Verify
+    assert len(results) == 2
+
+    # Check that progress shows completion percentages increasing
+    captured = capsys.readouterr()
+    assert "Pending to execute: 2" in captured.out
+
+    # Should show increasing percentages as tasks complete
+    # First task: 1/3 = 33.3%
+    assert "33.3% complete" in captured.out
+    # Second task: 2/3 = 66.7%
+    assert "66.7% complete" in captured.out or "66.6% complete" in captured.out
+
+
+@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.subprocess.run")
+def test_execute_task_shows_resume_indicator(
+    mock_run: Mock,
+    mock_ensure_branch: Mock,
+    orchestrator: PRDOrchestrator,
+    capsys: pytest.CaptureFixture,
+):
+    """Test that execute_task shows resume indicator when resuming with context."""
+    # Setup mocks
+    mock_ensure_branch.return_value = "feature/PRD-001-implement-user-authentication"
+    mock_run.return_value = Mock(returncode=0)
+
+    # Create task state with resume context
+    task_state = orchestrator.state_manager.load_task_state(
+        "PRD-001", "Implement user authentication", "high"
+    )
+    task_state.resume_context = "API keys added to .env file"
+    orchestrator.state_manager.save_task_state(task_state)
+
+    # Execute task
+    success = orchestrator.execute_task("PRD-001", "Implement user authentication", "high")
+
+    # Verify success
+    assert success is True
+
+    # Check output includes resume indicator
+    captured = capsys.readouterr()
+    assert "🚀 Starting task: PRD-001" in captured.out
+    assert "🔄 Resuming with context" in captured.out
+
+
+@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.subprocess.run")
+def test_execute_task_shows_visual_status_icons(
+    mock_run: Mock,
+    mock_ensure_branch: Mock,
+    orchestrator: PRDOrchestrator,
+    capsys: pytest.CaptureFixture,
+):
+    """Test that execute_task shows visual status icons (success/failure)."""
+    # Setup mocks
+    mock_ensure_branch.return_value = "feature/PRD-001-implement-user-authentication"
+
+    # Test success case
+    mock_run.return_value = Mock(returncode=0)
+    success = orchestrator.execute_task("PRD-001", "Implement user authentication", "high")
+    assert success is True
+
+    captured = capsys.readouterr()
+    assert "✅ Task completed: PRD-001" in captured.out
+    assert "🚀 Starting task: PRD-001" in captured.out
+
+    # Test failure case
+    mock_run.return_value = Mock(returncode=1)
+    success = orchestrator.execute_task("PRD-002", "Another task", "high")
+    assert success is False
+
+    captured = capsys.readouterr()
+    assert "❌ Task failed: PRD-002" in captured.out
+    assert "Review the task and fix any issues before resuming" in captured.out
+
+
+@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.subprocess.run")
+def test_execute_all_pending_no_pending_tasks(
+    mock_run: Mock,
+    mock_ensure_branch: Mock,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture,
+):
+    """Test that execute_all_pending handles case with no pending tasks gracefully."""
+    # Create PRD with all completed tasks
+    prd_file = tmp_path / "requirements.md"
+    prd_content = """
+## High Priority
+- [x] PRD-001 Completed task
+- [x] PRD-002 Another completed
+"""
+    prd_file.write_text(prd_content)
+
+    # Create orchestrator
+    prd_dir = tmp_path / ".nelson/prd"
+    orchestrator = PRDOrchestrator(prd_file, prd_dir)
+
+    # Execute all pending tasks
+    results = orchestrator.execute_all_pending()
+
+    # Verify no tasks executed
+    assert len(results) == 0
+
+    # Check that no progress summary is shown when there are no pending tasks
+    captured = capsys.readouterr()
+    assert "PRD Execution Progress" not in captured.out or "Pending to execute: 0" in captured.out

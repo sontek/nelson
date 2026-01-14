@@ -61,6 +61,7 @@ def test_cli_help(cli_runner: CliRunner) -> None:
     assert "--resume-task" in result.output
     assert "--task-info" in result.output
     assert "--dry-run" in result.output
+    assert "--nelson-args" in result.output
 
 
 def test_cli_missing_prd_file(cli_runner: CliRunner) -> None:
@@ -265,7 +266,7 @@ def test_cli_resume_task_command_success(
     )
 
     assert result.exit_code == 0
-    mock_orchestrator.resume_task.assert_called_once_with("PRD-001")
+    mock_orchestrator.resume_task.assert_called_once_with("PRD-001", None)
 
 
 @patch("nelson.prd_cli.PRDOrchestrator")
@@ -490,7 +491,9 @@ def test_cli_main_execution_flow(
     assert "Tasks executed: 2" in result.output
     assert "Succeeded: 2" in result.output
     assert "Total cost: $3.45" in result.output
-    mock_orchestrator.execute_all_pending.assert_called_once_with(stop_on_failure=False)
+    mock_orchestrator.execute_all_pending.assert_called_once_with(
+        nelson_args=None, stop_on_failure=False
+    )
 
 
 @patch("nelson.prd_cli.PRDOrchestrator")
@@ -525,7 +528,9 @@ def test_cli_main_execution_with_stop_on_failure(
     assert "Tasks executed: 2" in result.output
     assert "Succeeded: 1" in result.output
     assert "Failed: 1" in result.output
-    mock_orchestrator.execute_all_pending.assert_called_once_with(stop_on_failure=True)
+    mock_orchestrator.execute_all_pending.assert_called_once_with(
+        nelson_args=None, stop_on_failure=True
+    )
 
 
 @patch("nelson.prd_cli.PRDOrchestrator")
@@ -714,3 +719,61 @@ def test_cli_get_status_icon() -> None:
     assert _get_status_icon(TaskStatus.BLOCKED) == "!"
     assert _get_status_icon(TaskStatus.FAILED) == "✗"
     assert _get_status_icon(TaskStatus.PENDING) == "○"
+
+
+@patch("nelson.prd_cli.PRDOrchestrator")
+def test_cli_nelson_args_passed_to_execute_all_pending(
+    mock_orchestrator_class: Mock, cli_runner: CliRunner, temp_prd_file: Path
+) -> None:
+    """Test --nelson-args option passes arguments to execute_all_pending."""
+    mock_orchestrator = MagicMock()
+    mock_orchestrator_class.return_value = mock_orchestrator
+    mock_orchestrator.prd_dir = Path(".nelson/prd")
+
+    mock_orchestrator.execute_all_pending.return_value = {"PRD-001": True}
+    mock_orchestrator.get_status_summary.return_value = {
+        "total_tasks": 1,
+        "completed": 1,
+        "in_progress": 0,
+        "blocked": 0,
+        "pending": 0,
+        "failed": 0,
+        "total_cost": 1.5,
+    }
+
+    result = cli_runner.invoke(
+        main,
+        ["--nelson-args", "--model opus --max-iterations 100", str(temp_prd_file)],
+    )
+
+    assert result.exit_code == 0
+    mock_orchestrator.execute_all_pending.assert_called_once_with(
+        nelson_args=["--model", "opus", "--max-iterations", "100"],
+        stop_on_failure=False,
+    )
+
+
+@patch("nelson.prd_cli.PRDOrchestrator")
+def test_cli_nelson_args_passed_to_resume_task(
+    mock_orchestrator_class: Mock, cli_runner: CliRunner, temp_prd_file: Path
+) -> None:
+    """Test --nelson-args option passes arguments to resume_task."""
+    mock_orchestrator = MagicMock()
+    mock_orchestrator_class.return_value = mock_orchestrator
+    mock_orchestrator.resume_task.return_value = True
+
+    result = cli_runner.invoke(
+        main,
+        [
+            "--resume-task",
+            "PRD-001",
+            "--nelson-args",
+            "--model haiku",
+            str(temp_prd_file),
+        ],
+    )
+
+    assert result.exit_code == 0
+    mock_orchestrator.resume_task.assert_called_once_with(
+        "PRD-001", ["--model", "haiku"]
+    )

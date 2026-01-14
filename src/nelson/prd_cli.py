@@ -79,6 +79,11 @@ from nelson.prd_task_state import TaskStatus
     type=click.Path(path_type=Path),
     help="Override .nelson/prd directory location",
 )
+@click.option(
+    "--nelson-args",
+    type=str,
+    help="Additional arguments to pass to Nelson CLI (space-separated)",
+)
 def main(
     prd_file: Path,
     show_status: bool,
@@ -92,6 +97,7 @@ def main(
     resume_from_last: bool,
     stop_on_failure: bool,
     prd_dir: Path | None,
+    nelson_args: str | None,
 ) -> None:
     """Execute tasks from a PRD (Product Requirements Document) file.
 
@@ -130,10 +136,18 @@ def main(
 
       # Get task details
       nelson-prd --task-info PRD-001 requirements.md
+
+      # Pass arguments to Nelson
+      nelson-prd --nelson-args "--model opus --max-iterations 100" requirements.md
     """
     try:
         # Initialize orchestrator
         orchestrator = PRDOrchestrator(prd_file, prd_dir)
+
+        # Parse nelson_args string into list
+        parsed_nelson_args: list[str] | None = None
+        if nelson_args:
+            parsed_nelson_args = nelson_args.split()
 
         # Handle status command
         if show_status:
@@ -160,7 +174,7 @@ def main(
 
         # Handle resume-task command
         if resume_task_id:
-            success = orchestrator.resume_task(resume_task_id)
+            success = orchestrator.resume_task(resume_task_id, parsed_nelson_args)
             sys.exit(0 if success else 1)
 
         # Handle dry-run
@@ -183,7 +197,9 @@ def main(
         click.echo(f"Starting PRD execution: {prd_file}")
         click.echo(f"PRD directory: {orchestrator.prd_dir}\n")
 
-        results = orchestrator.execute_all_pending(stop_on_failure=stop_on_failure)
+        results = orchestrator.execute_all_pending(
+            nelson_args=parsed_nelson_args, stop_on_failure=stop_on_failure
+        )
 
         # Print summary
         _print_execution_summary(results, orchestrator)

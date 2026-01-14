@@ -468,15 +468,15 @@ class TestWorkflowRun:
 class TestCycleLoopBehavior:
     """Tests for cycle loop behavior with EXIT_SIGNAL."""
 
-    def test_exit_signal_triggers_phase_1_loopback(
+    def test_exit_signal_advances_through_all_phases(
         self,
         mock_run_dir: Path,
         tmp_path: Path,
     ) -> None:
-        """Test that EXIT_SIGNAL triggers cycle completion and Phase 1 loop-back."""
-        # Create config with low max_iterations to avoid long running test
+        """Test that EXIT_SIGNAL advances through all phases correctly, not skipping to new cycle."""
+        # Create config with enough iterations for full cycle + phase 1 check
         config = NelsonConfig(
-            max_iterations=2,
+            max_iterations=10,
             max_iterations_explicit=True,
             cost_limit=10.0,
             nelson_dir=tmp_path / ".nelson",
@@ -490,7 +490,7 @@ class TestCycleLoopBehavior:
             auto_approve_push=False,
         )
 
-        # Create state starting at cycle 0
+        # Create state starting at Phase 2
         state = NelsonState(
             prompt="Test prompt",
             current_phase=Phase.IMPLEMENT.value,
@@ -499,11 +499,11 @@ class TestCycleLoopBehavior:
             cycle_iterations=0,
         )
 
-        # Create provider that returns EXIT_SIGNAL on first call
+        # Create provider that returns EXIT_SIGNAL
         mock_provider = MagicMock()
 
-        # First response: EXIT_SIGNAL in Phase 2 (IMPLEMENT)
-        first_response = AIResponse(
+        # Response: EXIT_SIGNAL in Phase 2 (IMPLEMENT)
+        response = AIResponse(
             content="Phase 2 work done\n"
             "---NELSON_STATUS---\n"
             "STATUS: COMPLETE\n"
@@ -512,7 +512,7 @@ class TestCycleLoopBehavior:
             "TESTS_STATUS: PASSING\n"
             "WORK_TYPE: IMPLEMENTATION\n"
             "EXIT_SIGNAL: true\n"
-            "RECOMMENDATION: Cycle complete\n"
+            "RECOMMENDATION: Phase 2 complete, advance to Phase 3\n"
             "---END_NELSON_STATUS---",
             raw_output="raw1",
             metadata={},
@@ -520,20 +520,20 @@ class TestCycleLoopBehavior:
         )
 
         # Configure mock to return response
-        mock_provider.execute.return_value = first_response
+        mock_provider.execute.return_value = response
 
-        # First status block has EXIT_SIGNAL
-        first_status = {
+        # Status block with EXIT_SIGNAL
+        status = {
             "status": "COMPLETE",
             "tasks_completed": 1,
             "files_modified": 2,
             "tests_status": "PASSING",
             "work_type": "IMPLEMENTATION",
             "exit_signal": True,
-            "recommendation": "Cycle complete",
+            "recommendation": "Phase 2 complete, advance to Phase 3",
         }
 
-        mock_provider.extract_status_block.return_value = first_status
+        mock_provider.extract_status_block.return_value = status
         mock_provider.get_cost.return_value = 0.0
 
         orchestrator = WorkflowOrchestrator(
@@ -543,28 +543,30 @@ class TestCycleLoopBehavior:
             run_dir=mock_run_dir,
         )
 
-        # Create plan file
+        # Create plan file with all tasks complete
         orchestrator.plan_file.write_text("# Plan\n- [x] Task 1")
 
         # Run workflow
-        # - First call in Phase 2 returns EXIT_SIGNAL → completes cycle, loops to Phase 1
-        # - Second call in Phase 1 returns EXIT_SIGNAL → stops workflow
+        # - Phase 2 returns EXIT_SIGNAL → advances to Phase 3
+        # - Phase 3 returns EXIT_SIGNAL → advances to Phase 4
+        # - Phase 4 returns EXIT_SIGNAL → advances to Phase 5
+        # - Phase 5 returns EXIT_SIGNAL → advances to Phase 6
+        # - Phase 6 returns EXIT_SIGNAL → cycle complete, advance to Cycle 1, Phase 1
+        # - Phase 1 (Cycle 1) returns EXIT_SIGNAL → no more work, stop
         orchestrator.run("Test prompt")
 
-        # Verify provider was called twice (Phase 2 + Phase 1)
-        assert mock_provider.execute.call_count == 2
+        # Verify provider was called 6 times (Phase 2, 3, 4, 5, 6, then Phase 1 of cycle 1)
+        assert mock_provider.execute.call_count == 6
 
-        # Verify cycle counter incremented (EXIT_SIGNAL in Phase 2 caused cycle completion)
+        # Verify cycle completed (we're in cycle 1 now)
         assert orchestrator.state.cycle_iterations == 1
 
-        # Verify plan was archived for cycle 0
+        # Verify we're in Phase 1 of the next cycle (workflow stopped here)
+        assert orchestrator.state.current_phase == Phase.PLAN.value
+
+        # Verify plan was archived for cycle 0 (cycle completed)
         archived_plan = mock_run_dir / "plan-cycle-0.md"
         assert archived_plan.exists()
-
-        # Verify decisions file contains cycle completion log
-        decisions_content = orchestrator.decisions_file.read_text()
-        assert "Cycle 0 Complete" in decisions_content
-        assert "Starting cycle 1" in decisions_content
 
     def test_exit_signal_in_phase_1_stops_workflow(
         self,

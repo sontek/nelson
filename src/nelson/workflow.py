@@ -263,7 +263,22 @@ class WorkflowOrchestrator:
                 ):
                     # Check if Phase 2 has any unchecked tasks
                     if not has_unchecked_tasks(Phase.IMPLEMENT, self.plan_file):
-                        # No implementation work - skip to next cycle
+                        # No implementation work - increment counter
+                        self.state.no_work_cycles += 1
+
+                        # Check if we've had too many consecutive "no work" cycles
+                        if self.state.no_work_cycles >= 2:
+                            logger.success(
+                                f"No implementation work found for {self.state.no_work_cycles} "
+                                "consecutive cycles"
+                            )
+                            logger.info("Task appears complete - stopping workflow")
+                            # Save state and exit
+                            state_file = self.config.nelson_dir / "state.json"
+                            self.state.save(state_file)
+                            break  # Exit the main loop
+
+                        # First "no work" cycle - log and continue
                         logger.success("Phase 1 in new cycle found no implementation work")
                         logger.info("Skipping phases 2-6 and advancing to next cycle")
 
@@ -291,12 +306,18 @@ class WorkflowOrchestrator:
 
                         # Continue loop - will start new cycle at Phase 1
                         continue
+                    else:
+                        # Phase 2 has unchecked tasks - reset no-work counter
+                        self.state.no_work_cycles = 0
 
                 if next_phase is None:
                     # Phase 6 (COMMIT) complete - cycle finished
                     # Increment cycle counter and loop back to Phase 1
                     self.state.increment_cycle()
                     new_cycle = self.state.cycle_iterations
+
+                    # Reset no-work counter since we completed a full cycle with work
+                    self.state.no_work_cycles = 0
 
                     # Display cycles as 1-indexed for user-friendliness (internal is 0-indexed)
                     logger.success(f"Cycle {new_cycle} complete - Phase 6 (COMMIT) finished")

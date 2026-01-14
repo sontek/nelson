@@ -46,6 +46,7 @@ class NelsonState:
     test_only_loop_count: int = 0  # Count of consecutive test-only iterations
     same_phase_loop_count: int = 0  # Count of consecutive iterations in same phase
     last_phase_tracked: int = 1  # Last phase we tracked for loop detection
+    no_work_cycles: int = 0  # Count of consecutive cycles with "no implementation work"
 
     # Phase tracking
     current_phase: int = 1

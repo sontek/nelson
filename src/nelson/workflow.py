@@ -320,9 +320,9 @@ class WorkflowOrchestrator:
                     # Phase transition
                     next_phase_name = next_phase.name_str
 
-                    logger.info(
+                    logger.success(
                         f"Phase {current_phase.value} ({phase_name}) complete "
-                        f"→ advancing to Phase {next_phase.value}"
+                        f"→ advancing to Phase {next_phase.value} ({next_phase_name})"
                     )
 
                     # Log transition to decisions file
@@ -330,6 +330,7 @@ class WorkflowOrchestrator:
 
                     # Update state
                     self.state.transition_phase(next_phase.value, next_phase_name)
+                    logger.info(f"State updated: now in Phase {self.state.current_phase} ({self.state.phase_name})")
 
             # Small delay between iterations to avoid tight loops
             import time

@@ -8,9 +8,15 @@ import sys
 from pathlib import Path
 
 import click
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
 
 from nelson.prd_orchestrator import PRDOrchestrator
 from nelson.prd_task_state import TaskStatus
+
+console = Console()
 
 
 @click.command()
@@ -219,45 +225,69 @@ def main(
 
 
 def _show_status(orchestrator: PRDOrchestrator) -> None:
-    """Display status of all tasks."""
+    """Display status of all tasks using rich formatting."""
     summary = orchestrator.get_status_summary()
 
-    click.echo(f"\nPRD Status: {summary['prd_file']}")
-    click.echo(f"{'='*60}")
-    click.echo(
-        f"Total: {summary['total_tasks']} tasks | "
-        f"Completed: {summary['completed']} | "
-        f"In Progress: {summary['in_progress']} | "
-        f"Blocked: {summary['blocked']} | "
-        f"Pending: {summary['pending']}"
+    # Create header panel
+    console.print()
+    header_text = (
+        f"[bold cyan]Total:[/] {summary['total_tasks']} tasks | "
+        f"[bold green]✓ Completed:[/] {summary['completed']} | "
+        f"[bold yellow]~ In Progress:[/] {summary['in_progress']} | "
+        f"[bold red]! Blocked:[/] {summary['blocked']} | "
+        f"[bold]○ Pending:[/] {summary['pending']}"
     )
     if summary['failed'] > 0:
-        click.echo(f"Failed: {summary['failed']}")
-    click.echo(f"Total Cost: ${summary['total_cost']:.2f}")
-    click.echo(f"{'='*60}\n")
+        header_text += f" | [bold red]✗ Failed:[/] {summary['failed']}"
+    header_text += f"\n[bold]Total Cost:[/] ${summary['total_cost']:.2f}"
+
+    console.print(
+        Panel(
+            header_text,
+            title=f"[bold]PRD Status: {summary['prd_file']}[/bold]",
+            border_style="cyan",
+        )
+    )
 
     # Check for task text changes and warn
     text_changes = orchestrator.check_task_text_changes()
     if text_changes:
-        click.echo("⚠️  WARNING: Task text changes detected:")
-        click.echo(f"{'='*60}")
+        warning_lines = ["[bold yellow]⚠️  Task text changes detected:[/bold yellow]\n"]
         for change in text_changes:
-            click.echo(f"  Task: {change['task_id']}")
-            click.echo(f"    Original: {change['original_text']}")
-            click.echo(f"    Current:  {change['current_text']}")
-            click.echo()
-        click.echo(
-            "Task descriptions have been modified. This may affect "
-            "branch names and task tracking."
-        )
-        click.echo(
-            "Consider reviewing these changes or creating new task IDs "
-            "if the task scope has changed significantly."
-        )
-        click.echo(f"{'='*60}\n")
+            warning_lines.append(f"[bold]{change['task_id']}[/bold]")
+            warning_lines.append(f"  [dim]Original:[/dim] {change['original_text']}")
+            warning_lines.append(f"  [dim]Current:[/dim]  {change['current_text']}")
+            warning_lines.append("")
 
-    # Print task details
-    click.echo("Tasks:\n")
+        warning_lines.append(
+            "[dim]Task descriptions have been modified. This may affect "
+            "branch names and task tracking.[/dim]"
+        )
+        warning_lines.append(
+            "[dim]Consider reviewing these changes or creating new task IDs "
+            "if the task scope has changed significantly.[/dim]"
+        )
+
+        console.print(
+            Panel(
+                "\n".join(warning_lines),
+                border_style="yellow",
+                title="[bold yellow]Warning[/bold yellow]",
+            )
+        )
+
+    # Create tasks table
+    table = Table(
+        title="Tasks",
+        show_header=True,
+        header_style="bold cyan",
+        border_style="blue",
+        title_style="bold",
+    )
+    table.add_column("Status", style="bold", width=6)
+    table.add_column("ID", style="cyan", width=10)
+    table.add_column("Description", style="white")
+    table.add_column("Details", style="dim", width=40)
 
     for task_dict in summary["tasks"]:
         # Extract fields from dict
@@ -273,65 +303,101 @@ def _show_status(orchestrator: PRDOrchestrator) -> None:
 
         # Convert status string to TaskStatus enum
         status = TaskStatus(status_str)
-        status_icon = _get_status_icon(status)
+        status_display = _get_status_display(status)
 
-        click.echo(f"  {status_icon} {task_id}: {task_text}")
-
+        # Build details column
+        details = []
         if branch:
-            click.echo(f"     Branch: {branch}")
+            details.append(f"Branch: {branch}")
         if status == TaskStatus.BLOCKED and blocking_reason:
-            click.echo(f"     Blocked: {blocking_reason}")
+            details.append(f"[red]Blocked: {blocking_reason}[/red]")
         if cost_usd > 0:
-            click.echo(f"     Cost: ${cost_usd:.2f}")
+            details.append(f"Cost: ${cost_usd:.2f}")
         if iterations > 0:
-            click.echo(f"     Iterations: {iterations}")
+            details.append(f"Iterations: {iterations}")
         if phase:
-            click.echo(f"     Phase: {phase} ({phase_name})")
+            details.append(f"Phase: {phase} ({phase_name})")
 
-        click.echo()
+        details_text = "\n".join(details) if details else "-"
+
+        table.add_row(status_display, task_id, task_text, details_text)
+
+    console.print(table)
+    console.print()
 
 
 def _show_task_info(orchestrator: PRDOrchestrator, task_id: str) -> None:
-    """Display detailed information about a task."""
+    """Display detailed information about a task using rich formatting."""
     info = orchestrator.get_task_info(task_id)
 
     if info is None:
-        click.echo(f"Error: Task not found: {task_id}", err=True)
+        console.print(f"[red]Error: Task not found: {task_id}[/red]", style="bold")
         sys.exit(1)
 
-    click.echo(f"\nTask Details: {task_id}")
-    click.echo(f"{'='*60}")
-    click.echo(f"Description: {info['task_text']}")
-    click.echo(f"Status: {info['status']}")
-    click.echo(f"Priority: {info['priority']}")
+    # Create info table
+    table = Table(
+        title=f"Task Details: {task_id}",
+        show_header=False,
+        border_style="cyan",
+        title_style="bold cyan",
+        box=None,
+        padding=(0, 2),
+    )
+    table.add_column("Field", style="bold cyan", width=20)
+    table.add_column("Value", style="white")
+
+    # Add basic info
+    status = TaskStatus(info["status"])
+    status_display = _get_status_display(status)
+
+    table.add_row("Description", info["task_text"])
+    table.add_row("Status", status_display)
+    table.add_row("Priority", info["priority"].upper())
 
     if info["branch"]:
-        click.echo(f"Branch: {info['branch']}")
+        table.add_row("Branch", info["branch"])
     if info["nelson_run_id"]:
-        click.echo(f"Nelson Run ID: {info['nelson_run_id']}")
+        table.add_row("Nelson Run ID", info["nelson_run_id"])
 
-    click.echo(f"\nCost: ${info['cost_usd']:.2f}")
-    click.echo(f"Iterations: {info['iterations']}")
+    table.add_row("Cost", f"${info['cost_usd']:.2f}")
+    table.add_row("Iterations", str(info["iterations"]))
 
     if info["phase"]:
-        click.echo(f"Phase: {info['phase']} ({info['phase_name']})")
+        table.add_row("Phase", f"{info['phase']} ({info['phase_name']})")
 
+    # Timestamps
     if info["started_at"]:
-        click.echo(f"\nStarted: {info['started_at']}")
+        table.add_row("Started", info["started_at"])
     if info["completed_at"]:
-        click.echo(f"Completed: {info['completed_at']}")
+        table.add_row("Completed", info["completed_at"])
     if info["blocked_at"]:
-        click.echo(f"Blocked: {info['blocked_at']}")
+        table.add_row("Blocked", info["blocked_at"])
 
+    console.print()
+    console.print(table)
+
+    # Additional context sections
     if info["blocking_reason"]:
-        click.echo("\nBlocking Reason:")
-        click.echo(f"  {info['blocking_reason']}")
+        console.print()
+        console.print(
+            Panel(
+                info["blocking_reason"],
+                title="[bold red]Blocking Reason[/bold red]",
+                border_style="red",
+            )
+        )
 
     if info["resume_context"]:
-        click.echo("\nResume Context:")
-        click.echo(f"  {info['resume_context']}")
+        console.print()
+        console.print(
+            Panel(
+                info["resume_context"],
+                title="[bold yellow]Resume Context[/bold yellow]",
+                border_style="yellow",
+            )
+        )
 
-    click.echo()
+    console.print()
 
 
 def _show_dry_run(orchestrator: PRDOrchestrator) -> None:
@@ -366,34 +432,44 @@ def _show_dry_run(orchestrator: PRDOrchestrator) -> None:
 def _print_execution_summary(
     results: dict[str, bool], orchestrator: PRDOrchestrator
 ) -> None:
-    """Print summary of execution results."""
+    """Print summary of execution results using rich formatting."""
     if not results:
-        click.echo("No tasks were executed")
+        console.print("[yellow]No tasks were executed[/yellow]")
         return
 
     summary = orchestrator.get_status_summary()
 
-    click.echo(f"\n{'='*60}")
-    click.echo("Execution Summary")
-    click.echo(f"{'='*60}")
-
     succeeded = sum(1 for success in results.values() if success)
     failed = sum(1 for success in results.values() if not success)
 
-    click.echo(f"Tasks executed: {len(results)}")
-    click.echo(f"  Succeeded: {succeeded}")
+    # Build summary text
+    summary_text = (
+        f"[bold]Tasks executed:[/bold] {len(results)}\n"
+        f"  [green]Succeeded:[/green] {succeeded}"
+    )
     if failed > 0:
-        click.echo(f"  Failed: {failed}")
+        summary_text += f"\n  [red]Failed:[/red] {failed}"
 
-    click.echo(f"\nTotal cost: ${summary['total_cost']:.2f}")
-    click.echo("\nOverall progress:")
-    click.echo(f"  Completed: {summary['completed']}/{summary['total_tasks']}")
-    click.echo(f"  Pending: {summary['pending']}")
+    summary_text += f"\n\n[bold]Total cost:[/bold] ${summary['total_cost']:.2f}"
+    summary_text += "\n\n[bold]Overall progress:[/bold]"
+    summary_text += (
+        f"\n  [green]Completed:[/green] {summary['completed']}/{summary['total_tasks']}"
+    )
+    summary_text += f"\n  [bold]Pending:[/bold] {summary['pending']}"
     if summary['blocked'] > 0:
-        click.echo(f"  Blocked: {summary['blocked']}")
+        summary_text += f"\n  [yellow]Blocked:[/yellow] {summary['blocked']}"
     if summary['failed'] > 0:
-        click.echo(f"  Failed: {summary['failed']}")
-    click.echo(f"{'='*60}\n")
+        summary_text += f"\n  [red]Failed:[/red] {summary['failed']}"
+
+    console.print()
+    console.print(
+        Panel(
+            summary_text,
+            title="[bold]Execution Summary[/bold]",
+            border_style="green" if failed == 0 else "yellow",
+        )
+    )
+    console.print()
 
 
 def _get_status_icon(status: TaskStatus) -> str:
@@ -408,6 +484,20 @@ def _get_status_icon(status: TaskStatus) -> str:
         return "✗"
     else:  # PENDING
         return "○"
+
+
+def _get_status_display(status: TaskStatus) -> str:
+    """Get colored status display for task status."""
+    if status == TaskStatus.COMPLETED:
+        return "[green]✓[/green]"
+    elif status == TaskStatus.IN_PROGRESS:
+        return "[yellow]~[/yellow]"
+    elif status == TaskStatus.BLOCKED:
+        return "[red]![/red]"
+    elif status == TaskStatus.FAILED:
+        return "[red]✗[/red]"
+    else:  # PENDING
+        return "[dim]○[/dim]"
 
 
 if __name__ == "__main__":

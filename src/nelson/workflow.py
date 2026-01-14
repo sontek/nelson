@@ -229,38 +229,7 @@ class WorkflowOrchestrator:
                     logger.success("Workflow complete - exiting")
                     break
 
-                # Handle EXIT_SIGNAL based on phase:
-                # - Phase 1 (first cycle): Fall through to phase transition → Phase 2
-                # - Phase 2-5: Cycle complete early, loop back to Phase 1
-                # - Phase 6: Fall through to natural cycle completion logic
-
-                if current_phase in (Phase.IMPLEMENT, Phase.REVIEW, Phase.TEST, Phase.FINAL_REVIEW):
-                    # Phases 2-5 with EXIT_SIGNAL: cycle work complete early
-                    # Force cycle completion and return to Phase 1 for next cycle
-                    logger.success("Cycle work complete early via EXIT_SIGNAL")
-
-                    self.state.increment_cycle()
-                    new_cycle = self.state.cycle_iterations
-
-                    logger.success(f"Cycle {new_cycle - 1} complete via EXIT_SIGNAL")
-                    logger.info(f"Starting cycle {new_cycle} - returning to Phase 1 (PLAN)")
-
-                    # Archive the old plan.md (makes next cycle stateless)
-                    if self.plan_file.exists():
-                        archived_plan = self.run_dir / f"plan-cycle-{new_cycle - 1}.md"
-                        logger.info(f"Archiving plan to: {archived_plan.name}")
-                        self.plan_file.rename(archived_plan)
-
-                    # Log cycle completion to decisions file
-                    self._log_cycle_completion(new_cycle - 1, new_cycle)
-
-                    # Reset to Phase 1
-                    self.state.transition_phase(Phase.PLAN.value, Phase.PLAN.name_str)
-
-                    # Continue loop - will start new cycle at Phase 1
-                    continue
-
-                # For Phase 1 (first cycle) or Phase 6: let phase transition logic handle it
+                # For all other cases: let normal phase transition logic handle it below
 
             elif breaker_result == CircuitBreakerResult.TRIGGERED:
                 # Circuit breaker tripped - stagnation detected

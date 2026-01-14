@@ -103,6 +103,20 @@ class PRDParser:
         with open(self.prd_file) as f:
             lines = f.readlines()
 
+        # Check for empty file
+        content_lines = [line.strip() for line in lines if line.strip()]
+        if not content_lines:
+            raise ValueError(
+                f"PRD file is empty: {self.prd_file}\n\n"
+                f"Please add tasks in the following format:\n\n"
+                f"  ## High Priority\n"
+                f"  - [ ] PRD-001 Add user authentication\n"
+                f"  - [ ] PRD-002 Create user profile\n\n"
+                f"  ## Medium Priority\n"
+                f"  - [ ] PRD-003 Add email notifications\n\n"
+                f"See examples/sample-prd.md for a complete example."
+            )
+
         # First pass: collect all errors
         for line_num, line in enumerate(lines, start=1):
             line = line.rstrip()

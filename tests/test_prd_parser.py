@@ -604,3 +604,67 @@ def test_backup_directory_created_automatically(tmp_path: Path):
     # Verify backup exists
     backups = list(backup_dir.glob("test-*.md"))
     assert len(backups) == 1
+
+
+def test_parse_empty_file_error(tmp_path: Path):
+    """Test that empty PRD files produce helpful error message."""
+    prd_file = tmp_path / "empty.md"
+    prd_file.write_text("")  # Completely empty file
+
+    parser = PRDParser(prd_file)
+
+    with pytest.raises(ValueError) as exc_info:
+        parser.parse()
+
+    error_msg = str(exc_info.value)
+
+    # Should mention file is empty
+    assert "empty" in error_msg.lower()
+    assert str(prd_file) in error_msg
+
+    # Should provide format examples
+    assert "## High Priority" in error_msg
+    assert "PRD-001" in error_msg
+    assert "PRD-002" in error_msg
+
+    # Should reference example file
+    assert "examples/sample-prd.md" in error_msg
+
+
+def test_parse_whitespace_only_file_error(tmp_path: Path):
+    """Test that files with only whitespace are treated as empty."""
+    prd_file = tmp_path / "whitespace.md"
+    prd_file.write_text("\n\n   \n\t\n  \n")  # Only whitespace and newlines
+
+    parser = PRDParser(prd_file)
+
+    with pytest.raises(ValueError) as exc_info:
+        parser.parse()
+
+    error_msg = str(exc_info.value)
+
+    # Should mention file is empty
+    assert "empty" in error_msg.lower()
+
+    # Should provide helpful guidance
+    assert "## High Priority" in error_msg
+    assert "PRD-001" in error_msg
+
+
+def test_parse_file_with_headers_but_no_tasks(tmp_path: Path):
+    """Test that files with only priority headers but no tasks are handled."""
+    prd_file = tmp_path / "no-tasks.md"
+    prd_file.write_text("""# My PRD
+
+## High Priority
+
+## Medium Priority
+
+## Low Priority
+""")
+
+    parser = PRDParser(prd_file)
+
+    # Should parse successfully but return empty list
+    tasks = parser.parse()
+    assert tasks == []

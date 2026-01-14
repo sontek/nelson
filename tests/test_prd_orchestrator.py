@@ -1221,3 +1221,184 @@ def test_check_task_text_changes_case_sensitive(tmp_path: Path):
     assert changes[0]["task_id"] == "PRD-001"
     assert changes[0]["original_text"] == "implement authentication"
     assert changes[0]["current_text"] == "Implement Authentication"
+
+
+
+
+def test_full_prd_workflow_integration(tmp_path: Path):
+    """Integration test for complete PRD orchestration workflow.
+
+    This test simulates a full end-to-end workflow with mocked Nelson execution:
+    1. Parse PRD with multiple priority tasks
+    2. Execute tasks in priority order (High -> Medium -> Low)
+    3. Verify branch creation and state tracking
+    4. Test task blocking and unblocking with resume context
+    5. Verify resume context prepending to Nelson prompt
+    """
+    # Create comprehensive test PRD
+    prd_file = tmp_path / "integration_test.md"
+    prd_file.write_text("""# Integration Test PRD
+
+## High Priority
+- [ ] PRD-001 Add user authentication system
+- [ ] PRD-002 Create REST API endpoints
+
+## Medium Priority
+- [ ] PRD-003 Add email notification service
+
+## Low Priority
+- [ ] PRD-004 Add dark mode toggle
+""")
+
+    # Setup directories
+    prd_dir = tmp_path / ".nelson/prd"
+    orchestrator = PRDOrchestrator(prd_file, prd_dir)
+
+    # Verify initial state
+    assert len(orchestrator.tasks) == 4
+    summary = orchestrator.get_status_summary()
+    assert summary["total_tasks"] == 4
+    assert summary["pending"] == 4
+
+    # Mock git branch and Nelson operations
+    with patch("nelson.prd_orchestrator.ensure_branch_for_task") as mock_ensure_branch, \
+         patch("nelson.prd_orchestrator.subprocess.run") as mock_nelson_run:
+
+        # Setup branch mock to return branch name
+        mock_ensure_branch.return_value = "feature/PRD-001-add-user-authentication"
+
+        # Setup Nelson mock for successful execution
+        mock_nelson_run.return_value = Mock(returncode=0)
+
+        # Test 1: Execute first high-priority task
+        next_task = orchestrator.get_next_pending_task()
+        assert next_task is not None
+        task_id, task_text, priority = next_task
+        assert task_id == "PRD-001"
+        assert priority == "high"
+
+        success = orchestrator.execute_task(task_id, task_text, priority)
+        assert success is True
+
+        # Verify task state was saved and completed
+        task_state = orchestrator.state_manager.load_task_state(task_id, task_text, priority)
+        assert task_state.status.value == "completed"
+        assert task_state.branch == "feature/PRD-001-add-user-authentication"
+
+        # Verify PRD file updated to completed
+        prd_content = prd_file.read_text()
+        assert "[x] PRD-001" in prd_content
+
+        # Test 2: Execute and block a medium-priority task
+        # First we need to start the task to create its state
+        task_state_003 = orchestrator.state_manager.load_task_state(
+            "PRD-003", "Add email notification service", "medium"
+        )
+        orchestrator.state_manager.save_task_state(task_state_003)
+
+        # Now block it
+        block_success = orchestrator.block_task("PRD-003", "Waiting for API keys")
+        assert block_success is True
+
+        blocked_state = orchestrator.state_manager.load_task_state(
+            "PRD-003", "Add email notification service", "medium"
+        )
+        assert blocked_state.status.value == "blocked"
+        assert blocked_state.blocking_reason == "Waiting for API keys"
+
+        # Verify PRD shows blocked status
+        prd_content = prd_file.read_text()
+        assert "[!] PRD-003" in prd_content
+
+        # Test 3: Verify blocked task is skipped
+        next_task = orchestrator.get_next_pending_task()
+        task_id3, _, _ = next_task
+        assert task_id3 != "PRD-003"  # Should skip blocked task
+        assert task_id3 == "PRD-002"  # Should get next high priority
+
+        # Test 4: Unblock with resume context
+        resume_context = "API keys added to .env as EMAIL_API_KEY"
+        unblock_success = orchestrator.unblock_task("PRD-003", resume_context)
+        assert unblock_success is True
+
+        unblocked_state = orchestrator.state_manager.load_task_state(
+            "PRD-003", "Add email notification service", "medium"
+        )
+        assert unblocked_state.resume_context == resume_context
+        assert unblocked_state.status.value == "pending"
+
+        # Verify PRD file updated to pending
+        prd_content = prd_file.read_text()
+        assert "[ ] PRD-003" in prd_content
+
+        # Test 5: Resume task and verify context prepending
+        mock_nelson_run.reset_mock()
+        resume_success = orchestrator.resume_task("PRD-003")
+        assert resume_success is True
+
+        # Verify resume context was prepended to Nelson prompt
+        nelson_call = mock_nelson_run.call_args_list[0]
+        nelson_cmd = nelson_call[0][0]
+        prompt_arg = nelson_cmd[1]  # Second arg is the prompt
+        assert "RESUME CONTEXT:" in prompt_arg
+        assert "API keys added to .env" in prompt_arg
+        assert "Add email notification service" in prompt_arg
+
+        # Test 6: Verify final summary
+        summary = orchestrator.get_status_summary()
+        assert summary["completed"] == 2  # PRD-001, PRD-003
+
+
+def test_full_workflow_with_failure_handling(tmp_path: Path):
+    """Integration test for workflow with task failure scenarios."""
+    prd_file = tmp_path / "failure_test.md"
+    prd_file.write_text("""# Failure Test PRD
+
+## High Priority
+- [ ] PRD-001 Task that will succeed
+- [ ] PRD-002 Task that will fail
+- [ ] PRD-003 Task after failure
+""")
+
+    prd_dir = tmp_path / ".nelson/prd"
+    orchestrator = PRDOrchestrator(prd_file, prd_dir)
+
+    with patch("nelson.prd_orchestrator.ensure_branch_for_task") as mock_ensure_branch, \
+         patch("nelson.prd_orchestrator.subprocess.run") as mock_nelson_run:
+
+        # Setup branch mock
+        mock_ensure_branch.return_value = "feature/PRD-001-task-that-will-succeed"
+
+        # First task succeeds
+        mock_nelson_run.return_value = Mock(returncode=0)
+        success1 = orchestrator.execute_task("PRD-001", "Task that will succeed", "high")
+        assert success1 is True
+
+        # Second task fails
+        mock_nelson_run.return_value = Mock(returncode=1)
+        success2 = orchestrator.execute_task("PRD-002", "Task that will fail", "high")
+        assert success2 is False
+
+        # Verify failed task state
+        failed_state = orchestrator.state_manager.load_task_state(
+            "PRD-002", "Task that will fail", "high"
+        )
+        assert failed_state.status.value == "failed"  # Marked as failed
+
+        # Verify PRD shows in-progress (not completed) - orchestrator marks as in_progress
+        prd_content = prd_file.read_text()
+        assert "[~] PRD-002" in prd_content
+
+        # Summary should show failed task
+        summary = orchestrator.get_status_summary()
+        assert summary["failed"] == 1  # PRD-002 (failed)
+
+        # Third task can still execute
+        mock_nelson_run.return_value = Mock(returncode=0)
+        success3 = orchestrator.execute_task("PRD-003", "Task after failure", "high")
+        assert success3 is True
+
+        # Verify final summary
+        final_summary = orchestrator.get_status_summary()
+        assert final_summary["completed"] == 2  # PRD-001, PRD-003
+        assert final_summary["failed"] == 1  # PRD-002

@@ -81,15 +81,22 @@ class PRDParser:
             ValueError: If validation fails (duplicate IDs, invalid format)
         """
         if not self.prd_file.exists():
-            raise FileNotFoundError(f"PRD file not found: {self.prd_file}")
+            raise FileNotFoundError(
+                f"PRD file not found: {self.prd_file}\n\n"
+                f"Please create a PRD markdown file with tasks in format:\n"
+                f"  ## High Priority\n"
+                f"  - [ ] PRD-001 Task description"
+            )
 
         self._tasks = []
         self._task_ids = set()
         self._current_priority = None
+        errors: list[str] = []
 
         with open(self.prd_file) as f:
             lines = f.readlines()
 
+        # First pass: collect all errors
         for line_num, line in enumerate(lines, start=1):
             line = line.rstrip()
 
@@ -108,16 +115,28 @@ class PRDParser:
 
                 # Validate task ID
                 if not self._is_valid_task_id(task_id):
-                    raise ValueError(
-                        f"Invalid task ID format at line {line_num}: {task_id}. "
-                        f"Expected format: PRD-NNN (e.g., PRD-001)"
+                    errors.append(
+                        f"Line {line_num}: Invalid task ID format '{task_id}'\n"
+                        f"  Found: {line.strip()}\n"
+                        f"  Expected format: PRD-NNN where NNN is exactly 3 digits (e.g., PRD-001, PRD-042)\n"
+                        f"  Fix: Change '{task_id}' to format like 'PRD-001'"
                     )
+                    continue
 
                 # Check for duplicate ID
                 if task_id in self._task_ids:
-                    raise ValueError(
-                        f"Duplicate task ID at line {line_num}: {task_id}"
+                    # Find the first occurrence
+                    first_line = next(
+                        (t.line_number for t in self._tasks if t.task_id == task_id),
+                        None,
                     )
+                    errors.append(
+                        f"Line {line_num}: Duplicate task ID '{task_id}'\n"
+                        f"  Current line: {line.strip()}\n"
+                        f"  First used at line {first_line}\n"
+                        f"  Fix: Change to a unique ID like '{self._suggest_next_id()}'"
+                    )
+                    continue
 
                 self._task_ids.add(task_id)
 
@@ -135,9 +154,14 @@ class PRDParser:
 
                 # Require priority context
                 if self._current_priority is None:
-                    raise ValueError(
-                        f"Task at line {line_num} found outside priority section: {task_id}"
+                    errors.append(
+                        f"Line {line_num}: Task '{task_id}' found outside priority section\n"
+                        f"  Found: {line.strip()}\n"
+                        f"  Fix: Add a priority header before this task:\n"
+                        f"    ## High Priority\n"
+                        f"    {line.strip()}"
                     )
+                    continue
 
                 task = PRDTask(
                     line_number=line_num,
@@ -148,6 +172,20 @@ class PRDParser:
                     blocking_reason=blocking_reason,
                 )
                 self._tasks.append(task)
+
+        # Check for tasks without IDs
+        validation_errors = self.validate_all_tasks()
+        if validation_errors:
+            errors.extend(validation_errors)
+
+        # If we collected any errors, raise them all together
+        if errors:
+            error_msg = (
+                f"\nFound {len(errors)} validation error(s) in PRD file: {self.prd_file}\n\n"
+                + "\n\n".join(errors)
+                + "\n\nPlease fix these errors and try again."
+            )
+            raise ValueError(error_msg)
 
         return self._tasks
 
@@ -162,6 +200,27 @@ class PRDParser:
         """
         pattern = re.compile(r"^PRD-\d{3}$")
         return pattern.match(task_id) is not None
+
+    def _suggest_next_id(self) -> str:
+        """Suggest the next available task ID.
+
+        Returns:
+            Suggested task ID in format PRD-NNN
+        """
+        if not self._task_ids:
+            return "PRD-001"
+
+        # Extract numeric parts and find max
+        max_num = 0
+        for task_id in self._task_ids:
+            match = re.match(r"PRD-(\d+)", task_id)
+            if match:
+                num = int(match.group(1))
+                max_num = max(max_num, num)
+
+        # Suggest next number with proper padding
+        next_num = max_num + 1
+        return f"PRD-{next_num:03d}"
 
     def _parse_status(self, status_char: str) -> PRDTaskStatus:
         """Parse status character to enum.
@@ -311,8 +370,18 @@ class PRDParser:
                 text_after_checkbox = match.group(2)
                 # Check if it starts with PRD-NNN
                 if not text_after_checkbox.startswith("PRD-"):
+                    # Truncate long task text for error message
+                    task_preview = (
+                        text_after_checkbox[:60] + "..."
+                        if len(text_after_checkbox) > 60
+                        else text_after_checkbox
+                    )
                     issues.append(
-                        f"Line {line_num}: Task missing explicit ID: {text_after_checkbox[:50]}"
+                        f"Line {line_num}: Task missing explicit ID\n"
+                        f"  Found: - [ ] {task_preview}\n"
+                        f"  Expected: - [ ] PRD-NNN Task description\n"
+                        f"  Fix: Add an ID like '{self._suggest_next_id()}' before the task text:\n"
+                        f"    - [ ] {self._suggest_next_id()} {task_preview}"
                     )
 
         return issues

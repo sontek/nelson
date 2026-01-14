@@ -377,3 +377,105 @@ Some notes here.
     assert "[x] PRD-002 Second task" in updated_content
     assert "[ ] PRD-001 First task" in updated_content
     assert "[ ] PRD-003 Third task" in updated_content
+
+
+def test_parse_error_messages_are_helpful(tmp_path: Path):
+    """Test that validation errors provide helpful, actionable error messages."""
+    # Test multiple error types at once
+    content = """## High Priority
+- [ ] PRD-1 Invalid ID format (not 3 digits)
+- [ ] PRD-002 Valid task
+- [ ] PRD-002 Duplicate ID
+- [ ] Task without ID
+"""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(content)
+
+    parser = PRDParser(prd_file)
+
+    with pytest.raises(ValueError) as exc_info:
+        parser.parse()
+
+    error_msg = str(exc_info.value)
+
+    # Check that error message contains:
+    # 1. Count of total errors (3 in this case)
+    assert "3 validation error(s)" in error_msg
+
+    # 2. Line numbers for each error
+    assert "Line 2" in error_msg  # Invalid format
+    assert "Line 4" in error_msg  # Duplicate
+    assert "Line 5" in error_msg  # Missing ID
+
+    # 3. Specific error descriptions
+    assert "Invalid task ID format 'PRD-1'" in error_msg
+    assert "Duplicate task ID 'PRD-002'" in error_msg
+    assert "Task missing explicit ID" in error_msg
+
+    # 4. Helpful fixes
+    assert "Expected format: PRD-NNN where NNN is exactly 3 digits" in error_msg
+    assert "Fix:" in error_msg
+    assert "Change to a unique ID like" in error_msg
+
+    # 5. Shows the problematic line content
+    assert "Found:" in error_msg
+
+
+def test_parse_error_task_outside_priority_section(tmp_path: Path):
+    """Test error message for task outside priority section."""
+    content = """- [ ] PRD-001 Task before any priority section
+
+## High Priority
+- [ ] PRD-002 Valid task
+"""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(content)
+
+    parser = PRDParser(prd_file)
+
+    with pytest.raises(ValueError) as exc_info:
+        parser.parse()
+
+    error_msg = str(exc_info.value)
+
+    # Should mention the task is outside priority section
+    assert "outside priority section" in error_msg
+    assert "Line 1" in error_msg
+    assert "PRD-001" in error_msg
+    assert "Fix:" in error_msg
+    assert "## High Priority" in error_msg  # Should suggest adding priority header
+
+
+def test_suggest_next_id(tmp_path: Path):
+    """Test that _suggest_next_id provides appropriate suggestions."""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text("")
+    parser = PRDParser(prd_file)
+
+    # Empty - should suggest PRD-001
+    assert parser._suggest_next_id() == "PRD-001"
+
+    # After adding some IDs
+    parser._task_ids.add("PRD-001")
+    parser._task_ids.add("PRD-002")
+    assert parser._suggest_next_id() == "PRD-003"
+
+    # Non-sequential IDs - should suggest max + 1
+    parser._task_ids.add("PRD-010")
+    assert parser._suggest_next_id() == "PRD-011"
+
+
+def test_file_not_found_error_is_helpful(tmp_path: Path):
+    """Test that FileNotFoundError includes helpful guidance."""
+    prd_file = tmp_path / "nonexistent.md"
+    parser = PRDParser(prd_file)
+
+    with pytest.raises(FileNotFoundError) as exc_info:
+        parser.parse()
+
+    error_msg = str(exc_info.value)
+
+    # Should include helpful guidance about format
+    assert "Please create a PRD markdown file" in error_msg
+    assert "## High Priority" in error_msg
+    assert "- [ ] PRD-001" in error_msg

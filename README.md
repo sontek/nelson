@@ -42,6 +42,8 @@ uv pip install -e ".[dev]"
 
 ## Quick Start
 
+### Single Task with Nelson
+
 ```bash
 # Basic usage
 nelson "Add user authentication"
@@ -58,6 +60,39 @@ nelson --resume
 # Resume from specific run
 nelson --resume .nelson/runs/nelson-20260112-120125
 ```
+
+### Multi-Task with nelson-prd
+
+For projects with multiple tasks, use `nelson-prd` to orchestrate:
+
+```bash
+# Create a PRD file (requirements.md)
+cat > requirements.md << 'EOF'
+## High Priority
+- [ ] PRD-001 Implement user authentication
+- [ ] PRD-002 Add user profile management
+- [ ] PRD-003 Create password reset flow
+
+## Medium Priority
+- [ ] PRD-004 Add email notifications
+- [ ] PRD-005 Implement search functionality
+EOF
+
+# Execute all tasks automatically
+nelson-prd requirements.md
+
+# Check progress
+nelson-prd --status requirements.md
+
+# Block a task if you hit dependencies
+nelson-prd --block PRD-003 --reason "Waiting for email service credentials" requirements.md
+
+# Resume when ready
+nelson-prd --unblock PRD-003 --context "Credentials added to .env" requirements.md
+nelson-prd --resume-task PRD-003 requirements.md
+```
+
+See the [Multi-Task Orchestration](#multi-task-orchestration-with-nelson-prd) section for full details.
 
 ## Configuration
 

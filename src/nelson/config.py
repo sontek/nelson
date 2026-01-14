@@ -69,9 +69,12 @@ class NelsonConfig:
         cost_limit = float(os.getenv("NELSON_COST_LIMIT", "10.00"))
 
         # Directory configuration
-        nelson_dir = Path(os.getenv("NELSON_DIR", ".nelson"))
-        audit_dir = Path(os.getenv("NELSON_AUDIT_DIR", ".nelson/audit"))
-        runs_dir = Path(os.getenv("NELSON_RUNS_DIR", ".nelson/runs"))
+        # If target_path is provided, make directories relative to it
+        # Otherwise, they're relative to current working directory
+        base_path = target_path if target_path is not None else Path.cwd()
+        nelson_dir = base_path / Path(os.getenv("NELSON_DIR", ".nelson"))
+        audit_dir = base_path / Path(os.getenv("NELSON_AUDIT_DIR", ".nelson/audit"))
+        runs_dir = base_path / Path(os.getenv("NELSON_RUNS_DIR", ".nelson/runs"))
 
         # Claude command configuration
         claude_command = os.getenv("NELSON_CLAUDE_COMMAND", "claude")

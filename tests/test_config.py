@@ -21,12 +21,14 @@ class TestNelsonConfig:
 
         config = NelsonConfig.from_environment()
 
+        # Paths are absolute (relative to CWD) when target_path is None
+        cwd = Path.cwd()
         assert config.max_iterations == 10
         assert config.max_iterations_explicit is False
         assert config.cost_limit == 10.0
-        assert config.nelson_dir == Path(".nelson")
-        assert config.audit_dir == Path(".nelson/audit")
-        assert config.runs_dir == Path(".nelson/runs")
+        assert config.nelson_dir == cwd / ".nelson"
+        assert config.audit_dir == cwd / ".nelson/audit"
+        assert config.runs_dir == cwd / ".nelson/runs"
         assert config.claude_command == "claude"
         assert config.model == "sonnet"
         assert config.plan_model == "sonnet"
@@ -55,11 +57,13 @@ class TestNelsonConfig:
 
         config = NelsonConfig.from_environment()
 
+        # Paths are absolute (relative to CWD) when target_path is None
+        cwd = Path.cwd()
         assert config.max_iterations == 30
         assert config.cost_limit == 25.50
-        assert config.nelson_dir == Path(".custom-nelson")
-        assert config.audit_dir == Path(".custom-audit")
-        assert config.runs_dir == Path(".custom-runs")
+        assert config.nelson_dir == cwd / ".custom-nelson"
+        assert config.audit_dir == cwd / ".custom-audit"
+        assert config.runs_dir == cwd / ".custom-runs"
         assert config.claude_command == "claude"
         assert config.model == "opus"
         assert config.plan_model == "opus"  # Inherits from NELSON_MODEL
@@ -256,3 +260,41 @@ class TestNelsonConfig:
         repr_str = repr(config)
         assert "NelsonConfig" in repr_str
         assert "max_iterations" in repr_str
+
+    def test_target_path_directories(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+        """Test that directories are relative to target_path when provided."""
+        # Clear environment
+        for key in list(os.environ.keys()):
+            if key.startswith("NELSON_"):
+                monkeypatch.delenv(key, raising=False)
+
+        monkeypatch.setenv("NELSON_CLAUDE_COMMAND", "claude")
+
+        target_repo = tmp_path / "target-repo"
+        target_repo.mkdir()
+
+        config = NelsonConfig.from_environment(target_path=target_repo)
+
+        # Directories should be relative to target_path
+        assert config.nelson_dir == target_repo / ".nelson"
+        assert config.audit_dir == target_repo / ".nelson" / "audit"
+        assert config.runs_dir == target_repo / ".nelson" / "runs"
+        assert config.target_path == target_repo
+
+    def test_no_target_path_uses_cwd(self, monkeypatch: MonkeyPatch) -> None:
+        """Test that directories are relative to CWD when target_path is not provided."""
+        # Clear environment
+        for key in list(os.environ.keys()):
+            if key.startswith("NELSON_"):
+                monkeypatch.delenv(key, raising=False)
+
+        monkeypatch.setenv("NELSON_CLAUDE_COMMAND", "claude")
+
+        config = NelsonConfig.from_environment(target_path=None)
+
+        # Directories should be relative to current working directory
+        cwd = Path.cwd()
+        assert config.nelson_dir == cwd / ".nelson"
+        assert config.audit_dir == cwd / ".nelson" / "audit"
+        assert config.runs_dir == cwd / ".nelson" / "runs"
+        assert config.target_path is None

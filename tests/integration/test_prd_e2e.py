@@ -14,7 +14,7 @@ and mock only the subprocess calls to Nelson CLI and git operations.
 """
 
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
@@ -73,15 +73,16 @@ def mock_git_repo():
 
 @pytest.fixture
 def mock_nelson_success():
-    """Create a mock for successful Nelson execution."""
-    def _mock_run(*args, **kwargs):
-        # Create mock result
-        result = Mock()
-        result.returncode = 0
-        result.stdout = "Nelson execution completed successfully"
-        result.stderr = ""
-        return result
-    return _mock_run
+    """Create a mock for successful Nelson execution via CliRunner."""
+    with patch("nelson.prd_orchestrator.CliRunner") as mock_cli_runner_class:
+        # Setup mock instances
+        mock_runner_instance = MagicMock()
+        mock_result = MagicMock()
+        mock_result.exit_code = 0
+        mock_result.output = "Nelson execution completed successfully"
+        mock_runner_instance.invoke.return_value = mock_result
+        mock_cli_runner_class.return_value = mock_runner_instance
+        yield mock_cli_runner_class
 
 
 @pytest.fixture
@@ -106,8 +107,8 @@ class TestPRDEndToEnd:
         self, prd_file: Path, prd_dir: Path, mock_nelson_success, mock_git_repo
     ):
         """Test complete PRD execution from start to finish."""
-        # Mock subprocess and git operations
-        with patch("subprocess.run", side_effect=mock_nelson_success), patch(
+        # Mock git operations (CliRunner already mocked by fixture)
+        with patch(
             "nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task",
             return_value={
                 "branch": "feature/PRD-001-implement-user-auth",
@@ -178,7 +179,7 @@ class TestPRDEndToEnd:
         self, prd_file: Path, prd_dir: Path, mock_nelson_success, mock_git_repo
     ):
         """Test complete blocking/unblocking/resume workflow."""
-        with patch("subprocess.run", side_effect=mock_nelson_success), \
+        with \
              patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task", return_value={"branch": "feature/PRD-001-test", "base_branch": "main", "reason": "Test branch"}):
 
             orchestrator = PRDOrchestrator(prd_file, prd_dir)
@@ -230,7 +231,7 @@ class TestPRDEndToEnd:
         self, prd_file: Path, prd_dir: Path, mock_nelson_success, mock_git_repo
     ):
         """Test cost tracking and aggregation across multiple task executions."""
-        with patch("subprocess.run", side_effect=mock_nelson_success), \
+        with \
              patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task", side_effect=[{"branch": "feature/PRD-001-test", "base_branch": "main", "reason": "Test branch"}, {"branch": "feature/PRD-002-test", "base_branch": "main", "reason": "Test branch"}]):
 
             orchestrator = PRDOrchestrator(prd_file, prd_dir)
@@ -272,7 +273,7 @@ class TestPRDEndToEnd:
         self, prd_file: Path, prd_dir: Path, mock_nelson_success, mock_git_repo
     ):
         """Test that PRD file is updated with correct status indicators."""
-        with patch("subprocess.run", side_effect=mock_nelson_success), \
+        with \
              patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task", return_value={"branch": "feature/PRD-001-test", "base_branch": "main", "reason": "Test branch"}):
 
             orchestrator = PRDOrchestrator(prd_file, prd_dir)
@@ -295,8 +296,7 @@ class TestPRDEndToEnd:
         self, prd_file: Path, prd_dir: Path, mock_nelson_success, mock_git_repo
     ):
         """Test that resume context is properly injected into Nelson prompts."""
-        with patch("subprocess.run", side_effect=mock_nelson_success) as mock_run, \
-             patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task", return_value={"branch": "feature/PRD-001-test", "base_branch": "main", "reason": "Test branch"}):
+        with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task", return_value={"branch": "feature/PRD-001-test", "base_branch": "main", "reason": "Test branch"}):
 
             orchestrator = PRDOrchestrator(prd_file, prd_dir)
 
@@ -313,9 +313,10 @@ class TestPRDEndToEnd:
             # Resume task
             orchestrator.resume_task(task_id)
 
-            # Verify subprocess was called with context prepended
-            assert mock_run.called
-            call_args = mock_run.call_args[0][0]
+            # Verify CliRunner was called with context prepended
+            mock_runner = mock_nelson_success.return_value
+            assert mock_runner.invoke.called
+            call_args = mock_runner.invoke.call_args[0][1]  # args list is second positional param
 
             # The prompt should be in the command arguments
             command_str = " ".join(call_args)
@@ -328,7 +329,7 @@ class TestPRDEndToEnd:
         """Test that git branches are created/switched during task execution."""
         mock_branch_func = Mock(return_value={"branch": "feature/PRD-001-implement-user-auth", "base_branch": "main", "reason": "Test branch"})
 
-        with patch("subprocess.run", side_effect=mock_nelson_success), \
+        with \
              patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task", mock_branch_func):
 
             orchestrator = PRDOrchestrator(prd_file, prd_dir)
@@ -377,45 +378,43 @@ class TestPRDEndToEnd:
         self, prd_file: Path, prd_dir: Path, mock_git_repo
     ):
         """Test execute_all_pending stops on first failure when flag is set."""
-        # Mock Nelson to succeed first, then fail
-        def mock_run_with_failure(*args, **kwargs):
-            if not hasattr(mock_run_with_failure, "call_count"):
-                mock_run_with_failure.call_count = 0
-            mock_run_with_failure.call_count += 1
+        # Mock CliRunner to succeed first, then fail
+        with patch("nelson.prd_orchestrator.CliRunner") as mock_cli_runner_class:
+            mock_runner_instance = MagicMock()
 
-            result = Mock()
-            if mock_run_with_failure.call_count == 1:
-                # First call succeeds
-                result.returncode = 0
-                result.stdout = "Success"
-            else:
-                # Second call fails
-                result.returncode = 1
-                result.stdout = "Failed"
-                result.stderr = "Error occurred"
-            return result
+            # Setup invoke to return different results on each call
+            mock_result_success = MagicMock()
+            mock_result_success.exit_code = 0
+            mock_result_success.output = "Success"
 
-        with patch("subprocess.run", side_effect=mock_run_with_failure), \
-             patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task", side_effect=[
+            mock_result_failure = MagicMock()
+            mock_result_failure.exit_code = 1
+            mock_result_failure.output = "Failed"
+
+            # First call succeeds, second fails
+            mock_runner_instance.invoke.side_effect = [mock_result_success, mock_result_failure]
+            mock_cli_runner_class.return_value = mock_runner_instance
+
+            with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task", side_effect=[
                  {"branch": "feature/PRD-001-test", "base_branch": "main", "reason": "Test branch"},
                  {"branch": "feature/PRD-002-test", "base_branch": "main", "reason": "Test branch"},
              ]):
 
-            orchestrator = PRDOrchestrator(prd_file, prd_dir)
+                orchestrator = PRDOrchestrator(prd_file, prd_dir)
 
-            # Execute all with stop on failure
-            result = orchestrator.execute_all_pending(stop_on_failure=True)
+                # Execute all with stop on failure
+                result = orchestrator.execute_all_pending(stop_on_failure=True)
 
-            # Should have executed 2 tasks (one success, one failure)
-            assert len(result) == 2
-            assert result["PRD-001"]
-            assert not result["PRD-002"]
+                # Should have executed 2 tasks (one success, one failure)
+                assert len(result) == 2
+                assert result["PRD-001"]
+                assert not result["PRD-002"]
 
-            # Verify only 2 tasks were attempted (stopped after failure)
-            # The remaining 2 tasks should still be pending
-            orchestrator2 = PRDOrchestrator(prd_file, prd_dir)
-            remaining = orchestrator2.get_next_pending_task()
-            assert remaining is not None  # At least one task still pending
+                # Verify only 2 tasks were attempted (stopped after failure)
+                # The remaining 2 tasks should still be pending
+                orchestrator2 = PRDOrchestrator(prd_file, prd_dir)
+                remaining = orchestrator2.get_next_pending_task()
+                assert remaining is not None  # At least one task still pending
 
     def test_get_status_summary(
         self, prd_file: Path, prd_dir: Path, mock_git_repo
@@ -430,6 +429,8 @@ class TestPRDEndToEnd:
         task1_state.status = TaskStatus.COMPLETED
         task1_state.cost_usd = 2.5
         orchestrator.state_manager.save_task_state(task1_state)
+        # Update PRD file status to match
+        orchestrator.parser.update_task_status("PRD-001", PRDTaskStatus.COMPLETED)
 
         task2_state = orchestrator.state_manager.load_task_state(
             "PRD-002", "Create API endpoints", "high"
@@ -437,6 +438,8 @@ class TestPRDEndToEnd:
         task2_state.status = TaskStatus.IN_PROGRESS
         task2_state.cost_usd = 1.0
         orchestrator.state_manager.save_task_state(task2_state)
+        # Update PRD file status to match
+        orchestrator.parser.update_task_status("PRD-002", PRDTaskStatus.IN_PROGRESS)
 
         task3_state = orchestrator.state_manager.load_task_state(
             "PRD-003", "Add logging system", "medium"
@@ -444,6 +447,8 @@ class TestPRDEndToEnd:
         task3_state.status = TaskStatus.BLOCKED
         task3_state.blocking_reason = "Waiting for approval"
         orchestrator.state_manager.save_task_state(task3_state)
+        # Update PRD file status to match
+        orchestrator.parser.update_task_status("PRD-003", PRDTaskStatus.BLOCKED)
 
         # Get status summary
         summary = orchestrator.get_status_summary()

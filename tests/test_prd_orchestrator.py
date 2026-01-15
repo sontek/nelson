@@ -316,9 +316,9 @@ def test_execute_task_with_custom_prompt(
     )
 
     # Verify custom prompt was used
-    # Get args passed to runner.invoke(nelson_main, args, ...)
+    # Get args passed to nelson_main(args, standalone_mode=False)
     call_args = mock_cli_runner.call_args
-    args_list = call_args[0][1]  # args is second positional parameter
+    args_list = call_args[0][0]  # First positional arg is the args list
     assert args_list[0] == custom_prompt
 
 
@@ -343,9 +343,9 @@ def test_execute_task_with_nelson_args(
     )
 
     # Verify Nelson args were passed
-    # Get args passed to runner.invoke(nelson_main, args, ...)
+    # Get args passed to nelson_main(args, standalone_mode=False)
     call_args = mock_cli_runner.call_args
-    args_list = call_args[0][1]  # args is second positional parameter
+    args_list = call_args[0][0]  # First positional arg is the args list
     assert "--max-iterations" in args_list
     assert "50" in args_list
 
@@ -1034,7 +1034,10 @@ def test_resume_task_nonexistent(orchestrator: PRDOrchestrator):
 
 def test_resume_task_wrong_status(orchestrator: PRDOrchestrator):
     """Test resuming a task in wrong status returns False."""
-    # PRD-001 is pending, not blocked or in_progress
+    # Mark PRD-001 as completed - completed tasks cannot be resumed
+    orchestrator.parser.update_task_status("PRD-001", PRDTaskStatus.COMPLETED)
+    orchestrator.tasks = orchestrator.parser.parse()  # Refresh cache
+
     success = orchestrator.resume_task("PRD-001")
     assert success is False
 
@@ -1163,7 +1166,8 @@ def test_execute_task_exception(
     """Test that execute_task handles general exceptions."""
     # Setup mocks
     mock_ensure_branch.return_value = {"branch": "feature/PRD-001-implement-user-authentication", "base_branch": "main", "reason": "test"}
-    mock_cli_runner.mock_runner.invoke.side_effect = Exception("Unexpected error")
+    # Set side_effect on nelson_main directly (not mock_runner.invoke)
+    mock_cli_runner.side_effect = Exception("Unexpected error")
 
     # Execute task
     success = orchestrator.execute_task("PRD-001", "Implement user authentication", "high")
@@ -1341,7 +1345,8 @@ def test_execute_task_handles_unexpected_exception(
     class UnexpectedError(Exception):
         pass
 
-    mock_cli_runner.mock_runner.invoke.side_effect = UnexpectedError("Something went wrong")
+    # Set side_effect on nelson_main directly (not mock_runner.invoke)
+    mock_cli_runner.side_effect = UnexpectedError("Something went wrong")
 
     # Execute task
     success = orchestrator.execute_task("PRD-001", "Implement user authentication", "high")

@@ -394,7 +394,17 @@ Please analyze this task, create the appropriate git branch, and return the JSON
         self.parser.update_task_status(task_id, PRDTaskStatus.IN_PROGRESS)
 
         # Build Nelson arguments (NO branching instructions - branch is already set up)
-        task_prompt = prompt or task_text
+        # Use full_description if available (contains all indented content from PRD)
+        if prompt:
+            task_prompt = prompt
+        else:
+            # Get the task to access full_description
+            task = self.parser.get_task_by_id(task_id)
+            if task and task.full_description:
+                # Combine first line with full description for complete context
+                task_prompt = f"{task_text}\n\n{task.full_description}"
+            else:
+                task_prompt = task_text
 
         # Prepend resume context if present
         if task_state.resume_context:
@@ -656,6 +666,18 @@ Please analyze this task, create the appropriate git branch, and return the JSON
                 f"Error: Task {task_id} is not in a resumable state (status: {task.status})"
             )
             return False
+
+        # If task is pending, it must have resume context to be resumable
+        if task.status == PRDTaskStatus.PENDING:
+            task_state = self.state_manager.load_task_state(
+                task_id, task.task_text, task.priority
+            )
+            if not task_state.resume_context:
+                print(
+                    f"Error: Task {task_id} is PENDING but has no resume context. "
+                    "Use execute_task instead of resume_task for fresh pending tasks."
+                )
+                return False
 
         # Update status to pending in PRD file so it can be picked up (if not already)
         if task.status != PRDTaskStatus.PENDING:

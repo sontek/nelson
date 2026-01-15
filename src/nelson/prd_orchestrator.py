@@ -829,12 +829,22 @@ Please analyze this task, create the appropriate git branch, and return the JSON
             if task.status == PRDTaskStatus.COMPLETED:
                 completed_count += 1
             elif task.status == PRDTaskStatus.IN_PROGRESS:
-                in_progress_count += 1
+                # Check if task is actually failed in state file
+                # (failed tasks show as IN_PROGRESS in PRD but FAILED in state)
+                if task_state_path.exists():
+                    task_state = self.state_manager.load_task_state(
+                        task.task_id, task.task_text, task.priority
+                    )
+                    if task_state.status == TaskStatus.FAILED:
+                        failed_count += 1
+                    else:
+                        in_progress_count += 1
+                else:
+                    in_progress_count += 1
             elif task.status == PRDTaskStatus.BLOCKED:
                 blocked_count += 1
             elif task.status == PRDTaskStatus.PENDING:
                 pending_count += 1
-            # Note: FAILED status doesn't have a marker in PRD file
 
         return {
             "prd_file": str(self.prd_file),

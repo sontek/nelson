@@ -351,7 +351,6 @@ def test_execute_task_with_nelson_args(
 
 
 @patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
-@pytest.mark.skip(reason="Complex CLI construction test needs refactoring after CliRunner change")
 def test_nelson_cli_command_construction(
     mock_ensure_branch: Mock,
     orchestrator: PRDOrchestrator,
@@ -360,21 +359,20 @@ def test_nelson_cli_command_construction(
     """Test that nelson CLI commands are constructed correctly with all components."""
     # Setup mocks
     mock_ensure_branch.return_value = {"branch": "feature/PRD-001-test-task", "base_branch": "main", "reason": "test"}
-    # CliRunner already set up above
 
     # Test 1: Basic command without args or resume context
     orchestrator.execute_task("PRD-001", "Implement feature", "high")
 
-    # Verify invoke was called correctly
+    # Verify nelson_main was called correctly
     call_args = mock_cli_runner.call_args
-    args_list = call_args[0][0]  # Second positional arg is the args list
+    args_list = call_args[0][0]  # First positional arg is the args list
     # Verify the prompt is the first arg
     assert args_list[0] == "Implement feature", "First argument should be the prompt"
     assert len(args_list) == 1, "Should only have prompt for basic command"
 
-    # Verify catch_exceptions is used
-    kwargs = mock_cli_runner.call_args[1]
-    assert kwargs.get("catch_exceptions") == False, "Should use catch_exceptions=False"
+    # Verify standalone_mode is used
+    kwargs = call_args[1]
+    assert kwargs.get("standalone_mode") == False, "Should use standalone_mode=False"
 
     # Reset for next test
     orchestrator.parser.update_task_status("PRD-001", PRDTaskStatus.PENDING)
@@ -388,16 +386,15 @@ def test_nelson_cli_command_construction(
         nelson_args=["--max-iterations", "100", "--model", "opus"]
     )
 
-    # Verify invoke was called correctly
+    # Verify nelson_main was called correctly
     call_args = mock_cli_runner.call_args
-    # First positional arg should be nelson_main function
-    assert call_args[0][0].__name__ == 'main', "First argument should be 'nelson' command"
-    assert args[1] == "Implement feature", "Second argument should be the prompt"
-    assert args[2] == "--max-iterations", "Nelson args should follow prompt"
-    assert args[3] == "100"
-    assert args[4] == "--model"
-    assert args[5] == "opus"
-    assert len(args) == 6, "Should have nelson, prompt, and 4 arg components"
+    args_list = call_args[0][0]  # First positional arg is the args list
+    assert args_list[0] == "Implement feature", "First argument should be the prompt"
+    assert args_list[1] == "--max-iterations", "Nelson args should follow prompt"
+    assert args_list[2] == "100"
+    assert args_list[3] == "--model"
+    assert args_list[4] == "opus"
+    assert len(args_list) == 5, "Should have prompt and 4 arg components"
 
     # Reset for next test
     orchestrator.parser.update_task_status("PRD-001", PRDTaskStatus.PENDING)
@@ -424,15 +421,14 @@ def test_nelson_cli_command_construction(
         "high"
     )
 
-    # Verify invoke was called correctly
+    # Verify nelson_main was called correctly
     call_args = mock_cli_runner.call_args
-    # First positional arg should be nelson_main function
-    assert call_args[0][0].__name__ == 'main', "First argument should be 'nelson' command"
+    args_list = call_args[0][0]  # First positional arg is the args list
     # Resume context should be prepended to prompt
-    assert "RESUME CONTEXT:" in args[1], "Prompt should contain resume context prefix"
-    assert "API keys now in .env file" in args[1], "Resume context should be in prompt"
-    assert "Implement feature" in args[1], "Original prompt should follow resume context"
-    assert len(args) == 2, "Should only have nelson and modified prompt"
+    assert "RESUME CONTEXT:" in args_list[0], "Prompt should contain resume context prefix"
+    assert "API keys now in .env file" in args_list[0], "Resume context should be in prompt"
+    assert "Implement feature" in args_list[0], "Original prompt should follow resume context"
+    assert len(args_list) == 1, "Should only have modified prompt"
 
     # Reset for next test
     orchestrator.parser.update_task_status("PRD-001", PRDTaskStatus.PENDING)
@@ -459,16 +455,15 @@ def test_nelson_cli_command_construction(
         nelson_args=["--max-iterations", "50"]
     )
 
-    # Verify invoke was called correctly
+    # Verify nelson_main was called correctly
     call_args = mock_cli_runner.call_args
-    # First positional arg should be nelson_main function
-    assert call_args[0][0].__name__ == 'main', "First argument should be 'nelson' command"
-    assert "RESUME CONTEXT:" in args[1], "Prompt should contain resume context"
-    assert "Dependencies installed" in args[1], "Resume context should be in prompt"
-    assert "Implement feature" in args[1], "Original prompt should follow context"
-    assert args[2] == "--max-iterations", "Nelson args should follow modified prompt"
-    assert args[3] == "50"
-    assert len(args) == 4, "Should have nelson, modified prompt, and nelson args"
+    args_list = call_args[0][0]  # First positional arg is the args list
+    assert "RESUME CONTEXT:" in args_list[0], "Prompt should contain resume context"
+    assert "Dependencies installed" in args_list[0], "Resume context should be in prompt"
+    assert "Implement feature" in args_list[0], "Original prompt should follow context"
+    assert args_list[1] == "--max-iterations", "Nelson args should follow modified prompt"
+    assert args_list[2] == "50"
+    assert len(args_list) == 3, "Should have modified prompt and nelson args"
 
 
 @patch("nelson.prd_orchestrator.PRDOrchestrator._find_actual_nelson_run")
@@ -1130,31 +1125,6 @@ def test_get_task_info_nonexistent(orchestrator: PRDOrchestrator):
 
 
 @patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
-@pytest.mark.skip(reason="KeyboardInterrupt test interferes with test runner")
-def test_execute_task_keyboard_interrupt(
-    mock_ensure_branch: Mock,
-    orchestrator: PRDOrchestrator,
-    mock_cli_runner,
-):
-    """Test that execute_task handles keyboard interrupt gracefully."""
-    # Setup mocks
-    mock_ensure_branch.return_value = {"branch": "feature/PRD-001-implement-user-authentication", "base_branch": "main", "reason": "test"}
-    mock_cli_runner.side_effect = KeyboardInterrupt()
-
-    # Execute task
-    success = orchestrator.execute_task("PRD-001", "Implement user authentication", "high")
-
-    # Verify failure
-    assert success is False
-
-    # Verify task state shows failure
-    task_state = orchestrator.state_manager.load_task_state(
-        "PRD-001", "Implement user authentication", "high"
-    )
-    assert task_state.status.value == "failed"
-
-
-@patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
 def test_execute_task_exception(
     mock_ensure_branch: Mock,
     orchestrator: PRDOrchestrator,
@@ -1200,88 +1170,6 @@ def test_execute_task_handles_missing_nelson_state(
 
 
 @patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
-@pytest.mark.skip(reason="Obsolete after removing subprocess")
-# OBSOLETE: def test_execute_task_handles_file_not_found_error(
-# This test is obsolete after switching from subprocess to CliRunner
-def test_execute_task_handles_file_not_found_error(
-    mock_cli_runner,
-    mock_ensure_branch: Mock,
-    orchestrator: PRDOrchestrator,
-    capsys: pytest.CaptureFixture,
-):
-    """Test that execute_task handles FileNotFoundError (nelson not in PATH)."""
-    # Setup mocks
-    mock_ensure_branch.return_value = {"branch": "feature/PRD-001-implement-user-authentication", "base_branch": "main", "reason": "test"}
-    mock_cli_runner.side_effect = FileNotFoundError("nelson command not found")
-
-    # Execute task
-    success = orchestrator.execute_task("PRD-001", "Implement user authentication", "high")
-
-    # Verify failure
-    assert success is False
-
-    # Check error message
-    captured = capsys.readouterr()
-    assert "'nelson' command not found in PATH" in captured.out
-    assert "Install with: pip install nelson-cli" in captured.out
-
-
-@patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
-@pytest.mark.skip(reason="Obsolete after removing subprocess")
-# OBSOLETE: def test_execute_task_handles_permission_error(
-# This test is obsolete after switching from subprocess to CliRunner
-def test_execute_task_handles_permission_error(
-    mock_cli_runner,
-    mock_ensure_branch: Mock,
-    orchestrator: PRDOrchestrator,
-    capsys: pytest.CaptureFixture,
-):
-    """Test that execute_task handles PermissionError."""
-    # Setup mocks
-    mock_ensure_branch.return_value = {"branch": "feature/PRD-001-implement-user-authentication", "base_branch": "main", "reason": "test"}
-    mock_cli_runner.side_effect = PermissionError("Permission denied")
-
-    # Execute task
-    success = orchestrator.execute_task("PRD-001", "Implement user authentication", "high")
-
-    # Verify failure
-    assert success is False
-
-    # Check error message
-    captured = capsys.readouterr()
-    assert "Permission denied when executing Nelson" in captured.out
-    assert "execute permissions" in captured.out
-
-
-@patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
-@pytest.mark.skip(reason="Obsolete after removing subprocess")
-# OBSOLETE: def test_execute_task_handles_os_error(
-# This test is obsolete after switching from subprocess to CliRunner
-def test_execute_task_handles_os_error(
-    mock_cli_runner,
-    mock_ensure_branch: Mock,
-    orchestrator: PRDOrchestrator,
-    capsys: pytest.CaptureFixture,
-):
-    """Test that execute_task handles OSError."""
-    # Setup mocks
-    mock_ensure_branch.return_value = {"branch": "feature/PRD-001-implement-user-authentication", "base_branch": "main", "reason": "test"}
-    mock_cli_runner.side_effect = OSError("Too many open files")
-
-    # Execute task
-    success = orchestrator.execute_task("PRD-001", "Implement user authentication", "high")
-
-    # Verify failure
-    assert success is False
-
-    # Check error message
-    captured = capsys.readouterr()
-    assert "OS error when executing Nelson" in captured.out
-    assert "system-level issues" in captured.out
-
-
-@patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
-@pytest.mark.skip(reason="Exit code 130 handling removed after switching from subprocess")
 def test_execute_task_provides_exit_code_feedback(
     mock_ensure_branch: Mock,
     orchestrator: PRDOrchestrator,
@@ -1300,18 +1188,6 @@ def test_execute_task_provides_exit_code_feedback(
     captured = capsys.readouterr()
     assert "Nelson exited with code 1" in captured.out
     assert "encountered an error" in captured.out
-
-    # Reset parser state
-    orchestrator.parser.update_task_status("PRD-001", PRDTaskStatus.PENDING)
-
-    # Test exit code 130 (SIGINT)
-    mock_cli_runner.return_value = 130
-    success = orchestrator.execute_task("PRD-001", "Implement user authentication", "high")
-    assert success is False
-
-    captured = capsys.readouterr()
-    assert "Nelson exited with code 130" in captured.out
-    assert "interrupted (SIGINT/Ctrl+C)" in captured.out
 
     # Reset parser state
     orchestrator.parser.update_task_status("PRD-001", PRDTaskStatus.PENDING)
@@ -1358,7 +1234,6 @@ def test_execute_task_handles_unexpected_exception(
 
 
 @patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
-@pytest.mark.skip(reason="Needs update after switching from subprocess to CliRunner")
 def test_execute_all_pending_shows_progress_indicators(
     mock_ensure_branch: Mock,
     tmp_path: Path,
@@ -1380,7 +1255,6 @@ def test_execute_all_pending_shows_progress_indicators(
 
     # Setup mocks
     mock_ensure_branch.return_value = {"branch": "feature/test-branch", "base_branch": "main", "reason": "test"}
-    # CliRunner already set up above
 
     # Create orchestrator
     prd_dir = tmp_path / ".nelson/prd"
@@ -1414,7 +1288,6 @@ def test_execute_all_pending_shows_progress_indicators(
 
 
 @patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
-@pytest.mark.skip(reason="Needs update after switching from subprocess to CliRunner")
 def test_execute_all_pending_shows_completion_percentage(
     mock_ensure_branch: Mock,
     tmp_path: Path,
@@ -1434,7 +1307,6 @@ def test_execute_all_pending_shows_completion_percentage(
 
     # Setup mocks
     mock_ensure_branch.return_value = {"branch": "feature/test-branch", "base_branch": "main", "reason": "test"}
-    # CliRunner already set up above
 
     # Create orchestrator
     prd_dir = tmp_path / ".nelson/prd"
@@ -1451,14 +1323,14 @@ def test_execute_all_pending_shows_completion_percentage(
     assert "Pending to execute: 2" in captured.out
 
     # Should show increasing percentages as tasks complete
-    # First task: 1/3 = 33.3%
-    assert "33.3% complete" in captured.out
-    # Second task: 2/3 = 66.7%
+    # Started at 1/3 = 33.3% (PRD-001 already done)
+    # After first pending task completes (PRD-002): 2/3 = 66.7%
     assert "66.7% complete" in captured.out or "66.6% complete" in captured.out
+    # After second pending task completes (PRD-003): 3/3 = 100%
+    assert "100.0% complete" in captured.out
 
 
 @patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
-@pytest.mark.skip(reason="Needs update after switching from subprocess to CliRunner")
 def test_execute_task_shows_resume_indicator(
     mock_ensure_branch: Mock,
     orchestrator: PRDOrchestrator,
@@ -1468,7 +1340,6 @@ def test_execute_task_shows_resume_indicator(
     """Test that execute_task shows resume indicator when resuming with context."""
     # Setup mocks
     mock_ensure_branch.return_value = {"branch": "feature/PRD-001-implement-user-authentication", "base_branch": "main", "reason": "test"}
-    # CliRunner already set up above
 
     # Create task state with resume context
     task_state = orchestrator.state_manager.load_task_state(
@@ -1490,7 +1361,6 @@ def test_execute_task_shows_resume_indicator(
 
 
 @patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
-@pytest.mark.skip(reason="Needs update after switching from subprocess to CliRunner")
 def test_execute_task_shows_visual_status_icons(
     mock_ensure_branch: Mock,
     orchestrator: PRDOrchestrator,
@@ -1502,7 +1372,6 @@ def test_execute_task_shows_visual_status_icons(
     mock_ensure_branch.return_value = {"branch": "feature/PRD-001-implement-user-authentication", "base_branch": "main", "reason": "test"}
 
     # Test success case
-    # CliRunner already set up above
     success = orchestrator.execute_task("PRD-001", "Implement user authentication", "high")
     assert success is True
 
@@ -1521,7 +1390,6 @@ def test_execute_task_shows_visual_status_icons(
 
 
 @patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
-@pytest.mark.skip(reason="Needs update after switching from subprocess to CliRunner")
 def test_execute_all_pending_no_pending_tasks(
     mock_ensure_branch: Mock,
     tmp_path: Path,
@@ -1725,7 +1593,6 @@ def test_check_task_text_changes_case_sensitive(tmp_path: Path):
 
 
 
-@pytest.mark.skip(reason="Needs update after switching from subprocess to CliRunner")
 def test_full_prd_workflow_integration(tmp_path: Path):
     """Integration test for complete PRD orchestration workflow.
 
@@ -1763,13 +1630,13 @@ def test_full_prd_workflow_integration(tmp_path: Path):
 
     # Mock git branch and Nelson operations
     with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_ensure_branch, \
-         patch("nelson.prd_orchestrator.CliRunner.run") as mock_nelson_run:
+         patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main:
 
         # Setup branch mock to return branch name
         mock_ensure_branch.return_value = {"branch": "feature/PRD-001-add-user-authentication", "base_branch": "main", "reason": "test"}
 
-        # Setup Nelson mock for successful execution
-        mock_nelson_run.return_value = Mock(returncode=0)
+        # Setup Nelson mock for successful execution (exit code 0)
+        mock_nelson_main.return_value = 0
 
         # Test 1: Execute first high-priority task
         next_task = orchestrator.get_next_pending_task()
@@ -1833,14 +1700,14 @@ def test_full_prd_workflow_integration(tmp_path: Path):
         assert "[ ] PRD-003" in prd_content
 
         # Test 5: Resume task and verify context prepending
-        mock_nelson_run.reset_mock()
+        mock_nelson_main.reset_mock()
         resume_success = orchestrator.resume_task("PRD-003")
         assert resume_success is True
 
         # Verify resume context was prepended to Nelson prompt
-        nelson_call = mock_nelson_run.call_args_list[0]
-        nelson_cmd = nelson_call[0][0]
-        prompt_arg = nelson_cmd[1]  # Second arg is the prompt
+        nelson_call = mock_nelson_main.call_args_list[0]
+        args_list = nelson_call[0][0]  # First positional arg is the args list
+        prompt_arg = args_list[0]  # First arg is the prompt
         assert "RESUME CONTEXT:" in prompt_arg
         assert "API keys added to .env" in prompt_arg
         assert "Add email notification service" in prompt_arg
@@ -1850,7 +1717,6 @@ def test_full_prd_workflow_integration(tmp_path: Path):
         assert summary["completed"] == 2  # PRD-001, PRD-003
 
 
-@pytest.mark.skip(reason="Needs update after switching from subprocess to CliRunner")
 def test_full_workflow_with_failure_handling(tmp_path: Path):
     """Integration test for workflow with task failure scenarios."""
     prd_file = tmp_path / "failure_test.md"
@@ -1866,18 +1732,18 @@ def test_full_workflow_with_failure_handling(tmp_path: Path):
     orchestrator = PRDOrchestrator(prd_file, prd_dir)
 
     with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_ensure_branch, \
-         patch("nelson.prd_orchestrator.CliRunner.run") as mock_nelson_run:
+         patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main:
 
         # Setup branch mock
         mock_ensure_branch.return_value = {"branch": "feature/PRD-001-task-that-will-succeed", "base_branch": "main", "reason": "test"}
 
-        # First task succeeds
-        mock_nelson_run.return_value = Mock(returncode=0)
+        # First task succeeds (exit code 0)
+        mock_nelson_main.return_value = 0
         success1 = orchestrator.execute_task("PRD-001", "Task that will succeed", "high")
         assert success1 is True
 
-        # Second task fails
-        mock_nelson_run.return_value = Mock(returncode=1)
+        # Second task fails (exit code 1)
+        mock_nelson_main.return_value = 1
         success2 = orchestrator.execute_task("PRD-002", "Task that will fail", "high")
         assert success2 is False
 
@@ -1895,8 +1761,8 @@ def test_full_workflow_with_failure_handling(tmp_path: Path):
         summary = orchestrator.get_status_summary()
         assert summary["failed"] == 1  # PRD-002 (failed)
 
-        # Third task can still execute
-        mock_nelson_run.return_value = Mock(returncode=0)
+        # Third task can still execute (exit code 0)
+        mock_nelson_main.return_value = 0
         success3 = orchestrator.execute_task("PRD-003", "Task after failure", "high")
         assert success3 is True
 
@@ -1906,7 +1772,6 @@ def test_full_workflow_with_failure_handling(tmp_path: Path):
         assert final_summary["failed"] == 1  # PRD-002
 
 
-@pytest.mark.skip(reason="Needs update after switching from subprocess to CliRunner")
 def test_concurrent_state_file_read_write(tmp_path: Path):
     """Test that concurrent orchestrators can read shared state without corruption.
 
@@ -1928,17 +1793,12 @@ def test_concurrent_state_file_read_write(tmp_path: Path):
     orchestrator1 = PRDOrchestrator(prd_file, prd_dir)
 
     with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
-         patch("nelson.prd_orchestrator.CliRunner") as mock_cli_runner_class:
+         patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main:
 
-        # Setup CliRunner mock
-        mock_runner_instance = MagicMock()
-        mock_result = MagicMock()
-        mock_result.exit_code = 0
-        mock_runner_instance.invoke.return_value = mock_result
-        mock_cli_runner_class.return_value = mock_runner_instance
+        # Setup nelson_main mock for success (exit code 0)
+        mock_nelson_main.return_value = 0
 
         mock_branch.return_value = {"branch": "feature/PRD-001-first-task", "base_branch": "main", "reason": "test"}
-        # CliRunner already set up above
 
         # Orchestrator 1 completes PRD-001
         orchestrator1.execute_task("PRD-001", "First task", "high")
@@ -1964,7 +1824,6 @@ def test_concurrent_state_file_read_write(tmp_path: Path):
         assert task_id == "PRD-002"  # Should get next pending
 
 
-@pytest.mark.skip(reason="Needs update after switching from subprocess to CliRunner")
 def test_concurrent_prd_file_modifications(tmp_path: Path):
     """Test that concurrent PRD file updates don't corrupt task statuses.
 
@@ -1982,17 +1841,12 @@ def test_concurrent_prd_file_modifications(tmp_path: Path):
     orchestrator1 = PRDOrchestrator(prd_file, prd_dir)
 
     with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
-         patch("nelson.prd_orchestrator.CliRunner") as mock_cli_runner_class:
+         patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main:
 
-        # Setup CliRunner mock
-        mock_runner_instance = MagicMock()
-        mock_result = MagicMock()
-        mock_result.exit_code = 0
-        mock_runner_instance.invoke.return_value = mock_result
-        mock_cli_runner_class.return_value = mock_runner_instance
+        # Setup nelson_main mock for success (exit code 0)
+        mock_nelson_main.return_value = 0
 
         mock_branch.return_value = {"branch": "feature/PRD-001-first-task", "base_branch": "main", "reason": "test"}
-        # CliRunner already set up above
 
         # Orchestrator 1 updates PRD-001 to in-progress
         orchestrator1.parser.update_task_status("PRD-001", PRDTaskStatus.IN_PROGRESS)
@@ -2012,7 +1866,6 @@ def test_concurrent_prd_file_modifications(tmp_path: Path):
         assert task_id == "PRD-002"  # Should skip in-progress task
 
 
-@pytest.mark.skip(reason="Needs update after switching from subprocess to CliRunner")
 def test_concurrent_task_double_execution_prevention(tmp_path: Path):
     """Test that task status markers prevent double-execution.
 
@@ -2029,17 +1882,12 @@ def test_concurrent_task_double_execution_prevention(tmp_path: Path):
     prd_dir = tmp_path / ".nelson/prd"
 
     with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
-         patch("nelson.prd_orchestrator.CliRunner") as mock_cli_runner_class:
+         patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main:
 
-        # Setup CliRunner mock
-        mock_runner_instance = MagicMock()
-        mock_result = MagicMock()
-        mock_result.exit_code = 0
-        mock_runner_instance.invoke.return_value = mock_result
-        mock_cli_runner_class.return_value = mock_runner_instance
+        # Setup nelson_main mock for success (exit code 0)
+        mock_nelson_main.return_value = 0
 
         mock_branch.return_value = {"branch": "feature/PRD-001-first-task", "base_branch": "main", "reason": "test"}
-        # CliRunner already set up above
 
         # Orchestrator 1 starts execution
         orchestrator1 = PRDOrchestrator(prd_file, prd_dir)
@@ -2122,7 +1970,6 @@ def test_concurrent_blocked_task_handling(tmp_path: Path):
     assert task1_orch2.status == PRDTaskStatus.BLOCKED
 
 
-@pytest.mark.skip(reason="Needs update after switching from subprocess to CliRunner")
 def test_concurrent_cost_tracking_isolation(tmp_path: Path):
     """Test that cost tracking remains accurate with concurrent updates.
 
@@ -2140,17 +1987,12 @@ def test_concurrent_cost_tracking_isolation(tmp_path: Path):
     orchestrator1 = PRDOrchestrator(prd_file, prd_dir)
 
     with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
-         patch("nelson.prd_orchestrator.CliRunner") as mock_cli_runner_class:
+         patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main:
 
-        # Setup CliRunner mock
-        mock_runner_instance = MagicMock()
-        mock_result = MagicMock()
-        mock_result.exit_code = 0
-        mock_runner_instance.invoke.return_value = mock_result
-        mock_cli_runner_class.return_value = mock_runner_instance
+        # Setup nelson_main mock for success (exit code 0)
+        mock_nelson_main.return_value = 0
 
         mock_branch.return_value = {"branch": "feature/PRD-001-first-task", "base_branch": "main", "reason": "test"}
-        # CliRunner already set up above
 
         # Orchestrator 1 completes PRD-001 - cost will be 0 since no Nelson state file
         orchestrator1.execute_task("PRD-001", "First task", "high")
@@ -2185,7 +2027,6 @@ def test_concurrent_cost_tracking_isolation(tmp_path: Path):
         assert summary["total_cost"] == 1.50 + 2.75
 
 
-@pytest.mark.skip(reason="Needs update after switching from subprocess to CliRunner")
 def test_concurrent_backup_file_creation(tmp_path: Path):
     """Test that concurrent backup creation doesn't corrupt files.
 
@@ -2206,7 +2047,7 @@ def test_concurrent_backup_file_creation(tmp_path: Path):
     orchestrator2 = PRDOrchestrator(prd_file, prd_dir)
 
     with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
-         patch("nelson.prd_orchestrator.CliRunner.run"):
+         patch("nelson.prd_orchestrator.nelson_main"):
 
         mock_branch.return_value = {"branch": "feature/PRD-001-first-task", "base_branch": "main", "reason": "test"}
 
@@ -2277,7 +2118,6 @@ def test_concurrent_state_persistence_consistency(tmp_path: Path):
     assert "tasks" in state_data
 
 
-@pytest.mark.skip(reason="Needs update after switching from subprocess to CliRunner")
 def test_concurrent_branch_creation_same_task(tmp_path: Path):
     """Test that concurrent branch creation for same task is idempotent.
 
@@ -2294,11 +2134,12 @@ def test_concurrent_branch_creation_same_task(tmp_path: Path):
 
 
     with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_ensure_branch, \
-         patch("nelson.prd_orchestrator.CliRunner") as mock_cli_runner_class:
+         patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main:
 
         # First call succeeds
         mock_ensure_branch.return_value = {"branch": "feature/PRD-001-first-task", "base_branch": "main", "reason": "test"}
-        # CliRunner already set up above
+        # Setup nelson_main mock for success (exit code 0)
+        mock_nelson_main.return_value = 0
 
         orchestrator1 = PRDOrchestrator(prd_file, prd_dir)
         success1 = orchestrator1.execute_task("PRD-001", "First task", "high")
@@ -2320,7 +2161,6 @@ def test_concurrent_branch_creation_same_task(tmp_path: Path):
         assert all_calls[1][0] == ("PRD-001", "First task")
 
 
-@pytest.mark.skip(reason="Needs update after switching from subprocess to CliRunner")
 def test_concurrent_execution_with_failures(tmp_path: Path):
     """Test that concurrent execution handles failures independently.
 
@@ -2337,26 +2177,21 @@ def test_concurrent_execution_with_failures(tmp_path: Path):
     prd_dir = tmp_path / ".nelson/prd"
 
     with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
-         patch("nelson.prd_orchestrator.CliRunner") as mock_cli_runner_class:
+         patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main:
 
-        # Setup CliRunner mock
-        mock_runner_instance = MagicMock()
-        mock_result = MagicMock()
-        mock_result.exit_code = 0
-        mock_runner_instance.invoke.return_value = mock_result
-        mock_cli_runner_class.return_value = mock_runner_instance
+        # Setup nelson_main mock for success (exit code 0)
+        mock_nelson_main.return_value = 0
 
         mock_branch.return_value = {"branch": "feature/PRD-001-first-task", "base_branch": "main", "reason": "test"}
 
         # Orchestrator 1 - task succeeds
         orchestrator1 = PRDOrchestrator(prd_file, prd_dir)
-        # CliRunner already set up above
         success1 = orchestrator1.execute_task("PRD-001", "First task", "high")
         assert success1 is True
 
-        # Orchestrator 2 - task fails
+        # Orchestrator 2 - task fails (exit code 1)
         orchestrator2 = PRDOrchestrator(prd_file, prd_dir)
-        mock_cli_runner.return_value = 1
+        mock_nelson_main.return_value = 1
         success2 = orchestrator2.execute_task("PRD-002", "Second task", "high")
         assert success2 is False
 
@@ -2376,7 +2211,6 @@ def test_concurrent_execution_with_failures(tmp_path: Path):
         assert summary["failed"] == 1
 
 
-@pytest.mark.skip(reason="Needs update after switching from subprocess to CliRunner")
 def test_resume_context_prepending_format(tmp_path: Path):
     """Test that resume context is prepended with correct format.
 
@@ -2392,17 +2226,12 @@ def test_resume_context_prepending_format(tmp_path: Path):
     prd_dir = tmp_path / ".nelson/prd"
 
     with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
-         patch("nelson.prd_orchestrator.CliRunner") as mock_cli_runner_class:
+         patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main:
 
-        # Setup CliRunner mock
-        mock_runner_instance = MagicMock()
-        mock_result = MagicMock()
-        mock_result.exit_code = 0
-        mock_runner_instance.invoke.return_value = mock_result
-        mock_cli_runner_class.return_value = mock_runner_instance
+        # Setup nelson_main mock for success (exit code 0)
+        mock_nelson_main.return_value = 0
 
         mock_branch.return_value = {"branch": "feature/PRD-001-test", "base_branch": "main", "reason": "test"}
-        # CliRunner already set up above
 
         orchestrator = PRDOrchestrator(prd_file, prd_dir)
 
@@ -2417,9 +2246,9 @@ def test_resume_context_prepending_format(tmp_path: Path):
         orchestrator.execute_task("PRD-001", "Implement authentication", "high")
 
         # Verify exact format
-        # Get args passed to runner.invoke(nelson_main, args, ...)
-        call_args = mock_cli_runner.call_args
-        args_list = call_args[0][0]  # args is second positional parameter
+        # Get args passed to nelson_main(args, ...)
+        call_args = mock_nelson_main.call_args
+        args_list = call_args[0][0]  # First positional arg is the args list
         prompt = args_list[0]
 
         # Check exact format with newlines
@@ -2430,7 +2259,6 @@ def test_resume_context_prepending_format(tmp_path: Path):
         assert prompt == expected_start, f"Expected: {expected_start!r}, Got: {prompt!r}"
 
 
-@pytest.mark.skip(reason="Needs update after switching from subprocess to CliRunner")
 def test_resume_context_prepending_order(tmp_path: Path):
     """Test that resume context appears BEFORE task text (prepending, not appending)."""
     prd_file = tmp_path / "test.md"
@@ -2443,17 +2271,12 @@ def test_resume_context_prepending_order(tmp_path: Path):
     prd_dir = tmp_path / ".nelson/prd"
 
     with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
-         patch("nelson.prd_orchestrator.CliRunner") as mock_cli_runner_class:
+         patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main:
 
-        # Setup CliRunner mock
-        mock_runner_instance = MagicMock()
-        mock_result = MagicMock()
-        mock_result.exit_code = 0
-        mock_runner_instance.invoke.return_value = mock_result
-        mock_cli_runner_class.return_value = mock_runner_instance
+        # Setup nelson_main mock for success (exit code 0)
+        mock_nelson_main.return_value = 0
 
         mock_branch.return_value = {"branch": "feature/PRD-001-test", "base_branch": "main", "reason": "test"}
-        # CliRunner already set up above
 
         orchestrator = PRDOrchestrator(prd_file, prd_dir)
 
@@ -2468,9 +2291,9 @@ def test_resume_context_prepending_order(tmp_path: Path):
         orchestrator.execute_task("PRD-001", "Create user profile management", "high")
 
         # Verify order
-        # Get args passed to runner.invoke(nelson_main, args, ...)
-        call_args = mock_cli_runner.call_args
-        args_list = call_args[0][0]  # args is second positional parameter
+        # Get args passed to nelson_main(args, ...)
+        call_args = mock_nelson_main.call_args
+        args_list = call_args[0][0]  # First positional arg is the args list
         prompt = args_list[0]
 
         # Resume context should come before task text
@@ -2482,7 +2305,6 @@ def test_resume_context_prepending_order(tmp_path: Path):
         assert resume_idx < task_idx, "Resume context should appear BEFORE task text"
 
 
-@pytest.mark.skip(reason="Needs update after switching from subprocess to CliRunner")
 def test_resume_context_with_custom_prompt(tmp_path: Path):
     """Test that resume context is prepended to custom prompts as well."""
     prd_file = tmp_path / "test.md"
@@ -2495,17 +2317,12 @@ def test_resume_context_with_custom_prompt(tmp_path: Path):
     prd_dir = tmp_path / ".nelson/prd"
 
     with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
-         patch("nelson.prd_orchestrator.CliRunner") as mock_cli_runner_class:
+         patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main:
 
-        # Setup CliRunner mock
-        mock_runner_instance = MagicMock()
-        mock_result = MagicMock()
-        mock_result.exit_code = 0
-        mock_runner_instance.invoke.return_value = mock_result
-        mock_cli_runner_class.return_value = mock_runner_instance
+        # Setup nelson_main mock for success (exit code 0)
+        mock_nelson_main.return_value = 0
 
         mock_branch.return_value = {"branch": "feature/PRD-001-test", "base_branch": "main", "reason": "test"}
-        # CliRunner already set up above
 
         orchestrator = PRDOrchestrator(prd_file, prd_dir)
 
@@ -2523,9 +2340,9 @@ def test_resume_context_with_custom_prompt(tmp_path: Path):
         )
 
         # Verify resume context prepended to custom prompt
-        # Get args passed to runner.invoke(nelson_main, args, ...)
-        call_args = mock_cli_runner.call_args
-        args_list = call_args[0][0]  # args is second positional parameter
+        # Get args passed to nelson_main(args, ...)
+        call_args = mock_nelson_main.call_args
+        args_list = call_args[0][0]  # First positional arg is the args list
         prompt = args_list[0]
 
         expected = (
@@ -2535,7 +2352,6 @@ def test_resume_context_with_custom_prompt(tmp_path: Path):
         assert prompt == expected
 
 
-@pytest.mark.skip(reason="Needs update after switching from subprocess to CliRunner")
 def test_no_resume_context_prepending_when_none(tmp_path: Path):
     """Test that no prepending occurs when resume_context is None."""
     prd_file = tmp_path / "test.md"
@@ -2548,17 +2364,12 @@ def test_no_resume_context_prepending_when_none(tmp_path: Path):
     prd_dir = tmp_path / ".nelson/prd"
 
     with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
-         patch("nelson.prd_orchestrator.CliRunner") as mock_cli_runner_class:
+         patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main:
 
-        # Setup CliRunner mock
-        mock_runner_instance = MagicMock()
-        mock_result = MagicMock()
-        mock_result.exit_code = 0
-        mock_runner_instance.invoke.return_value = mock_result
-        mock_cli_runner_class.return_value = mock_runner_instance
+        # Setup nelson_main mock for success (exit code 0)
+        mock_nelson_main.return_value = 0
 
         mock_branch.return_value = {"branch": "feature/PRD-001-test", "base_branch": "main", "reason": "test"}
-        # CliRunner already set up above
 
         orchestrator = PRDOrchestrator(prd_file, prd_dir)
 
@@ -2566,9 +2377,9 @@ def test_no_resume_context_prepending_when_none(tmp_path: Path):
         orchestrator.execute_task("PRD-001", "Implement logging", "high")
 
         # Verify no prepending
-        # Get args passed to runner.invoke(nelson_main, args, ...)
-        call_args = mock_cli_runner.call_args
-        args_list = call_args[0][0]  # args is second positional parameter
+        # Get args passed to nelson_main(args, ...)
+        call_args = mock_nelson_main.call_args
+        args_list = call_args[0][0]  # First positional arg is the args list
         prompt = args_list[0]
 
         # Should just be task text, no RESUME CONTEXT prefix
@@ -2576,7 +2387,6 @@ def test_no_resume_context_prepending_when_none(tmp_path: Path):
         assert "RESUME CONTEXT:" not in prompt
 
 
-@pytest.mark.skip(reason="Needs update after switching from subprocess to CliRunner")
 def test_resume_context_with_special_characters(tmp_path: Path):
     """Test resume context prepending with special characters (newlines, quotes, etc)."""
     prd_file = tmp_path / "test.md"
@@ -2589,17 +2399,12 @@ def test_resume_context_with_special_characters(tmp_path: Path):
     prd_dir = tmp_path / ".nelson/prd"
 
     with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
-         patch("nelson.prd_orchestrator.CliRunner") as mock_cli_runner_class:
+         patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main:
 
-        # Setup CliRunner mock
-        mock_runner_instance = MagicMock()
-        mock_result = MagicMock()
-        mock_result.exit_code = 0
-        mock_runner_instance.invoke.return_value = mock_result
-        mock_cli_runner_class.return_value = mock_runner_instance
+        # Setup nelson_main mock for success (exit code 0)
+        mock_nelson_main.return_value = 0
 
         mock_branch.return_value = {"branch": "feature/PRD-001-test", "base_branch": "main", "reason": "test"}
-        # CliRunner already set up above
 
         orchestrator = PRDOrchestrator(prd_file, prd_dir)
 
@@ -2618,9 +2423,9 @@ def test_resume_context_with_special_characters(tmp_path: Path):
         orchestrator.execute_task("PRD-001", "Setup CI/CD pipeline", "high")
 
         # Verify special characters preserved
-        # Get args passed to runner.invoke(nelson_main, args, ...)
-        call_args = mock_cli_runner.call_args
-        args_list = call_args[0][0]  # args is second positional parameter
+        # Get args passed to nelson_main(args, ...)
+        call_args = mock_nelson_main.call_args
+        args_list = call_args[0][0]  # First positional arg is the args list
         prompt = args_list[0]
 
         # Check that special characters are preserved
@@ -2630,7 +2435,6 @@ def test_resume_context_with_special_characters(tmp_path: Path):
         assert "Setup CI/CD pipeline" in prompt
 
 
-@pytest.mark.skip(reason="Needs update after switching from subprocess to CliRunner")
 def test_resume_context_with_long_text(tmp_path: Path):
     """Test resume context prepending with long text (hundreds of characters)."""
     prd_file = tmp_path / "test.md"
@@ -2643,17 +2447,12 @@ def test_resume_context_with_long_text(tmp_path: Path):
     prd_dir = tmp_path / ".nelson/prd"
 
     with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
-         patch("nelson.prd_orchestrator.CliRunner") as mock_cli_runner_class:
+         patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main:
 
-        # Setup CliRunner mock
-        mock_runner_instance = MagicMock()
-        mock_result = MagicMock()
-        mock_result.exit_code = 0
-        mock_runner_instance.invoke.return_value = mock_result
-        mock_cli_runner_class.return_value = mock_runner_instance
+        # Setup nelson_main mock for success (exit code 0)
+        mock_nelson_main.return_value = 0
 
         mock_branch.return_value = {"branch": "feature/PRD-001-test", "base_branch": "main", "reason": "test"}
-        # CliRunner already set up above
 
         orchestrator = PRDOrchestrator(prd_file, prd_dir)
 
@@ -2676,9 +2475,9 @@ def test_resume_context_with_long_text(tmp_path: Path):
         orchestrator.execute_task("PRD-001", "Implement search functionality", "high")
 
         # Verify long context preserved
-        # Get args passed to runner.invoke(nelson_main, args, ...)
-        call_args = mock_cli_runner.call_args
-        args_list = call_args[0][0]  # args is second positional parameter
+        # Get args passed to nelson_main(args, ...)
+        call_args = mock_nelson_main.call_args
+        args_list = call_args[0][0]  # First positional arg is the args list
         prompt = args_list[0]
 
         # Full long context should be present

@@ -316,9 +316,9 @@ def test_execute_task_with_custom_prompt(
     )
 
     # Verify custom prompt was used
-    # Get args passed to nelson_main(args, standalone_mode=False)
+    # Get args passed to runner.invoke(nelson_main, args, ...)
     call_args = mock_cli_runner.call_args
-    args_list = call_args[0][0]  # First positional arg is the args list
+    args_list = call_args[0][0]  # args is second positional parameter
     assert args_list[0] == custom_prompt
 
 
@@ -343,9 +343,9 @@ def test_execute_task_with_nelson_args(
     )
 
     # Verify Nelson args were passed
-    # Get args passed to nelson_main(args, standalone_mode=False)
+    # Get args passed to runner.invoke(nelson_main, args, ...)
     call_args = mock_cli_runner.call_args
-    args_list = call_args[0][0]  # First positional arg is the args list
+    args_list = call_args[0][0]  # args is second positional parameter
     assert "--max-iterations" in args_list
     assert "50" in args_list
 
@@ -367,7 +367,7 @@ def test_nelson_cli_command_construction(
 
     # Verify invoke was called correctly
     call_args = mock_cli_runner.call_args
-    args_list = call_args[0][1]  # Second positional arg is the args list
+    args_list = call_args[0][0]  # Second positional arg is the args list
     # Verify the prompt is the first arg
     assert args_list[0] == "Implement feature", "First argument should be the prompt"
     assert len(args_list) == 1, "Should only have prompt for basic command"
@@ -378,7 +378,7 @@ def test_nelson_cli_command_construction(
 
     # Reset for next test
     orchestrator.parser.update_task_status("PRD-001", PRDTaskStatus.PENDING)
-    mock_cli_runner.mock_runner.invoke.reset_mock()
+    mock_cli_runner.reset_mock()
 
     # Test 2: Command with nelson args
     orchestrator.execute_task(
@@ -401,7 +401,7 @@ def test_nelson_cli_command_construction(
 
     # Reset for next test
     orchestrator.parser.update_task_status("PRD-001", PRDTaskStatus.PENDING)
-    mock_cli_runner.mock_runner.invoke.reset_mock()
+    mock_cli_runner.reset_mock()
 
     # Test 3: Command with resume context (no nelson args)
     # Set up task state with resume context
@@ -415,7 +415,7 @@ def test_nelson_cli_command_construction(
     # Reset PRD file to pending so execute_task will run
     orchestrator.parser.update_task_status("PRD-001", PRDTaskStatus.PENDING)
 
-    mock_cli_runner.mock_runner.invoke.reset_mock()
+    mock_cli_runner.reset_mock()
 
     # Now execute with resume context
     orchestrator.execute_task(
@@ -436,7 +436,7 @@ def test_nelson_cli_command_construction(
 
     # Reset for next test
     orchestrator.parser.update_task_status("PRD-001", PRDTaskStatus.PENDING)
-    mock_cli_runner.mock_runner.invoke.reset_mock()
+    mock_cli_runner.reset_mock()
 
     # Test 4: Command with both resume context AND nelson args
     # Set up task state with resume context
@@ -450,7 +450,7 @@ def test_nelson_cli_command_construction(
     # Reset PRD file to pending
     orchestrator.parser.update_task_status("PRD-001", PRDTaskStatus.PENDING)
 
-    mock_cli_runner.mock_runner.invoke.reset_mock()
+    mock_cli_runner.reset_mock()
 
     orchestrator.execute_task(
         "PRD-001",
@@ -1034,10 +1034,7 @@ def test_resume_task_nonexistent(orchestrator: PRDOrchestrator):
 
 def test_resume_task_wrong_status(orchestrator: PRDOrchestrator):
     """Test resuming a task in wrong status returns False."""
-    # Mark PRD-001 as completed - completed tasks cannot be resumed
-    orchestrator.parser.update_task_status("PRD-001", PRDTaskStatus.COMPLETED)
-    orchestrator.tasks = orchestrator.parser.parse()  # Refresh cache
-
+    # PRD-001 is pending, not blocked or in_progress
     success = orchestrator.resume_task("PRD-001")
     assert success is False
 
@@ -1142,7 +1139,7 @@ def test_execute_task_keyboard_interrupt(
     """Test that execute_task handles keyboard interrupt gracefully."""
     # Setup mocks
     mock_ensure_branch.return_value = {"branch": "feature/PRD-001-implement-user-authentication", "base_branch": "main", "reason": "test"}
-    mock_cli_runner.mock_runner.invoke.side_effect = KeyboardInterrupt()
+    mock_cli_runner.side_effect = KeyboardInterrupt()
 
     # Execute task
     success = orchestrator.execute_task("PRD-001", "Implement user authentication", "high")
@@ -1166,7 +1163,6 @@ def test_execute_task_exception(
     """Test that execute_task handles general exceptions."""
     # Setup mocks
     mock_ensure_branch.return_value = {"branch": "feature/PRD-001-implement-user-authentication", "base_branch": "main", "reason": "test"}
-    # Set side_effect on nelson_main directly (not mock_runner.invoke)
     mock_cli_runner.side_effect = Exception("Unexpected error")
 
     # Execute task
@@ -1216,7 +1212,7 @@ def test_execute_task_handles_file_not_found_error(
     """Test that execute_task handles FileNotFoundError (nelson not in PATH)."""
     # Setup mocks
     mock_ensure_branch.return_value = {"branch": "feature/PRD-001-implement-user-authentication", "base_branch": "main", "reason": "test"}
-    mock_cli_runner.mock_runner.invoke.side_effect = FileNotFoundError("nelson command not found")
+    mock_cli_runner.side_effect = FileNotFoundError("nelson command not found")
 
     # Execute task
     success = orchestrator.execute_task("PRD-001", "Implement user authentication", "high")
@@ -1243,7 +1239,7 @@ def test_execute_task_handles_permission_error(
     """Test that execute_task handles PermissionError."""
     # Setup mocks
     mock_ensure_branch.return_value = {"branch": "feature/PRD-001-implement-user-authentication", "base_branch": "main", "reason": "test"}
-    mock_cli_runner.mock_runner.invoke.side_effect = PermissionError("Permission denied")
+    mock_cli_runner.side_effect = PermissionError("Permission denied")
 
     # Execute task
     success = orchestrator.execute_task("PRD-001", "Implement user authentication", "high")
@@ -1270,7 +1266,7 @@ def test_execute_task_handles_os_error(
     """Test that execute_task handles OSError."""
     # Setup mocks
     mock_ensure_branch.return_value = {"branch": "feature/PRD-001-implement-user-authentication", "base_branch": "main", "reason": "test"}
-    mock_cli_runner.mock_runner.invoke.side_effect = OSError("Too many open files")
+    mock_cli_runner.side_effect = OSError("Too many open files")
 
     # Execute task
     success = orchestrator.execute_task("PRD-001", "Implement user authentication", "high")
@@ -1297,7 +1293,7 @@ def test_execute_task_provides_exit_code_feedback(
     mock_ensure_branch.return_value = {"branch": "feature/PRD-001-implement-user-authentication", "base_branch": "main", "reason": "test"}
 
     # Test exit code 1 (general error)
-    mock_cli_runner.mock_result.exit_code = 1
+    mock_cli_runner.return_value = 1
     success = orchestrator.execute_task("PRD-001", "Implement user authentication", "high")
     assert success is False
 
@@ -1309,7 +1305,7 @@ def test_execute_task_provides_exit_code_feedback(
     orchestrator.parser.update_task_status("PRD-001", PRDTaskStatus.PENDING)
 
     # Test exit code 130 (SIGINT)
-    mock_cli_runner.mock_result.exit_code = 130
+    mock_cli_runner.return_value = 130
     success = orchestrator.execute_task("PRD-001", "Implement user authentication", "high")
     assert success is False
 
@@ -1321,7 +1317,7 @@ def test_execute_task_provides_exit_code_feedback(
     orchestrator.parser.update_task_status("PRD-001", PRDTaskStatus.PENDING)
 
     # Test unexpected exit code
-    mock_cli_runner.mock_result.exit_code = 42
+    mock_cli_runner.return_value = 42
     success = orchestrator.execute_task("PRD-001", "Implement user authentication", "high")
     assert success is False
 
@@ -1345,7 +1341,6 @@ def test_execute_task_handles_unexpected_exception(
     class UnexpectedError(Exception):
         pass
 
-    # Set side_effect on nelson_main directly (not mock_runner.invoke)
     mock_cli_runner.side_effect = UnexpectedError("Something went wrong")
 
     # Execute task
@@ -1516,7 +1511,7 @@ def test_execute_task_shows_visual_status_icons(
     assert "🚀 Starting task: PRD-001" in captured.out
 
     # Test failure case
-    mock_cli_runner.mock_result.exit_code = 1
+    mock_cli_runner.return_value = 1
     success = orchestrator.execute_task("PRD-002", "Another task", "high")
     assert success is False
 
@@ -2361,7 +2356,7 @@ def test_concurrent_execution_with_failures(tmp_path: Path):
 
         # Orchestrator 2 - task fails
         orchestrator2 = PRDOrchestrator(prd_file, prd_dir)
-        mock_cli_runner.mock_result.exit_code = 1
+        mock_cli_runner.return_value = 1
         success2 = orchestrator2.execute_task("PRD-002", "Second task", "high")
         assert success2 is False
 
@@ -2424,7 +2419,7 @@ def test_resume_context_prepending_format(tmp_path: Path):
         # Verify exact format
         # Get args passed to runner.invoke(nelson_main, args, ...)
         call_args = mock_cli_runner.call_args
-        args_list = call_args[0][1]  # args is second positional parameter
+        args_list = call_args[0][0]  # args is second positional parameter
         prompt = args_list[0]
 
         # Check exact format with newlines
@@ -2475,7 +2470,7 @@ def test_resume_context_prepending_order(tmp_path: Path):
         # Verify order
         # Get args passed to runner.invoke(nelson_main, args, ...)
         call_args = mock_cli_runner.call_args
-        args_list = call_args[0][1]  # args is second positional parameter
+        args_list = call_args[0][0]  # args is second positional parameter
         prompt = args_list[0]
 
         # Resume context should come before task text
@@ -2530,7 +2525,7 @@ def test_resume_context_with_custom_prompt(tmp_path: Path):
         # Verify resume context prepended to custom prompt
         # Get args passed to runner.invoke(nelson_main, args, ...)
         call_args = mock_cli_runner.call_args
-        args_list = call_args[0][1]  # args is second positional parameter
+        args_list = call_args[0][0]  # args is second positional parameter
         prompt = args_list[0]
 
         expected = (
@@ -2573,7 +2568,7 @@ def test_no_resume_context_prepending_when_none(tmp_path: Path):
         # Verify no prepending
         # Get args passed to runner.invoke(nelson_main, args, ...)
         call_args = mock_cli_runner.call_args
-        args_list = call_args[0][1]  # args is second positional parameter
+        args_list = call_args[0][0]  # args is second positional parameter
         prompt = args_list[0]
 
         # Should just be task text, no RESUME CONTEXT prefix
@@ -2625,7 +2620,7 @@ def test_resume_context_with_special_characters(tmp_path: Path):
         # Verify special characters preserved
         # Get args passed to runner.invoke(nelson_main, args, ...)
         call_args = mock_cli_runner.call_args
-        args_list = call_args[0][1]  # args is second positional parameter
+        args_list = call_args[0][0]  # args is second positional parameter
         prompt = args_list[0]
 
         # Check that special characters are preserved
@@ -2683,7 +2678,7 @@ def test_resume_context_with_long_text(tmp_path: Path):
         # Verify long context preserved
         # Get args passed to runner.invoke(nelson_main, args, ...)
         call_args = mock_cli_runner.call_args
-        args_list = call_args[0][1]  # args is second positional parameter
+        args_list = call_args[0][0]  # args is second positional parameter
         prompt = args_list[0]
 
         # Full long context should be present

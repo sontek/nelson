@@ -6,11 +6,13 @@ execution, branch management, cost tracking, and state transitions.
 """
 
 import json
-import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from click.testing import CliRunner
+
+from nelson.cli import main as nelson_main
 from nelson.config import NelsonConfig
 from nelson.git_utils import GitError, get_current_branch
 from nelson.logging_config import get_logger
@@ -393,21 +395,22 @@ Please analyze this task, create the appropriate git branch, and return the JSON
         # Update PRD file to in-progress
         self.parser.update_task_status(task_id, PRDTaskStatus.IN_PROGRESS)
 
-        # Build Nelson command (NO branching instructions - branch is already set up)
+        # Build Nelson arguments (NO branching instructions - branch is already set up)
         task_prompt = prompt or task_text
 
         # Prepend resume context if present
         if task_state.resume_context:
             task_prompt = f"RESUME CONTEXT: {task_state.resume_context}\n\n{task_prompt}"
 
-        cmd = ["nelson", task_prompt]
+        # Build args list (no "nelson" command needed - calling directly)
+        args = [task_prompt]
 
         # Add target path if provided (must come after prompt, before flags)
         if self.target_path:
-            cmd.append(str(self.target_path))
+            args.append(str(self.target_path))
 
         if nelson_args:
-            cmd.extend(nelson_args)
+            args.extend(nelson_args)
 
         # Execute Nelson
         print(f"\n{'='*60}")
@@ -419,38 +422,22 @@ Please analyze this task, create the appropriate git branch, and return the JSON
         print(f"{'='*60}\n")
 
         try:
-            # Run Nelson normally (preserves terminal colors and formatting)
-            result = subprocess.run(cmd, check=False)
-            success = result.returncode == 0
+            # Run Nelson directly via Click (in-process, no subprocess)
+            runner = CliRunner()
+            result = runner.invoke(nelson_main, args, catch_exceptions=False)
+            success = result.exit_code == 0
 
-            # Check for SIGINT (Ctrl-C) - user wants to stop everything
-            if result.returncode == 130:
-                print("\nTask was interrupted (SIGINT/Ctrl+C).")
-                raise KeyboardInterrupt("User interrupted nelson with Ctrl-C")
-
-            # Provide specific feedback for other non-zero exit codes
+            # Provide specific feedback for non-zero exit codes
             if not success:
-                print(f"\nNelson exited with code {result.returncode}")
-                if result.returncode == 1:
+                print(f"\nNelson exited with code {result.exit_code}")
+                if result.exit_code == 1:
                     print("This usually indicates Nelson encountered an error during execution.")
                 else:
-                    print(f"Unexpected exit code: {result.returncode}")
+                    print(f"Unexpected exit code: {result.exit_code}")
         except KeyboardInterrupt:
             print("\n\nTask interrupted by user (KeyboardInterrupt)")
             success = False
-        except FileNotFoundError:
-            print("\nError: 'nelson' command not found in PATH")
-            print("Please ensure Nelson is installed and available in your PATH.")
-            print("Install with: pip install nelson-cli")
-            success = False
-        except PermissionError as e:
-            print(f"\nError: Permission denied when executing Nelson: {e}")
-            print("Please check that the nelson command has execute permissions.")
-            success = False
-        except OSError as e:
-            print(f"\nError: OS error when executing Nelson: {e}")
-            print("This may indicate system-level issues (e.g., resource exhaustion).")
-            success = False
+            raise  # Re-raise to stop PRD execution
         except Exception as e:
             print(f"\nUnexpected error executing Nelson: {type(e).__name__}: {e}")
             print("This is an unexpected error. Please report this issue.")

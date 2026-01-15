@@ -10,8 +10,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from click.testing import CliRunner
-
 from nelson.cli import main as nelson_main
 from nelson.config import NelsonConfig
 from nelson.git_utils import GitError, get_current_branch
@@ -422,18 +420,19 @@ Please analyze this task, create the appropriate git branch, and return the JSON
         print(f"{'='*60}\n")
 
         try:
-            # Run Nelson directly via Click (in-process, no subprocess)
-            runner = CliRunner()
-            result = runner.invoke(nelson_main, args, catch_exceptions=False)
-            success = result.exit_code == 0
+            # Run Nelson directly (in-process, no subprocess)
+            # standalone_mode=False prevents Click from calling sys.exit()
+            # and instead returns the exit code
+            exit_code = nelson_main(args, standalone_mode=False)
+            success = exit_code == 0
 
             # Provide specific feedback for non-zero exit codes
             if not success:
-                print(f"\nNelson exited with code {result.exit_code}")
-                if result.exit_code == 1:
+                print(f"\nNelson exited with code {exit_code}")
+                if exit_code == 1:
                     print("This usually indicates Nelson encountered an error during execution.")
                 else:
-                    print(f"Unexpected exit code: {result.exit_code}")
+                    print(f"Unexpected exit code: {exit_code}")
         except KeyboardInterrupt:
             print("\n\nTask interrupted by user (KeyboardInterrupt)")
             success = False
@@ -473,6 +472,26 @@ Please analyze this task, create the appropriate git branch, and return the JSON
                     print(f"Warning: Nelson state file not found at {nelson_state_path}")
             else:
                 print(f"Warning: Could not find actual Nelson run directory near {run_id}")
+
+            # Check if task has incomplete subtasks before marking complete
+            task = self.parser.get_task_by_id(task_id)
+            if task and task.has_incomplete_subtasks():
+                completed, total = task.get_subtask_completion_count()
+                print(f"\n{'='*60}")
+                print(f"⚠️  Task {task_id} has incomplete subtasks ({completed}/{total} done)")
+                print(f"   Cannot mark task as complete until all subtasks are finished.")
+                print(f"   Please check off remaining subtasks in the PRD file.")
+                print(f"{'='*60}\n")
+
+                # Mark as blocked instead with reason
+                task_state.fail()
+                self.state_manager.save_task_state(task_state)
+                self.parser.update_task_status(
+                    task_id,
+                    PRDTaskStatus.BLOCKED,
+                    f"Incomplete subtasks: {completed}/{total} done"
+                )
+                return False
 
             # Mark as completed
             task_state.complete()

@@ -73,16 +73,11 @@ def mock_git_repo():
 
 @pytest.fixture
 def mock_nelson_success():
-    """Create a mock for successful Nelson execution via CliRunner."""
-    with patch("nelson.prd_orchestrator.CliRunner") as mock_cli_runner_class:
-        # Setup mock instances
-        mock_runner_instance = MagicMock()
-        mock_result = MagicMock()
-        mock_result.exit_code = 0
-        mock_result.output = "Nelson execution completed successfully"
-        mock_runner_instance.invoke.return_value = mock_result
-        mock_cli_runner_class.return_value = mock_runner_instance
-        yield mock_cli_runner_class
+    """Create a mock for successful Nelson execution."""
+    with patch("nelson.prd_orchestrator.nelson_main") as mock_nelson:
+        # Default to success (exit code 0)
+        mock_nelson.return_value = 0
+        yield mock_nelson
 
 
 @pytest.fixture
@@ -313,10 +308,9 @@ class TestPRDEndToEnd:
             # Resume task
             orchestrator.resume_task(task_id)
 
-            # Verify CliRunner was called with context prepended
-            mock_runner = mock_nelson_success.return_value
-            assert mock_runner.invoke.called
-            call_args = mock_runner.invoke.call_args[0][1]  # args list is second positional param
+            # Verify nelson_main was called with context prepended
+            assert mock_nelson_success.called
+            call_args = mock_nelson_success.call_args[0][0]  # args list is first positional param
 
             # The prompt should be in the command arguments
             command_str = " ".join(call_args)
@@ -378,22 +372,10 @@ class TestPRDEndToEnd:
         self, prd_file: Path, prd_dir: Path, mock_git_repo
     ):
         """Test execute_all_pending stops on first failure when flag is set."""
-        # Mock CliRunner to succeed first, then fail
-        with patch("nelson.prd_orchestrator.CliRunner") as mock_cli_runner_class:
-            mock_runner_instance = MagicMock()
-
-            # Setup invoke to return different results on each call
-            mock_result_success = MagicMock()
-            mock_result_success.exit_code = 0
-            mock_result_success.output = "Success"
-
-            mock_result_failure = MagicMock()
-            mock_result_failure.exit_code = 1
-            mock_result_failure.output = "Failed"
-
-            # First call succeeds, second fails
-            mock_runner_instance.invoke.side_effect = [mock_result_success, mock_result_failure]
-            mock_cli_runner_class.return_value = mock_runner_instance
+        # Mock nelson_main to succeed first, then fail
+        with patch("nelson.prd_orchestrator.nelson_main") as mock_nelson:
+            # First call succeeds (exit code 0), second fails (exit code 1)
+            mock_nelson.side_effect = [0, 1]
 
             with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task", side_effect=[
                  {"branch": "feature/PRD-001-test", "base_branch": "main", "reason": "Test branch"},

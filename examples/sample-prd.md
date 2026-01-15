@@ -11,15 +11,48 @@ This PRD contains tasks for enhancing an e-commerce platform with user authentic
 Each task must have:
 - A unique ID in format `PRD-NNN` (e.g., PRD-001, PRD-002)
 - A checkbox status indicator: `[ ]` (pending), `[~]` (in progress), `[x]` (completed), `[!]` (blocked)
-- A clear, descriptive task description
+- A clear, descriptive task description on the first line
 
 Tasks are organized by priority (High, Medium, Low) and execute in that order.
+
+### Enhanced Task Features
+
+**Detailed Descriptions**: Add indented content under any task for additional context:
+```markdown
+- [ ] PRD-001 Implement user authentication
+
+      Use JWT tokens for session management.
+      Follow OAuth 2.0 best practices.
+      Store tokens securely in httpOnly cookies.
+```
+
+**Subtasks**: Break down complex tasks into checkable subtasks:
+```markdown
+- [ ] PRD-002 Complete PR review workflow
+
+      - [ ] Fix critical code issues
+      - [ ] Run all tests
+      - [ ] Create pull request
+```
+
+**Important**: Tasks with subtasks will NOT complete until all subtasks are checked off.
 
 ---
 
 ## High Priority
 
 - [ ] PRD-001 Implement user authentication system with JWT tokens
+
+      Use secure JWT tokens for session management.
+      Follow OAuth 2.0 best practices for token generation.
+      Store refresh tokens in httpOnly cookies to prevent XSS attacks.
+
+      Implementation checklist:
+      - [ ] Create JWT token generation utility
+      - [ ] Implement login endpoint
+      - [ ] Add token refresh mechanism
+      - [ ] Write authentication middleware
+
 - [ ] PRD-002 Create user profile management with edit capabilities
 - [ ] PRD-003 Add password reset functionality via email
 - [ ] PRD-004 Implement role-based access control (RBAC) for admin/user roles

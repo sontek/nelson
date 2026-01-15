@@ -39,16 +39,36 @@ class PRDTaskStatus(Enum):
     BLOCKED = "!"  # [!] - Task blocked
 
 
+@dataclass
+class Subtask:
+    """A subtask within a PRD task."""
+    text: str  # Subtask description
+    completed: bool  # Whether subtask is checked off
+    description: str = ""  # Additional indented content under subtask
+
+
 @dataclass(frozen=True)
 class PRDTask:
     """A single task from the PRD file."""
 
     line_number: int  # Line number in file (1-indexed)
     task_id: str  # e.g., "PRD-001"
-    task_text: str  # Task description (without ID)
+    task_text: str  # Task description (without ID) - first line only
     status: PRDTaskStatus  # Current status
     priority: str  # "high", "medium", or "low"
     blocking_reason: str | None = None  # Reason if blocked
+    full_description: str = ""  # All indented content after task line
+    subtasks: tuple[Subtask, ...] = ()  # Tuple of subtasks (immutable for frozen dataclass)
+
+    def has_incomplete_subtasks(self) -> bool:
+        """Check if any subtasks are not completed."""
+        return any(not st.completed for st in self.subtasks)
+
+    def get_subtask_completion_count(self) -> tuple[int, int]:
+        """Get (completed, total) subtask counts."""
+        total = len(self.subtasks)
+        completed = sum(1 for st in self.subtasks if st.completed)
+        return completed, total
 
 
 class PRDParser:
@@ -60,6 +80,8 @@ class PRDParser:
     )
     TASK_PATTERN = re.compile(r"^-\s+\[([x~! ])\]\s+(PRD-\d+)\s+(.+)$")
     BLOCKING_REASON_PATTERN = re.compile(r"\(blocked:\s*(.+?)\)\s*$", re.IGNORECASE)
+    # Pattern for subtasks (indented checkbox items without PRD-ID)
+    SUBTASK_PATTERN = re.compile(r"^\s+-\s+\[([x ])\]\s+(.+)$")
 
     # Backup configuration
     MAX_BACKUPS = 10  # Keep last N backups
@@ -118,13 +140,16 @@ class PRDParser:
             )
 
         # First pass: collect all errors
-        for line_num, line in enumerate(lines, start=1):
-            line = line.rstrip()
+        i = 0
+        while i < len(lines):
+            line = lines[i].rstrip()
+            line_num = i + 1
 
             # Check for priority header
             priority_match = self.PRIORITY_HEADER_PATTERN.match(line)
             if priority_match:
                 self._current_priority = priority_match.group(1).lower()
+                i += 1
                 continue
 
             # Check for task
@@ -143,6 +168,7 @@ class PRDParser:
                         f"(e.g., PRD-001, PRD-042)\n"
                         f"  Fix: Change '{task_id}' to format like 'PRD-001'"
                     )
+                    i += 1
                     continue
 
                 # Check for duplicate ID
@@ -158,6 +184,7 @@ class PRDParser:
                         f"  First used at line {first_line}\n"
                         f"  Fix: Change to a unique ID like '{self._suggest_next_id()}'"
                     )
+                    i += 1
                     continue
 
                 self._task_ids.add(task_id)
@@ -183,7 +210,11 @@ class PRDParser:
                         f"    ## High Priority\n"
                         f"    {line.strip()}"
                     )
+                    i += 1
                     continue
+
+                # Collect indented content and parse subtasks
+                full_description, subtasks, lines_consumed = self._parse_task_details(lines, i + 1)
 
                 task = PRDTask(
                     line_number=line_num,
@@ -192,8 +223,16 @@ class PRDParser:
                     status=status,
                     priority=self._current_priority,
                     blocking_reason=blocking_reason,
+                    full_description=full_description,
+                    subtasks=subtasks,
                 )
                 self._tasks.append(task)
+
+                # Skip the lines we consumed
+                i += lines_consumed + 1
+                continue
+
+            i += 1
 
         # Check for tasks without IDs
         validation_errors = self.validate_all_tasks()
@@ -210,6 +249,88 @@ class PRDParser:
             raise ValueError(error_msg)
 
         return self._tasks
+
+    def _parse_task_details(
+        self, lines: list[str], start_idx: int
+    ) -> tuple[str, tuple[Subtask, ...], int]:
+        """Parse indented content after a task line, including subtasks.
+
+        Args:
+            lines: All lines from the file
+            start_idx: Index to start reading from (line after task)
+
+        Returns:
+            Tuple of (full_description, subtasks_tuple, lines_consumed)
+        """
+        description_lines: list[str] = []
+        subtasks: list[Subtask] = []
+        i = start_idx
+        current_subtask: dict[str, str | bool] | None = None
+
+        while i < len(lines):
+            line = lines[i].rstrip()
+
+            # Stop if we hit a non-indented line (new task or header)
+            if line and not line[0].isspace():
+                break
+
+            # Check if this is a subtask (indented checkbox)
+            subtask_match = self.SUBTASK_PATTERN.match(line)
+            if subtask_match:
+                # Save previous subtask if exists
+                if current_subtask is not None:
+                    subtasks.append(
+                        Subtask(
+                            text=str(current_subtask["text"]),
+                            completed=bool(current_subtask["completed"]),
+                            description=str(current_subtask.get("description", "")),
+                        )
+                    )
+
+                # Start new subtask
+                status_char = subtask_match.group(1)
+                subtask_text = subtask_match.group(2)
+                current_subtask = {
+                    "text": subtask_text,
+                    "completed": status_char == "x",
+                    "description": "",
+                }
+            elif line.strip():
+                # This is either task description or subtask description
+                # Determine indent level
+                indent = len(line) - len(line.lstrip())
+
+                if current_subtask is not None:
+                    # Check if this line is more indented than subtask (subtask description)
+                    # Subtasks start with "      - [ ]" (6+ spaces), so further indent is 8+
+                    if indent > 8:
+                        # Part of current subtask's description
+                        if current_subtask["description"]:
+                            current_subtask["description"] += "\n" + line.strip()
+                        else:
+                            current_subtask["description"] = line.strip()
+                    else:
+                        # New content at same level as subtask - belongs to task description
+                        description_lines.append(line.strip())
+                else:
+                    # No current subtask, add to task description
+                    description_lines.append(line.strip())
+
+            i += 1
+
+        # Save final subtask if exists
+        if current_subtask is not None:
+            subtasks.append(
+                Subtask(
+                    text=str(current_subtask["text"]),
+                    completed=bool(current_subtask["completed"]),
+                    description=str(current_subtask.get("description", "")),
+                )
+            )
+
+        lines_consumed = i - start_idx
+        full_description = "\n".join(description_lines)
+        return full_description, tuple(subtasks), lines_consumed
 
     def _is_valid_task_id(self, task_id: str) -> bool:
         """Validate task ID format (PRD-NNN).

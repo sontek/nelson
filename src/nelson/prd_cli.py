@@ -261,6 +261,10 @@ def main(
         # Print summary
         _print_execution_summary(results, orchestrator)
 
+        # Exit with appropriate code based on results
+        failed = sum(1 for success in results.values() if not success)
+        sys.exit(0 if failed == 0 else 1)
+
     except FileNotFoundError as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)

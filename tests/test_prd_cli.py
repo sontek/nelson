@@ -612,7 +612,7 @@ def test_cli_main_execution_with_stop_on_failure(
         main, ["--stop-on-failure", str(temp_prd_file)]
     )
 
-    assert result.exit_code == 0
+    assert result.exit_code == 1  # Exit code 1 because a task failed
     assert "Tasks executed: 2" in result.output
     assert "Succeeded: 1" in result.output
     assert "Failed: 1" in result.output

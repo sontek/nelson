@@ -1184,3 +1184,124 @@ def test_task_context_reset_between_files(tmp_path: Path):
     error_msg = str(exc_info.value)
     assert "outside priority section" in error_msg
     assert "PRD-002" in error_msg
+
+
+# ============================================================================
+# NEW TESTS: Demonstrating current limitations (will fail until parser is fixed)
+# ============================================================================
+
+def test_parser_reads_only_first_line_not_indented_content(tmp_path: Path):
+    """FAILING TEST: Demonstrates parser only reads first line, ignores indented content."""
+    content = """## High Priority
+- [ ] PRD-001 Review and implement fixes for PR #2921
+
+      This is additional context that should be included.
+      It has multiple lines of instructions.
+
+      Make a pull request from the branch created.
+      DO NOT just leave a code review comment.
+"""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(content)
+
+    parser = PRDParser(prd_file)
+    tasks = parser.parse()
+
+    # Currently this FAILS because task_text only contains first line
+    assert len(tasks) == 1
+    task = tasks[0]
+
+    # Check that task_text still has first line only
+    assert task.task_text == "Review and implement fixes for PR #2921"
+
+    # Check that full_description captures all indented content
+    assert "This is additional context" in task.full_description, \
+        f"Expected indented content to be captured, but got: {task.full_description!r}"
+    assert "Make a pull request" in task.full_description
+    assert len(task.full_description) > 100, \
+        f"Expected full description, but only got {len(task.full_description)} chars: {task.full_description!r}"
+
+
+def test_parser_does_not_support_subtasks(tmp_path: Path):
+    """FAILING TEST: Demonstrates parser doesn't recognize subtasks."""
+    content = """## High Priority
+- [ ] PRD-001 Complete PR review workflow
+
+      - [ ] Fix critical code issues
+      - [ ] Run all tests
+      - [ ] Create pull request
+"""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(content)
+
+    parser = PRDParser(prd_file)
+    tasks = parser.parse()
+
+    # This assertion will FAIL - no subtasks field exists
+    assert len(tasks) == 1
+    task = tasks[0]
+
+    # Check subtasks attribute exists and is populated
+    assert hasattr(task, 'subtasks'), "PRDTask should have subtasks attribute"
+    assert len(task.subtasks) == 3, f"Expected 3 subtasks, got {len(task.subtasks)}"
+    assert task.subtasks[0].text == "Fix critical code issues"
+    assert task.subtasks[0].completed is False
+
+
+def test_task_with_subtasks_not_complete_until_all_checked(tmp_path: Path):
+    """FAILING TEST: Task with subtasks should only be completable when all subtasks done."""
+    content = """## High Priority
+- [ ] PRD-001 Complete PR workflow
+
+      - [x] Fix critical code issues
+      - [x] Run all tests
+      - [ ] Create pull request
+"""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(content)
+
+    parser = PRDParser(prd_file)
+    tasks = parser.parse()
+
+    task = tasks[0]
+
+    # Check has_incomplete_subtasks method exists and works
+    assert hasattr(task, 'has_incomplete_subtasks'), \
+        "Should have method to check subtask completion"
+    assert task.has_incomplete_subtasks() is True, \
+        "Should have incomplete subtasks (third one not checked)"
+
+    # Count completion
+    completed_subtasks = sum(1 for st in task.subtasks if st.completed)
+    assert completed_subtasks == 2, f"Expected 2 completed, got {completed_subtasks}"
+
+    # Check completion count method
+    completed, total = task.get_subtask_completion_count()
+    assert completed == 2
+    assert total == 3
+
+
+def test_subtasks_with_multiline_descriptions(tmp_path: Path):
+    """FAILING TEST: Subtasks should support their own indented descriptions."""
+    content = """## High Priority
+- [ ] PRD-001 Main task with detailed subtasks
+
+      - [ ] Subtask one
+            Additional detail about subtask one
+            More context here
+
+      - [x] Subtask two
+            This one is complete
+"""
+    prd_file = tmp_path / "test.md"
+    prd_file.write_text(content)
+
+    parser = PRDParser(prd_file)
+    tasks = parser.parse()
+
+    task = tasks[0]
+
+    # Check subtask descriptions are captured
+    assert task.subtasks[0].text == "Subtask one"
+    assert "Additional detail about subtask one" in task.subtasks[0].description, \
+        f"Subtasks should capture their indented descriptions, got: {task.subtasks[0].description!r}"

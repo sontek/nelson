@@ -196,7 +196,10 @@ def main(
                 sys.exit(1)
 
         # Initialize orchestrator
-        orchestrator = PRDOrchestrator(prd_file, prd_dir, target_path)
+        if target_path is not None:
+            orchestrator = PRDOrchestrator(prd_file, prd_dir, target_path)
+        else:
+            orchestrator = PRDOrchestrator(prd_file, prd_dir)
 
         # Parse nelson_args string into list
         parsed_nelson_args: list[str] | None = None

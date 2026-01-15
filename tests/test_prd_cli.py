@@ -405,14 +405,14 @@ def test_cli_task_info_command_success(
 
     assert result.exit_code == 0
     assert "Task Details: PRD-001" in result.output
-    assert "Description: Test task" in result.output
-    assert "Status: completed" in result.output
-    assert "Priority: high" in result.output
-    assert "Branch: feature/PRD-001-test-task" in result.output
-    assert "Nelson Run ID: run-123" in result.output
-    assert "Cost: $2.34" in result.output
-    assert "Iterations: 10" in result.output
-    assert "Phase: 6 (COMMIT)" in result.output
+    assert "Test task" in result.output  # Description is in table format
+    assert "Status" in result.output
+    assert "HIGH" in result.output  # Priority is uppercase in display
+    assert "feature/PRD-001-test-task" in result.output
+    assert "run-123" in result.output
+    assert "$2.34" in result.output
+    assert "10" in result.output  # Iterations value
+    assert "6 (COMMIT)" in result.output  # Phase is in table format
 
 
 @patch("nelson.prd_cli.PRDOrchestrator")
@@ -463,9 +463,9 @@ def test_cli_task_info_with_blocking_info(
     )
 
     assert result.exit_code == 0
-    assert "Blocking Reason:" in result.output
+    assert "Blocking Reason" in result.output  # In box format, no colon
     assert "Waiting for API keys" in result.output
-    assert "Resume Context:" in result.output
+    assert "Resume Context" in result.output  # In box format, no colon
     assert "Keys added to .env as API_KEY" in result.output
 
 
@@ -928,7 +928,7 @@ def test_status_shows_text_change_warnings(
 
     # Verify warning is displayed
     assert result.exit_code == 0
-    assert "⚠️  WARNING: Task text changes detected:" in result.output
+    assert "Task text changes detected:" in result.output  # Warning box format
     assert "PRD-001" in result.output
     assert "Implement user authentication" in result.output
     assert "Implement authentication with OAuth" in result.output

@@ -371,3 +371,78 @@ class TestBuildConfig:
         assert config.model == "opus"
         assert config.plan_model == "sonnet"
         assert config.review_model == "haiku"
+
+
+class TestGitAuthorValidation:
+    """Test git author validation during workflow startup."""
+
+    def test_workflow_validates_git_author(
+        self, cli_runner: CliRunner, tmp_path: Path
+    ) -> None:
+        """Test that workflow validates git author before starting."""
+        # Create a git repo without author config
+        import subprocess
+
+        subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
+
+        # Mock to simulate missing git author
+        with patch("nelson.cli.validate_git_author") as mock_validate:
+            from nelson.git_auth import GitAuthError
+
+            mock_validate.side_effect = GitAuthError("Git author not configured")
+
+            with patch("nelson.cli.ClaudeProvider") as mock_provider_class:
+                mock_provider = mock_provider_class.return_value
+                mock_provider.is_available.return_value = True
+
+                result = cli_runner.invoke(main, ["Test task", str(tmp_path)])
+
+                # Should fail with git author error
+                assert result.exit_code != 0
+                assert "Git author not configured" in result.output
+
+    def test_workflow_logs_git_author_on_success(
+        self, cli_runner: CliRunner, tmp_path: Path
+    ) -> None:
+        """Test that workflow logs git author when properly configured."""
+        import subprocess
+
+        from nelson.git_auth import GitAuthor
+
+        # Create a git repo with initial commit
+        subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.name", "Test User"],
+            cwd=tmp_path,
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.email", "test@example.com"],
+            cwd=tmp_path,
+            check=True,
+            capture_output=True,
+        )
+        # Create initial commit (required for git rev-parse HEAD)
+        (tmp_path / "test.txt").write_text("test")
+        subprocess.run(["git", "add", "."], cwd=tmp_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "Initial commit"],
+            cwd=tmp_path,
+            check=True,
+            capture_output=True,
+        )
+
+        with patch("nelson.cli.ClaudeProvider") as mock_provider_class:
+            mock_provider = mock_provider_class.return_value
+            mock_provider.is_available.return_value = True
+
+            with patch("nelson.cli.WorkflowOrchestrator"):
+                result = cli_runner.invoke(main, ["Test task", str(tmp_path)])
+
+                # Should succeed and log author
+                assert result.exit_code == 0
+                # The log message is "Git author: Name <email>"
+                assert "Git author:" in result.output
+                assert "Test User" in result.output
+                assert "test@example.com" in result.output

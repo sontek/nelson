@@ -13,6 +13,7 @@ from pathlib import Path
 import click
 
 from nelson.config import NelsonConfig
+from nelson.git_auth import GitAuthError, validate_git_author
 from nelson.logging_config import get_logger
 from nelson.phases import Phase
 from nelson.providers.claude import ClaudeProvider
@@ -240,6 +241,17 @@ def _execute_workflow(prompt: str, config: NelsonConfig) -> None:
         raise WorkflowError(f"Claude command not found or not executable: {claude_command}")
 
     logger.info(f"Using Claude command: {claude_command}")
+
+    # Validate git author configuration before starting workflow
+    try:
+        author = validate_git_author(config.target_path)
+        logger.info(f"Git author: {author.name} <{author.email}>")
+    except GitAuthError as e:
+        logger.error(str(e))
+        raise WorkflowError(
+            "Git author not configured. Nelson creates commits during workflows "
+            "and requires git user.name and user.email to be set."
+        ) from e
 
     # Get starting commit for audit trail
     try:

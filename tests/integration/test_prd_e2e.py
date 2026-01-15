@@ -108,8 +108,12 @@ class TestPRDEndToEnd:
         """Test complete PRD execution from start to finish."""
         # Mock subprocess and git operations
         with patch("subprocess.run", side_effect=mock_nelson_success), patch(
-            "nelson.prd_orchestrator.ensure_branch_for_task",
-            return_value="feature/PRD-001-implement-user-auth",
+            "nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task",
+            return_value={
+                "branch": "feature/PRD-001-implement-user-auth",
+                "base_branch": "main",
+                "reason": "Test branch for PRD-001"
+            },
         ):
 
             # Create orchestrator
@@ -175,7 +179,7 @@ class TestPRDEndToEnd:
     ):
         """Test complete blocking/unblocking/resume workflow."""
         with patch("subprocess.run", side_effect=mock_nelson_success), \
-             patch("nelson.prd_orchestrator.ensure_branch_for_task", return_value="feature/PRD-001-test"):
+             patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task", return_value={"branch": "feature/PRD-001-test", "base_branch": "main", "reason": "Test branch"}):
 
             orchestrator = PRDOrchestrator(prd_file, prd_dir)
 
@@ -227,10 +231,7 @@ class TestPRDEndToEnd:
     ):
         """Test cost tracking and aggregation across multiple task executions."""
         with patch("subprocess.run", side_effect=mock_nelson_success), \
-             patch("nelson.prd_orchestrator.ensure_branch_for_task", side_effect=[
-                 "feature/PRD-001-test",
-                 "feature/PRD-002-test",
-             ]):
+             patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task", side_effect=[{"branch": "feature/PRD-001-test", "base_branch": "main", "reason": "Test branch"}, {"branch": "feature/PRD-002-test", "base_branch": "main", "reason": "Test branch"}]):
 
             orchestrator = PRDOrchestrator(prd_file, prd_dir)
 
@@ -272,7 +273,7 @@ class TestPRDEndToEnd:
     ):
         """Test that PRD file is updated with correct status indicators."""
         with patch("subprocess.run", side_effect=mock_nelson_success), \
-             patch("nelson.prd_orchestrator.ensure_branch_for_task", return_value="feature/PRD-001-test"):
+             patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task", return_value={"branch": "feature/PRD-001-test", "base_branch": "main", "reason": "Test branch"}):
 
             orchestrator = PRDOrchestrator(prd_file, prd_dir)
 
@@ -295,7 +296,7 @@ class TestPRDEndToEnd:
     ):
         """Test that resume context is properly injected into Nelson prompts."""
         with patch("subprocess.run", side_effect=mock_nelson_success) as mock_run, \
-             patch("nelson.prd_orchestrator.ensure_branch_for_task", return_value="feature/PRD-001-test"):
+             patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task", return_value={"branch": "feature/PRD-001-test", "base_branch": "main", "reason": "Test branch"}):
 
             orchestrator = PRDOrchestrator(prd_file, prd_dir)
 
@@ -325,10 +326,10 @@ class TestPRDEndToEnd:
         self, prd_file: Path, prd_dir: Path, mock_nelson_success, mock_git_repo
     ):
         """Test that git branches are created/switched during task execution."""
-        mock_branch_func = Mock(return_value="feature/PRD-001-implement-user-auth")
+        mock_branch_func = Mock(return_value={"branch": "feature/PRD-001-implement-user-auth", "base_branch": "main", "reason": "Test branch"})
 
         with patch("subprocess.run", side_effect=mock_nelson_success), \
-             patch("nelson.prd_orchestrator.ensure_branch_for_task", mock_branch_func):
+             patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task", mock_branch_func):
 
             orchestrator = PRDOrchestrator(prd_file, prd_dir)
 
@@ -395,9 +396,9 @@ class TestPRDEndToEnd:
             return result
 
         with patch("subprocess.run", side_effect=mock_run_with_failure), \
-             patch("nelson.prd_orchestrator.ensure_branch_for_task", side_effect=[
-                 "feature/PRD-001-test",
-                 "feature/PRD-002-test",
+             patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task", side_effect=[
+                 {"branch": "feature/PRD-001-test", "base_branch": "main", "reason": "Test branch"},
+                 {"branch": "feature/PRD-002-test", "base_branch": "main", "reason": "Test branch"},
              ]):
 
             orchestrator = PRDOrchestrator(prd_file, prd_dir)

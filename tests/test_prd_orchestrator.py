@@ -177,7 +177,7 @@ def test_get_next_pending_task_returns_none_when_no_pending(tmp_path: Path):
     assert result is None
 
 
-@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
 @patch("nelson.prd_orchestrator.subprocess.run")
 def test_execute_task_success(
     mock_run: Mock,
@@ -218,7 +218,7 @@ def test_execute_task_success(
     assert task.status == PRDTaskStatus.COMPLETED
 
 
-@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
 @patch("nelson.prd_orchestrator.subprocess.run")
 def test_execute_task_failure(
     mock_run: Mock,
@@ -243,7 +243,7 @@ def test_execute_task_failure(
     assert task_state.status.value == "failed"
 
 
-@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
 def test_execute_task_branch_creation_failure(
     mock_ensure_branch: Mock,
     orchestrator: PRDOrchestrator,
@@ -261,7 +261,7 @@ def test_execute_task_branch_creation_failure(
     assert success is False
 
 
-@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
 @patch("nelson.prd_orchestrator.subprocess.run")
 def test_execute_task_with_resume_context(
     mock_run: Mock,
@@ -291,7 +291,7 @@ def test_execute_task_with_resume_context(
     assert "Implement user authentication" in prompt
 
 
-@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
 @patch("nelson.prd_orchestrator.subprocess.run")
 def test_execute_task_with_custom_prompt(
     mock_run: Mock,
@@ -314,7 +314,7 @@ def test_execute_task_with_custom_prompt(
     assert args[1] == custom_prompt
 
 
-@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
 @patch("nelson.prd_orchestrator.subprocess.run")
 def test_execute_task_with_nelson_args(
     mock_run: Mock,
@@ -341,7 +341,7 @@ def test_execute_task_with_nelson_args(
     assert "50" in args
 
 
-@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
 @patch("nelson.prd_orchestrator.subprocess.run")
 def test_nelson_cli_command_construction(
     mock_run: Mock,
@@ -455,7 +455,7 @@ def test_nelson_cli_command_construction(
 
 
 @patch("nelson.prd_orchestrator.Path")
-@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
 @patch("nelson.prd_orchestrator.subprocess.run")
 @patch("nelson.prd_orchestrator.NelsonState.load")
 def test_execute_task_updates_cost_from_nelson_state(
@@ -500,7 +500,7 @@ def test_execute_task_updates_cost_from_nelson_state(
 
 
 @patch("nelson.prd_orchestrator.Path")
-@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
 @patch("nelson.prd_orchestrator.subprocess.run")
 def test_cost_extraction_when_nelson_state_file_missing(
     mock_run: Mock,
@@ -537,7 +537,7 @@ def test_cost_extraction_when_nelson_state_file_missing(
 
 @patch("nelson.state.NelsonState.load")
 @patch("nelson.prd_orchestrator.Path")
-@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
 @patch("nelson.prd_orchestrator.subprocess.run")
 def test_cost_extraction_handles_corrupted_nelson_state(
     mock_run: Mock,
@@ -583,7 +583,7 @@ def test_cost_extraction_handles_corrupted_nelson_state(
 
 @patch("nelson.state.NelsonState.load")
 @patch("nelson.prd_orchestrator.Path")
-@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
 @patch("nelson.prd_orchestrator.subprocess.run")
 def test_cost_extraction_handles_missing_fields_in_nelson_state(
     mock_run: Mock,
@@ -630,7 +630,7 @@ def test_cost_extraction_handles_missing_fields_in_nelson_state(
 
 @patch("nelson.state.NelsonState.load")
 @patch("nelson.prd_orchestrator.Path")
-@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
 @patch("nelson.prd_orchestrator.subprocess.run")
 def test_cost_extraction_with_zero_cost(
     mock_run: Mock,
@@ -676,7 +676,7 @@ def test_cost_extraction_with_zero_cost(
 
 @patch("nelson.state.NelsonState.load")
 @patch("nelson.prd_orchestrator.Path")
-@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
 @patch("nelson.prd_orchestrator.subprocess.run")
 def test_cost_extraction_with_high_cost_values(
     mock_run: Mock,
@@ -724,7 +724,7 @@ def test_cost_extraction_with_high_cost_values(
 
 @patch("nelson.state.NelsonState.load")
 @patch("nelson.prd_orchestrator.Path")
-@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
 @patch("nelson.prd_orchestrator.subprocess.run")
 def test_cost_extraction_with_partial_phase_data(
     mock_run: Mock,
@@ -1102,7 +1102,7 @@ def test_get_task_info_nonexistent(orchestrator: PRDOrchestrator):
     assert info is None
 
 
-@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
 @patch("nelson.prd_orchestrator.subprocess.run")
 def test_execute_task_keyboard_interrupt(
     mock_run: Mock,
@@ -1127,7 +1127,7 @@ def test_execute_task_keyboard_interrupt(
     assert task_state.status.value == "failed"
 
 
-@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
 @patch("nelson.prd_orchestrator.subprocess.run")
 def test_execute_task_exception(
     mock_run: Mock,
@@ -1146,7 +1146,7 @@ def test_execute_task_exception(
     assert success is False
 
 
-@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
 @patch("nelson.prd_orchestrator.subprocess.run")
 @patch("nelson.prd_orchestrator.NelsonState.load")
 def test_execute_task_handles_missing_nelson_state(
@@ -1174,7 +1174,7 @@ def test_execute_task_handles_missing_nelson_state(
     assert task_state.status.value == "completed"
 
 
-@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
 @patch("nelson.prd_orchestrator.subprocess.run")
 def test_execute_task_handles_file_not_found_error(
     mock_run: Mock,
@@ -1199,7 +1199,7 @@ def test_execute_task_handles_file_not_found_error(
     assert "Install with: pip install nelson-cli" in captured.out
 
 
-@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
 @patch("nelson.prd_orchestrator.subprocess.run")
 def test_execute_task_handles_permission_error(
     mock_run: Mock,
@@ -1224,7 +1224,7 @@ def test_execute_task_handles_permission_error(
     assert "execute permissions" in captured.out
 
 
-@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
 @patch("nelson.prd_orchestrator.subprocess.run")
 def test_execute_task_handles_os_error(
     mock_run: Mock,
@@ -1249,7 +1249,7 @@ def test_execute_task_handles_os_error(
     assert "system-level issues" in captured.out
 
 
-@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
 @patch("nelson.prd_orchestrator.subprocess.run")
 def test_execute_task_provides_exit_code_feedback(
     mock_run: Mock,
@@ -1295,7 +1295,7 @@ def test_execute_task_provides_exit_code_feedback(
     assert "Unexpected exit code: 42" in captured.out
 
 
-@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
 @patch("nelson.prd_orchestrator.subprocess.run")
 def test_execute_task_handles_unexpected_exception(
     mock_run: Mock,
@@ -1327,7 +1327,7 @@ def test_execute_task_handles_unexpected_exception(
     assert "Please report this issue" in captured.out
 
 
-@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
 @patch("nelson.prd_orchestrator.subprocess.run")
 def test_execute_all_pending_shows_progress_indicators(
     mock_run: Mock,
@@ -1383,7 +1383,7 @@ def test_execute_all_pending_shows_progress_indicators(
     assert "Remaining:" in captured.out
 
 
-@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
 @patch("nelson.prd_orchestrator.subprocess.run")
 def test_execute_all_pending_shows_completion_percentage(
     mock_run: Mock,
@@ -1427,7 +1427,7 @@ def test_execute_all_pending_shows_completion_percentage(
     assert "66.7% complete" in captured.out or "66.6% complete" in captured.out
 
 
-@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
 @patch("nelson.prd_orchestrator.subprocess.run")
 def test_execute_task_shows_resume_indicator(
     mock_run: Mock,
@@ -1459,7 +1459,7 @@ def test_execute_task_shows_resume_indicator(
     assert "🔄 Resuming with context" in captured.out
 
 
-@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
 @patch("nelson.prd_orchestrator.subprocess.run")
 def test_execute_task_shows_visual_status_icons(
     mock_run: Mock,
@@ -1490,7 +1490,7 @@ def test_execute_task_shows_visual_status_icons(
     assert "Review the task and fix any issues before resuming" in captured.out
 
 
-@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
 @patch("nelson.prd_orchestrator.subprocess.run")
 def test_execute_all_pending_no_pending_tasks(
     mock_run: Mock,
@@ -1731,7 +1731,7 @@ def test_full_prd_workflow_integration(tmp_path: Path):
     assert summary["pending"] == 4
 
     # Mock git branch and Nelson operations
-    with patch("nelson.prd_orchestrator.ensure_branch_for_task") as mock_ensure_branch, \
+    with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_ensure_branch, \
          patch("nelson.prd_orchestrator.subprocess.run") as mock_nelson_run:
 
         # Setup branch mock to return branch name
@@ -1833,7 +1833,7 @@ def test_full_workflow_with_failure_handling(tmp_path: Path):
     prd_dir = tmp_path / ".nelson/prd"
     orchestrator = PRDOrchestrator(prd_file, prd_dir)
 
-    with patch("nelson.prd_orchestrator.ensure_branch_for_task") as mock_ensure_branch, \
+    with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_ensure_branch, \
          patch("nelson.prd_orchestrator.subprocess.run") as mock_nelson_run:
 
         # Setup branch mock
@@ -1894,7 +1894,7 @@ def test_concurrent_state_file_read_write(tmp_path: Path):
     # Create first orchestrator and execute a task
     orchestrator1 = PRDOrchestrator(prd_file, prd_dir)
 
-    with patch("nelson.prd_orchestrator.ensure_branch_for_task") as mock_branch, \
+    with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
          patch("nelson.prd_orchestrator.subprocess.run") as mock_run:
 
         mock_branch.return_value = "feature/PRD-001-first-task"
@@ -1940,7 +1940,7 @@ def test_concurrent_prd_file_modifications(tmp_path: Path):
     prd_dir = tmp_path / ".nelson/prd"
     orchestrator1 = PRDOrchestrator(prd_file, prd_dir)
 
-    with patch("nelson.prd_orchestrator.ensure_branch_for_task") as mock_branch, \
+    with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
          patch("nelson.prd_orchestrator.subprocess.run") as mock_run:
 
         mock_branch.return_value = "feature/PRD-001-first-task"
@@ -1979,7 +1979,7 @@ def test_concurrent_task_double_execution_prevention(tmp_path: Path):
 
     prd_dir = tmp_path / ".nelson/prd"
 
-    with patch("nelson.prd_orchestrator.ensure_branch_for_task") as mock_branch, \
+    with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
          patch("nelson.prd_orchestrator.subprocess.run") as mock_run:
 
         mock_branch.return_value = "feature/PRD-001-first-task"
@@ -2082,7 +2082,7 @@ def test_concurrent_cost_tracking_isolation(tmp_path: Path):
     prd_dir = tmp_path / ".nelson/prd"
     orchestrator1 = PRDOrchestrator(prd_file, prd_dir)
 
-    with patch("nelson.prd_orchestrator.ensure_branch_for_task") as mock_branch, \
+    with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
          patch("nelson.prd_orchestrator.subprocess.run") as mock_run:
 
         mock_branch.return_value = "feature/PRD-001-first-task"
@@ -2140,7 +2140,7 @@ def test_concurrent_backup_file_creation(tmp_path: Path):
     orchestrator1 = PRDOrchestrator(prd_file, prd_dir)
     orchestrator2 = PRDOrchestrator(prd_file, prd_dir)
 
-    with patch("nelson.prd_orchestrator.ensure_branch_for_task") as mock_branch, \
+    with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
          patch("nelson.prd_orchestrator.subprocess.run"):
 
         mock_branch.return_value = "feature/PRD-001-first-task"
@@ -2227,7 +2227,7 @@ def test_concurrent_branch_creation_same_task(tmp_path: Path):
     prd_dir = tmp_path / ".nelson/prd"
 
 
-    with patch("nelson.prd_orchestrator.ensure_branch_for_task") as mock_ensure_branch, \
+    with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_ensure_branch, \
          patch("nelson.prd_orchestrator.subprocess.run") as mock_run:
 
         # First call succeeds
@@ -2269,7 +2269,7 @@ def test_concurrent_execution_with_failures(tmp_path: Path):
 
     prd_dir = tmp_path / ".nelson/prd"
 
-    with patch("nelson.prd_orchestrator.ensure_branch_for_task") as mock_branch, \
+    with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
          patch("nelson.prd_orchestrator.subprocess.run") as mock_run:
 
         mock_branch.return_value = "feature/PRD-001-first-task"
@@ -2316,7 +2316,7 @@ def test_resume_context_prepending_format(tmp_path: Path):
 
     prd_dir = tmp_path / ".nelson/prd"
 
-    with patch("nelson.prd_orchestrator.ensure_branch_for_task") as mock_branch, \
+    with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
          patch("nelson.prd_orchestrator.subprocess.run") as mock_run:
 
         mock_branch.return_value = "feature/PRD-001-test"
@@ -2357,7 +2357,7 @@ def test_resume_context_prepending_order(tmp_path: Path):
 
     prd_dir = tmp_path / ".nelson/prd"
 
-    with patch("nelson.prd_orchestrator.ensure_branch_for_task") as mock_branch, \
+    with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
          patch("nelson.prd_orchestrator.subprocess.run") as mock_run:
 
         mock_branch.return_value = "feature/PRD-001-test"
@@ -2399,7 +2399,7 @@ def test_resume_context_with_custom_prompt(tmp_path: Path):
 
     prd_dir = tmp_path / ".nelson/prd"
 
-    with patch("nelson.prd_orchestrator.ensure_branch_for_task") as mock_branch, \
+    with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
          patch("nelson.prd_orchestrator.subprocess.run") as mock_run:
 
         mock_branch.return_value = "feature/PRD-001-test"
@@ -2442,7 +2442,7 @@ def test_no_resume_context_prepending_when_none(tmp_path: Path):
 
     prd_dir = tmp_path / ".nelson/prd"
 
-    with patch("nelson.prd_orchestrator.ensure_branch_for_task") as mock_branch, \
+    with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
          patch("nelson.prd_orchestrator.subprocess.run") as mock_run:
 
         mock_branch.return_value = "feature/PRD-001-test"
@@ -2473,7 +2473,7 @@ def test_resume_context_with_special_characters(tmp_path: Path):
 
     prd_dir = tmp_path / ".nelson/prd"
 
-    with patch("nelson.prd_orchestrator.ensure_branch_for_task") as mock_branch, \
+    with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
          patch("nelson.prd_orchestrator.subprocess.run") as mock_run:
 
         mock_branch.return_value = "feature/PRD-001-test"
@@ -2517,7 +2517,7 @@ def test_resume_context_with_long_text(tmp_path: Path):
 
     prd_dir = tmp_path / ".nelson/prd"
 
-    with patch("nelson.prd_orchestrator.ensure_branch_for_task") as mock_branch, \
+    with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
          patch("nelson.prd_orchestrator.subprocess.run") as mock_run:
 
         mock_branch.return_value = "feature/PRD-001-test"
@@ -2557,7 +2557,7 @@ def test_resume_context_with_long_text(tmp_path: Path):
 
 
 @patch("nelson.prd_orchestrator.Path")
-@patch("nelson.prd_orchestrator.ensure_branch_for_task")
+@patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
 @patch("nelson.prd_orchestrator.subprocess.run")
 @patch("nelson.prd_orchestrator.NelsonState.load")
 def test_cost_accumulation_across_multiple_runs(

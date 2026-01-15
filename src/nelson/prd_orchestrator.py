@@ -7,6 +7,7 @@ execution, branch management, cost tracking, and state transitions.
 
 import json
 import subprocess
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -56,7 +57,10 @@ class PRDOrchestrator:
         """
         self.prd_file = prd_file
         self.target_path = target_path
-        self.prd_dir = prd_dir or Path(".nelson/prd")
+
+        # PRD directory should be relative to target path, not CWD
+        target = Path(target_path) if target_path else Path(".")
+        self.prd_dir = prd_dir or (target / ".nelson/prd")
 
         # Initialize state manager
         self.state_manager = PRDStateManager(self.prd_dir, str(prd_file))
@@ -255,6 +259,58 @@ Please analyze this task, create the appropriate git branch, and return the JSON
                     f"Failed to setup branch and no current branch exists: {e}"
                 )
 
+    def _find_actual_nelson_run(self, expected_time: str) -> str | None:
+        """Find the actual Nelson run directory created around the expected time.
+
+        Nelson generates its own run_id when it starts, which may differ from
+        the run_id PRD generates. This function finds the actual run directory
+        by looking for the most recent run created around the expected time.
+
+        Args:
+            expected_time: Expected run_id timestamp (format: nelson-YYYYMMDD-HHMMSS)
+
+        Returns:
+            Actual run_id (without nelson- prefix) or None if not found
+        """
+        base_path = self.target_path if self.target_path else Path(".")
+        runs_dir = base_path / ".nelson" / "runs"
+
+        if not runs_dir.exists():
+            return None
+
+        # Parse expected timestamp
+        try:
+            expected_dt = datetime.strptime(
+                expected_time.replace("nelson-", ""), "%Y%m%d-%H%M%S"
+            )
+        except ValueError:
+            return None
+
+        # Find runs within 5 minutes of expected time
+        matching_runs = []
+        for run_dir in runs_dir.iterdir():
+            if not run_dir.is_dir() or not run_dir.name.startswith("nelson-"):
+                continue
+
+            try:
+                run_dt = datetime.strptime(
+                    run_dir.name.replace("nelson-", ""), "%Y%m%d-%H%M%S"
+                )
+                time_diff = abs((run_dt - expected_dt).total_seconds())
+
+                # Within 5 minutes (300 seconds)
+                if time_diff <= 300:
+                    matching_runs.append((run_dir.name, time_diff))
+            except ValueError:
+                continue
+
+        # Return closest match
+        if matching_runs:
+            closest = min(matching_runs, key=lambda x: x[1])
+            return closest[0]
+
+        return None
+
     def get_next_pending_task(self) -> tuple[str, str, str] | None:
         """Get next pending task by priority.
 
@@ -403,20 +459,33 @@ Please analyze this task, create the appropriate git branch, and return the JSON
         # Update task state based on result
         if success:
             # Try to read Nelson state for cost/iteration info
-            # Nelson state is relative to target repository
-            base_path = self.target_path if self.target_path else Path(".")
-            nelson_state_path = base_path / ".nelson" / "runs" / run_id / "state.json"
-            if nelson_state_path.exists():
-                try:
-                    nelson_state = NelsonState.load(nelson_state_path)
-                    task_state.update_cost(nelson_state.cost_usd)
-                    task_state.increment_iterations(nelson_state.total_iterations)
-                    if nelson_state.current_phase:
-                        task_state.update_phase(
-                            nelson_state.current_phase, nelson_state.phase_name
-                        )
-                except Exception as e:
-                    print(f"Warning: Could not read Nelson state: {e}")
+            # Nelson generates its own run_id, so find the actual run directory
+            actual_run_id = self._find_actual_nelson_run(run_id)
+
+            if actual_run_id:
+                # Update task state with actual run_id
+                task_state.nelson_run_id = actual_run_id
+                logger.info(f"Found actual Nelson run: {actual_run_id}")
+
+                # Nelson state is relative to target repository
+                base_path = self.target_path if self.target_path else Path(".")
+                nelson_state_path = base_path / ".nelson" / "runs" / actual_run_id / "state.json"
+
+                if nelson_state_path.exists():
+                    try:
+                        nelson_state = NelsonState.load(nelson_state_path)
+                        task_state.update_cost(nelson_state.cost_usd)
+                        task_state.increment_iterations(nelson_state.total_iterations)
+                        if nelson_state.current_phase:
+                            task_state.update_phase(
+                                nelson_state.current_phase, nelson_state.phase_name
+                            )
+                    except Exception as e:
+                        print(f"Warning: Could not read Nelson state: {e}")
+                else:
+                    print(f"Warning: Nelson state file not found at {nelson_state_path}")
+            else:
+                print(f"Warning: Could not find actual Nelson run directory near {run_id}")
 
             # Mark as completed
             task_state.complete()
@@ -439,6 +508,28 @@ Please analyze this task, create the appropriate git branch, and return the JSON
                 print(f"   Final phase: {task_state.phase_name}")
             print(f"{'='*60}\n")
         else:
+            # Try to find actual run directory even on failure to extract partial state
+            actual_run_id = self._find_actual_nelson_run(run_id)
+
+            if actual_run_id:
+                task_state.nelson_run_id = actual_run_id
+                logger.info(f"Found actual Nelson run (failed): {actual_run_id}")
+
+                base_path = self.target_path if self.target_path else Path(".")
+                nelson_state_path = base_path / ".nelson" / "runs" / actual_run_id / "state.json"
+
+                if nelson_state_path.exists():
+                    try:
+                        nelson_state = NelsonState.load(nelson_state_path)
+                        task_state.update_cost(nelson_state.cost_usd)
+                        task_state.increment_iterations(nelson_state.total_iterations)
+                        if nelson_state.current_phase:
+                            task_state.update_phase(
+                                nelson_state.current_phase, nelson_state.phase_name
+                            )
+                    except Exception as e:
+                        print(f"Warning: Could not read Nelson state from failed run: {e}")
+
             # Mark as failed
             task_state.fail()
             self.state_manager.save_task_state(task_state)

@@ -431,8 +431,10 @@ Please analyze this task, create the appropriate git branch, and return the JSON
                 if subtask_lines:
                     task_prompt += "\n\nSubtasks to complete:\n" + "\n".join(subtask_lines)
                     task_prompt += (
-                        "\n\nIMPORTANT: You must complete ALL unchecked subtasks above. "
-                        "The task is not complete until all subtasks are done."
+                        f"\n\nIMPORTANT: You must complete ALL unchecked subtasks above. "
+                        f"When you complete each subtask, mark it as done by editing the PRD file "
+                        f"at {self.prd_file} - change '- [ ]' to '- [x]' for that subtask. "
+                        f"The task is not complete until all subtasks are marked [x] in the PRD file."
                     )
 
         # Prepend resume context if present
@@ -563,6 +565,8 @@ Original task context:
 {task_text}
 
 IMPORTANT: Complete ALL the unchecked subtasks above.
+When you complete each subtask, mark it as done by editing the PRD file at {self.prd_file} - change '- [ ]' to '- [x]' for that subtask.
+The task is not complete until all subtasks are marked [x] in the PRD file.
 """
 
                 # Build args for retry
@@ -574,7 +578,8 @@ IMPORTANT: Complete ALL the unchecked subtasks above.
 
                 try:
                     exit_code = nelson_main(retry_args, standalone_mode=False)
-                    if exit_code != 0:
+                    # Click returns None on success when standalone_mode=False
+                    if exit_code is not None and exit_code != 0:
                         print(f"Subtask retry {subtask_retry_count} exited with code {exit_code}")
                 except KeyboardInterrupt:
                     raise

@@ -313,9 +313,9 @@ class WorkflowOrchestrator:
                         )
                         logger.info(f"Starting cycle {new_cycle + 1} - returning to Phase 1 (PLAN)")
 
-                        # Archive the old plan.md
+                        # Archive the old plan.md (use 1-indexed to match plan content)
                         if self.plan_file.exists():
-                            archived_plan = self.run_dir / f"plan-cycle-{new_cycle - 1}.md"
+                            archived_plan = self.run_dir / f"plan-cycle-{new_cycle}.md"
                             logger.info(f"Archiving plan to: {archived_plan.name}")
                             self.plan_file.rename(archived_plan)
 
@@ -344,9 +344,9 @@ class WorkflowOrchestrator:
                     logger.success(f"Cycle {new_cycle} complete - Phase 6 (COMMIT) finished")
                     logger.info(f"Starting cycle {new_cycle + 1} - returning to Phase 1 (PLAN)")
 
-                    # Archive the old plan.md (makes next cycle stateless)
+                    # Archive the old plan.md (use 1-indexed to match plan content)
                     if self.plan_file.exists():
-                        archived_plan = self.run_dir / f"plan-cycle-{new_cycle - 1}.md"
+                        archived_plan = self.run_dir / f"plan-cycle-{new_cycle}.md"
                         logger.info(f"Archiving plan to: {archived_plan.name}")
                         self.plan_file.rename(archived_plan)
 

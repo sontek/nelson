@@ -739,11 +739,11 @@ class TestCycleLoopBehavior:
         # Verify we're back in Phase 1 after cycle 1 completed
         assert orchestrator.state.current_phase == Phase.PLAN.value
 
-        # Verify plan was archived for cycle 0
-        archived_plan_0 = mock_run_dir / "plan-cycle-0.md"
-        assert archived_plan_0.exists()
+        # Verify plan was archived for cycle 1 (1-indexed to match plan content)
+        archived_plan_1 = mock_run_dir / "plan-cycle-1.md"
+        assert archived_plan_1.exists()
 
-        # Note: plan-cycle-1.md doesn't exist because Phase 1 of cycle 1 returned
+        # Note: plan-cycle-2.md doesn't exist because Phase 1 of cycle 2 returned
         # EXIT_SIGNAL immediately without creating a new plan file
 
     def test_exit_signal_in_phase_1_stops_workflow(
@@ -925,11 +925,11 @@ class TestCycleLoopBehavior:
         # Verify cycle counter reached 2 (natural cycle completion + early-exit)
         assert orchestrator.state.cycle_iterations == 2
 
-        # Verify plan was archived for cycle 0 (natural completion)
-        archived_plan_0 = mock_run_dir / "plan-cycle-0.md"
-        assert archived_plan_0.exists()
+        # Verify plan was archived for cycle 1 (1-indexed to match plan content)
+        archived_plan_1 = mock_run_dir / "plan-cycle-1.md"
+        assert archived_plan_1.exists()
 
-        # Note: plan-cycle-1.md doesn't exist because Phase 1 of cycle 1 didn't
+        # Note: plan-cycle-2.md doesn't exist because Phase 1 of cycle 2 didn't
         # create a new plan file before early-exit optimization triggered
 
     def test_max_iterations_limits_complete_cycles_not_phase_executions(
@@ -1108,11 +1108,11 @@ class TestCycleLoopBehavior:
         # Verify multiple provider calls happened (all 6 phases × 2 cycles minus last phases)
         assert mock_provider.execute.call_count >= 10
 
-        # Verify plan was archived for cycle 0
-        archived_plan_0 = mock_run_dir / "plan-cycle-0.md"
-        assert archived_plan_0.exists(), "Plan should be archived after cycle 0"
+        # Verify plan was archived for cycle 1 (1-indexed to match plan content)
+        archived_plan_1 = mock_run_dir / "plan-cycle-1.md"
+        assert archived_plan_1.exists(), "Plan should be archived after cycle 1"
 
-        # Note: plan-cycle-1.md doesn't exist because Phase 1 of cycle 1 returned
+        # Note: plan-cycle-2.md doesn't exist because Phase 1 of cycle 2 returned
         # EXIT_SIGNAL immediately without creating a new plan file
 
 

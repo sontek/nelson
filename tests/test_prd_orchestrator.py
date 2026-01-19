@@ -226,6 +226,41 @@ def test_execute_task_success(
 
 
 @patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
+def test_execute_task_success_when_nelson_returns_none(
+    mock_ensure_branch: Mock,
+    orchestrator: PRDOrchestrator,
+    tmp_path: Path,
+    mock_cli_runner,
+):
+    """Test that task succeeds when nelson_main returns None.
+
+    Click returns None (not 0) on successful completion when standalone_mode=False.
+    This test ensures we handle that correctly.
+    """
+    # Setup mocks
+    mock_ensure_branch.return_value = {"branch": "feature/PRD-001", "base_branch": "main", "reason": "test"}
+    # Click returns None on success with standalone_mode=False
+    mock_cli_runner.return_value = None
+
+    # Execute task
+    success = orchestrator.execute_task("PRD-001", "Implement user authentication", "high")
+
+    # Verify success - this is the bug: None should be treated as success
+    assert success is True, "Task should succeed when nelson_main returns None (Click's success value)"
+
+    # Verify task state was saved as completed
+    task_state = orchestrator.state_manager.load_task_state(
+        "PRD-001", "Implement user authentication", "high"
+    )
+    assert task_state.status.value == "completed"
+
+    # Verify PRD file was updated
+    updated_tasks = orchestrator.parser.parse()
+    task = next(t for t in updated_tasks if t.task_id == "PRD-001")
+    assert task.status == PRDTaskStatus.COMPLETED
+
+
+@patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
 def test_execute_task_failure(
     mock_ensure_branch: Mock,
     orchestrator: PRDOrchestrator,
@@ -1014,7 +1049,7 @@ def test_resume_task(mock_execute: Mock, tmp_path: Path):
 
     # Verify execute_task was called
     mock_execute.assert_called_once_with(
-        "PRD-001", "Implement auth", "high", nelson_args=None
+        "PRD-001", "Implement auth", "high", nelson_args=None, no_branch_setup=False
     )
 
     # Verify task was updated to pending in PRD file before execution

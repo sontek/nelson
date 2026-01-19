@@ -12,6 +12,8 @@ class TestCircuitBreakerResult:
         assert CircuitBreakerResult.OK.value == "ok"
         assert CircuitBreakerResult.EXIT_SIGNAL.value == "exit"
         assert CircuitBreakerResult.TRIGGERED.value == "triggered"
+        assert CircuitBreakerResult.BLOCKED.value == "blocked"
+        assert CircuitBreakerResult.COMPLETE.value == "complete"
 
 
 class TestCircuitBreakerExitSignal:
@@ -325,7 +327,7 @@ class TestCircuitBreakerRepeatedErrors:
                 tasks_completed=0,
                 files_modified=0,
                 work_type="IMPLEMENTATION",
-                status="BLOCKED",
+                status="IN_PROGRESS",
                 recommendation=error_msg,
             )
 
@@ -343,7 +345,7 @@ class TestCircuitBreakerRepeatedErrors:
             tasks_completed=0,
             files_modified=0,
             work_type="IMPLEMENTATION",
-            status="BLOCKED",
+            status="IN_PROGRESS",
             recommendation="Import error",
         )
 
@@ -355,7 +357,7 @@ class TestCircuitBreakerRepeatedErrors:
             tasks_completed=0,
             files_modified=0,
             work_type="IMPLEMENTATION",
-            status="BLOCKED",
+            status="IN_PROGRESS",
             recommendation="Syntax error",
         )
 
@@ -374,7 +376,7 @@ class TestCircuitBreakerRepeatedErrors:
                 tasks_completed=0,
                 files_modified=0,
                 work_type="IMPLEMENTATION",
-                status="BLOCKED",
+                status="IN_PROGRESS",
                 recommendation="Import error",
             )
 
@@ -410,8 +412,12 @@ class TestCircuitBreakerRepeatedErrors:
         assert result == CircuitBreakerResult.OK
         assert state.repeated_error_count == 1
 
-    def test_blocked_status_triggers_error_tracking(self) -> None:
-        """Test that BLOCKED status triggers error tracking."""
+    def test_blocked_status_triggers_blocked_tracking(self) -> None:
+        """Test that BLOCKED status triggers blocked iteration tracking.
+
+        BLOCKED status is now tracked separately from errors, as it represents
+        a task waiting on external dependencies (not an error condition).
+        """
         state = NelsonState()
         breaker = CircuitBreaker(state)
 
@@ -425,7 +431,27 @@ class TestCircuitBreakerRepeatedErrors:
         )
 
         assert result == CircuitBreakerResult.OK
-        assert state.repeated_error_count == 1
+        assert state.blocked_iterations == 1
+        # BLOCKED status should NOT trigger error tracking
+        assert state.repeated_error_count == 0
+
+    def test_blocked_status_returns_blocked_after_three_iterations(self) -> None:
+        """Test that three consecutive BLOCKED iterations return BLOCKED result."""
+        state = NelsonState()
+        breaker = CircuitBreaker(state)
+
+        for _ in range(3):
+            result = breaker.check(
+                exit_signal=False,
+                tasks_completed=0,
+                files_modified=0,
+                work_type="IMPLEMENTATION",
+                status="BLOCKED",
+                recommendation="Waiting for AWS credentials",
+            )
+
+        assert result == CircuitBreakerResult.BLOCKED
+        assert state.blocked_iterations == 3
 
 
 class TestCircuitBreakerGetTriggerReason:
@@ -476,8 +502,28 @@ class TestCircuitBreakerGetTriggerReason:
         state = NelsonState()
         breaker = CircuitBreaker(state)
 
-        # Trigger repeated errors
-        error_msg = "Import error"
+        # Trigger repeated errors (use error in recommendation, not BLOCKED status)
+        error_msg = "Import error encountered"
+        for _ in range(3):
+            breaker.check(
+                exit_signal=False,
+                tasks_completed=0,
+                files_modified=0,
+                work_type="IMPLEMENTATION",
+                status="IN_PROGRESS",
+                recommendation=error_msg,
+            )
+
+        reason = breaker.get_trigger_reason()
+        assert "Repeated error detected" in reason
+        assert "3 times" in reason
+
+    def test_blocked_reason(self) -> None:
+        """Test reason string for blocked status trigger."""
+        state = NelsonState()
+        breaker = CircuitBreaker(state)
+
+        # Trigger blocked status
         for _ in range(3):
             breaker.check(
                 exit_signal=False,
@@ -485,12 +531,12 @@ class TestCircuitBreakerGetTriggerReason:
                 files_modified=0,
                 work_type="IMPLEMENTATION",
                 status="BLOCKED",
-                recommendation=error_msg,
+                recommendation="Waiting for credentials",
             )
 
         reason = breaker.get_trigger_reason()
-        assert "Repeated error detected" in reason
-        assert "3 times" in reason
+        assert "blocked" in reason.lower()
+        assert "3" in reason
 
     def test_no_trigger_reason(self) -> None:
         """Test reason string when no trigger has occurred."""

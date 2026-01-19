@@ -23,6 +23,8 @@ class CircuitBreakerResult(Enum):
     OK = "ok"  # No issues, continue
     EXIT_SIGNAL = "exit"  # EXIT_SIGNAL=true from status block
     TRIGGERED = "triggered"  # Circuit breaker activated
+    BLOCKED = "blocked"  # Task blocked on external dependency
+    COMPLETE = "complete"  # All tasks complete, no more work to do
 
 
 class CircuitBreaker:
@@ -72,10 +74,17 @@ class CircuitBreaker:
             self.state.no_progress_iterations = 0
             self.state.last_error_message = ""
             self.state.repeated_error_count = 0
+            self.state.blocked_iterations = 0
             return CircuitBreakerResult.EXIT_SIGNAL
 
         # Update state tracking for all circuit breaker conditions
         # This must happen before checks so counters are accurate
+
+        # Track blocked status (task waiting on external dependency)
+        if "blocked" in status.lower():
+            self.state.blocked_iterations += 1
+        else:
+            self.state.blocked_iterations = 0
 
         # Track test-only loops (3+ consecutive TESTING with no file changes)
         if work_type == "TESTING" and files_modified == 0:
@@ -84,7 +93,8 @@ class CircuitBreaker:
             self.state.test_only_loop_count = 0
 
         # Track repeated errors (same pattern 3+ times)
-        if "error" in recommendation.lower() or "blocked" in status.lower():
+        # Note: Don't treat BLOCKED as an error - it's a separate condition
+        if "error" in recommendation.lower():
             self.state.record_error(recommendation)
         else:
             # Clear error tracking if no error this iteration
@@ -100,7 +110,13 @@ class CircuitBreaker:
             self.state.no_progress_iterations = 0
 
         # Now check circuit breaker conditions in priority order
-        # Check test-only loops first (most specific)
+
+        # Check blocked status first (external dependency - exit gracefully)
+        # This is NOT a failure - the task needs external intervention
+        if self.state.blocked_iterations >= 3:
+            return CircuitBreakerResult.BLOCKED
+
+        # Check test-only loops (most specific failure condition)
         if self.state.test_only_loop_count >= 3:
             return CircuitBreakerResult.TRIGGERED
 
@@ -109,6 +125,7 @@ class CircuitBreaker:
             return CircuitBreakerResult.TRIGGERED
 
         # Check no progress last (least specific)
+        # Note: This may be overridden by workflow if all tasks are complete
         if self.state.no_progress_iterations >= 3:
             return CircuitBreakerResult.TRIGGERED
 
@@ -122,7 +139,12 @@ class CircuitBreaker:
             Description of why circuit breaker was triggered
         """
         # Check in same priority order as check() method
-        if self.state.test_only_loop_count >= 3:
+        if self.state.blocked_iterations >= 3:
+            return (
+                f"Task blocked on external dependency "
+                f"({self.state.blocked_iterations} consecutive BLOCKED iterations)"
+            )
+        elif self.state.test_only_loop_count >= 3:
             return (
                 f"Test-only loop detected ({self.state.test_only_loop_count} iterations "
                 "of TESTING with no file changes)"

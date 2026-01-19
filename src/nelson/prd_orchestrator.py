@@ -338,6 +338,7 @@ Please analyze this task, create the appropriate git branch, and return the JSON
         priority: str,
         prompt: str | None = None,
         nelson_args: list[str] | None = None,
+        no_branch_setup: bool = False,
     ) -> bool:
         """Execute a single task with Nelson.
 
@@ -347,6 +348,7 @@ Please analyze this task, create the appropriate git branch, and return the JSON
             priority: Task priority
             prompt: Optional custom prompt (defaults to task_text)
             nelson_args: Additional Nelson CLI arguments
+            no_branch_setup: Skip automatic branch creation and use current branch
 
         Returns:
             True if task succeeded, False if failed
@@ -354,28 +356,42 @@ Please analyze this task, create the appropriate git branch, and return the JSON
         # Load or create task state
         task_state = self.state_manager.load_task_state(task_id, task_text, priority)
 
-        # Setup branch BEFORE starting Nelson
-        print("\n🌿 Setting up git branch for task...")
-        try:
-            branch_info = self._setup_branch_for_task(task_id, task_text)
-            branch_name = branch_info["branch"]
-            base_branch = branch_info.get("base_branch")
-            branch_reason = branch_info.get("reason")
+        # Setup branch BEFORE starting Nelson (unless --no-branch-setup)
+        if no_branch_setup:
+            # Skip branch creation, use current branch
+            current_branch = get_current_branch(self.target_path)
+            if not current_branch:
+                print("   ❌ No current branch found")
+                task_state.block("No current branch found and --no-branch-setup specified")
+                self.state_manager.save_task_state(task_state)
+                return False
 
-            print(f"   Branch: {branch_name}")
-            if base_branch:
-                print(f"   Based on: {base_branch}")
-            if branch_reason:
-                print(f"   Reason: {branch_reason}")
-        except Exception as e:
-            print(f"   ❌ Branch setup failed: {e}")
-            # Mark task as blocked
-            self.parser.update_task_status(
-                task_id, PRDTaskStatus.BLOCKED, f"Branch setup failed: {e}"
-            )
-            task_state.block(f"Branch setup failed: {e}")
-            self.state_manager.save_task_state(task_state)
-            return False
+            print(f"\n🌿 Using current branch (--no-branch-setup): {current_branch}")
+            branch_name = current_branch
+            base_branch = None
+            branch_reason = "Using current branch (--no-branch-setup)"
+        else:
+            print("\n🌿 Setting up git branch for task...")
+            try:
+                branch_info = self._setup_branch_for_task(task_id, task_text)
+                branch_name = branch_info["branch"]
+                base_branch = branch_info.get("base_branch")
+                branch_reason = branch_info.get("reason")
+
+                print(f"   Branch: {branch_name}")
+                if base_branch:
+                    print(f"   Based on: {base_branch}")
+                if branch_reason:
+                    print(f"   Reason: {branch_reason}")
+            except Exception as e:
+                print(f"   ❌ Branch setup failed: {e}")
+                # Mark task as blocked
+                self.parser.update_task_status(
+                    task_id, PRDTaskStatus.BLOCKED, f"Branch setup failed: {e}"
+                )
+                task_state.block(f"Branch setup failed: {e}")
+                self.state_manager.save_task_state(task_state)
+                return False
 
         # Generate Nelson run ID
         from datetime import UTC, datetime
@@ -398,13 +414,26 @@ Please analyze this task, create the appropriate git branch, and return the JSON
         if prompt:
             task_prompt = prompt
         else:
-            # Get the task to access full_description
+            # Get the task to access full_description and subtasks
             task = self.parser.get_task_by_id(task_id)
             if task and task.full_description:
                 # Combine first line with full description for complete context
                 task_prompt = f"{task_text}\n\n{task.full_description}"
             else:
                 task_prompt = task_text
+
+            # Include subtasks in the prompt so Nelson knows about them
+            if task and task.subtasks:
+                subtask_lines = []
+                for st in task.subtasks:
+                    checkbox = "[x]" if st.completed else "[ ]"
+                    subtask_lines.append(f"- {checkbox} {st.text}")
+                if subtask_lines:
+                    task_prompt += "\n\nSubtasks to complete:\n" + "\n".join(subtask_lines)
+                    task_prompt += (
+                        "\n\nIMPORTANT: You must complete ALL unchecked subtasks above. "
+                        "The task is not complete until all subtasks are done."
+                    )
 
         # Prepend resume context if present
         if task_state.resume_context:
@@ -432,9 +461,10 @@ Please analyze this task, create the appropriate git branch, and return the JSON
         try:
             # Run Nelson directly (in-process, no subprocess)
             # standalone_mode=False prevents Click from calling sys.exit()
-            # and instead returns the exit code
+            # and instead returns the exit code (None on success, int on error)
             exit_code = nelson_main(args, standalone_mode=False)
-            success = exit_code == 0
+            # Click returns None on success when standalone_mode=False
+            success = exit_code is None or exit_code == 0
 
             # Provide specific feedback for non-zero exit codes
             if not success:
@@ -483,14 +513,93 @@ Please analyze this task, create the appropriate git branch, and return the JSON
             else:
                 print(f"Warning: Could not find actual Nelson run directory near {run_id}")
 
-            # Check if task has incomplete subtasks before marking complete
+            # Check if task has incomplete subtasks - retry up to 2 more times
+            # Re-parse to get fresh subtask status (Nelson may have updated the PRD file)
+            self.tasks = self.parser.parse()
             task = self.parser.get_task_by_id(task_id)
+
+            max_subtask_retries = 2
+            subtask_retry_count = 0
+
+            while (
+                task
+                and task.has_incomplete_subtasks()
+                and subtask_retry_count < max_subtask_retries
+            ):
+                completed, total = task.get_subtask_completion_count()
+                subtask_retry_count += 1
+
+                # Build list of remaining subtasks
+                remaining_subtasks = [
+                    st.text for st in task.subtasks if not st.completed
+                ]
+
+                print(f"\n{'='*60}")
+                print(f"🔄 Task {task_id} has incomplete subtasks ({completed}/{total} done)")
+                print(
+                    f"   Retry {subtask_retry_count}/{max_subtask_retries}: "
+                    "Re-running Nelson to complete remaining subtasks"
+                )
+                print(f"   Remaining: {remaining_subtasks}")
+                print(f"{'='*60}\n")
+
+                # Build focused prompt for remaining subtasks
+                retry_prompt = f"""CONTINUATION: You previously worked on task {task_id}.
+
+You are on branch: {branch_name}
+Previous work has been done. DO NOT start over or create new branches.
+
+The following subtasks are still incomplete and MUST be completed:
+"""
+                for st in task.subtasks:
+                    if not st.completed:
+                        retry_prompt += f"\n- [ ] {st.text}"
+                        if st.description:
+                            retry_prompt += f"\n      {st.description}"
+
+                retry_prompt += f"""
+
+Original task context:
+{task_text}
+
+IMPORTANT: Complete ALL the unchecked subtasks above.
+"""
+
+                # Build args for retry
+                retry_args = [retry_prompt]
+                if self.target_path:
+                    retry_args.append(str(self.target_path))
+                if nelson_args:
+                    retry_args.extend(nelson_args)
+
+                try:
+                    exit_code = nelson_main(retry_args, standalone_mode=False)
+                    if exit_code != 0:
+                        print(f"Subtask retry {subtask_retry_count} exited with code {exit_code}")
+                except KeyboardInterrupt:
+                    raise
+                except Exception as e:
+                    print(f"Error during subtask retry: {e}")
+
+                # Re-parse to check subtask status
+                self.tasks = self.parser.parse()
+                task = self.parser.get_task_by_id(task_id)
+
+            # After retries, check if subtasks are still incomplete
             if task and task.has_incomplete_subtasks():
                 completed, total = task.get_subtask_completion_count()
+                remaining_subtasks = [
+                    st.text for st in task.subtasks if not st.completed
+                ]
+
                 print(f"\n{'='*60}")
-                print(f"⚠️  Task {task_id} has incomplete subtasks ({completed}/{total} done)")
-                print(f"   Cannot mark task as complete until all subtasks are finished.")
-                print(f"   Please check off remaining subtasks in the PRD file.")
+                print(
+                    f"⚠️  Task {task_id} still has incomplete subtasks "
+                    f"after {max_subtask_retries} retries"
+                )
+                print(f"   Completed: {completed}/{total}")
+                print(f"   Remaining: {remaining_subtasks}")
+                print("   Marking as in-progress for manual review.")
                 print(f"{'='*60}\n")
 
                 # Mark as blocked instead with reason
@@ -499,7 +608,8 @@ Please analyze this task, create the appropriate git branch, and return the JSON
                 self.parser.update_task_status(
                     task_id,
                     PRDTaskStatus.BLOCKED,
-                    f"Incomplete subtasks: {completed}/{total} done"
+                    f"Incomplete subtasks after {max_subtask_retries} retries: "
+                    f"{completed}/{total} done",
                 )
                 return False
 
@@ -559,13 +669,17 @@ Please analyze this task, create the appropriate git branch, and return the JSON
         return success
 
     def execute_all_pending(
-        self, nelson_args: list[str] | None = None, stop_on_failure: bool = False
+        self,
+        nelson_args: list[str] | None = None,
+        stop_on_failure: bool = False,
+        no_branch_setup: bool = False,
     ) -> dict[str, bool]:
         """Execute all pending tasks in priority order.
 
         Args:
             nelson_args: Additional Nelson CLI arguments
             stop_on_failure: If True, stop execution on first failure
+            no_branch_setup: Skip automatic branch creation and use current branch
 
         Returns:
             Dictionary mapping task_id to success status
@@ -612,7 +726,11 @@ Please analyze this task, create the appropriate git branch, and return the JSON
 
                 # Execute task
                 success = self.execute_task(
-                    task_id, task_text, priority, nelson_args=nelson_args
+                    task_id,
+                    task_text,
+                    priority,
+                    nelson_args=nelson_args,
+                    no_branch_setup=no_branch_setup,
                 )
                 results[task_id] = success
 
@@ -639,13 +757,17 @@ Please analyze this task, create the appropriate git branch, and return the JSON
         return results
 
     def resume_task(
-        self, task_id: str, nelson_args: list[str] | None = None
+        self,
+        task_id: str,
+        nelson_args: list[str] | None = None,
+        no_branch_setup: bool = False,
     ) -> bool:
         """Resume a specific task (typically after unblocking).
 
         Args:
             task_id: Task ID to resume
             nelson_args: Additional Nelson CLI arguments
+            no_branch_setup: Skip automatic branch creation and use current branch
 
         Returns:
             True if task succeeded, False if failed
@@ -687,7 +809,11 @@ Please analyze this task, create the appropriate git branch, and return the JSON
 
         # Execute task
         return self.execute_task(
-            task_id, task.task_text, task.priority, nelson_args=nelson_args
+            task_id,
+            task.task_text,
+            task.priority,
+            nelson_args=nelson_args,
+            no_branch_setup=no_branch_setup,
         )
 
     def block_task(self, task_id: str, reason: str) -> bool:

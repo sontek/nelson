@@ -129,6 +129,33 @@ class TestWorkflowOrchestratorInitialization:
         assert orchestrator.decisions_file == mock_run_dir / "decisions.md"
         assert orchestrator.last_output_file == mock_run_dir / "last_output.txt"
 
+    def test_state_file_uses_run_dir_not_nelson_dir(
+        self,
+        mock_config: NelsonConfig,
+        mock_state: NelsonState,
+        mock_provider: MagicMock,
+        mock_run_dir: Path,
+    ) -> None:
+        """Regression test: state_file must be in run_dir, not nelson_dir.
+
+        This test ensures state.json is saved to the run-specific directory
+        (.nelson/runs/nelson-{timestamp}/state.json) and NOT to the top-level
+        .nelson/state.json. The PRD orchestrator reads from run_dir, so saving
+        to nelson_dir causes state to appear stale/out-of-sync.
+        """
+        orchestrator = WorkflowOrchestrator(
+            config=mock_config,
+            state=mock_state,
+            provider=mock_provider,
+            run_dir=mock_run_dir,
+        )
+
+        # state_file MUST be in run_dir
+        assert orchestrator.state_file == mock_run_dir / "state.json"
+
+        # state_file must NOT be in nelson_dir (this was the bug)
+        assert orchestrator.state_file != mock_config.nelson_dir / "state.json"
+
 
 class TestLimitChecking:
     """Tests for limit checking."""
@@ -279,7 +306,12 @@ class TestCircuitBreaker:
         assert result == CircuitBreakerResult.EXIT_SIGNAL
 
     def test_circuit_breaker_no_progress(self, orchestrator: WorkflowOrchestrator) -> None:
-        """Test circuit breaker detects no progress."""
+        """Test circuit breaker detects no progress when tasks remain."""
+        # Create plan file with unchecked tasks so circuit breaker triggers
+        orchestrator.plan_file.write_text(
+            "# Plan\n## Phase 2: IMPLEMENT\n- [ ] Task 1\n- [ ] Task 2"
+        )
+
         status_block = {
             "exit_signal": False,
             "tasks_completed": 0,
@@ -293,8 +325,35 @@ class TestCircuitBreaker:
 
         assert result == CircuitBreakerResult.TRIGGERED
 
+    def test_circuit_breaker_no_progress_complete_when_all_done(
+        self, orchestrator: WorkflowOrchestrator
+    ) -> None:
+        """Test circuit breaker returns COMPLETE when no progress but all tasks done."""
+        # Create plan file with ALL tasks checked off
+        orchestrator.plan_file.write_text(
+            "# Plan\n## Phase 2: IMPLEMENT\n- [x] Task 1\n- [x] Task 2"
+        )
+
+        status_block = {
+            "exit_signal": False,
+            "tasks_completed": 0,
+            "files_modified": 0,
+        }
+
+        # Trigger 3 times - should return COMPLETE instead of TRIGGERED
+        orchestrator._check_circuit_breaker(status_block)
+        orchestrator._check_circuit_breaker(status_block)
+        result = orchestrator._check_circuit_breaker(status_block)
+
+        assert result == CircuitBreakerResult.COMPLETE
+
     def test_circuit_breaker_test_only_loop(self, orchestrator: WorkflowOrchestrator) -> None:
-        """Test circuit breaker detects test-only loops."""
+        """Test circuit breaker detects test-only loops when tasks remain."""
+        # Create plan file with unchecked tasks
+        orchestrator.plan_file.write_text(
+            "# Plan\n## Phase 4: TEST\n- [ ] Run tests"
+        )
+
         status_block = {
             "exit_signal": False,
             "tasks_completed": 0,
@@ -309,13 +368,30 @@ class TestCircuitBreaker:
 
         assert result == CircuitBreakerResult.TRIGGERED
 
-    def test_circuit_breaker_repeated_error(self, orchestrator: WorkflowOrchestrator) -> None:
-        """Test circuit breaker detects repeated errors."""
+    def test_circuit_breaker_blocked_status(self, orchestrator: WorkflowOrchestrator) -> None:
+        """Test circuit breaker detects blocked status and returns BLOCKED."""
         status_block = {
             "exit_signal": False,
             "tasks_completed": 1,
             "files_modified": 1,
             "status": "BLOCKED",
+            "recommendation": "Waiting for AWS credentials",
+        }
+
+        # Trigger 3 times with BLOCKED status
+        orchestrator._check_circuit_breaker(status_block)
+        orchestrator._check_circuit_breaker(status_block)
+        result = orchestrator._check_circuit_breaker(status_block)
+
+        assert result == CircuitBreakerResult.BLOCKED
+
+    def test_circuit_breaker_repeated_error(self, orchestrator: WorkflowOrchestrator) -> None:
+        """Test circuit breaker detects repeated errors (via error in recommendation)."""
+        status_block = {
+            "exit_signal": False,
+            "tasks_completed": 1,
+            "files_modified": 1,
+            "status": "IN_PROGRESS",
             "recommendation": "Same error message",
         }
 
@@ -477,8 +553,10 @@ class TestWorkflowRun:
 
     def test_run_with_circuit_breaker_triggered(self, orchestrator: WorkflowOrchestrator) -> None:
         """Test workflow run halts when circuit breaker triggers."""
-        # Create plan file
-        orchestrator.plan_file.write_text("# Plan\n- [ ] Task 1")
+        # Create plan file with unchecked tasks in proper format
+        orchestrator.plan_file.write_text(
+            "# Plan\n## Phase 2: IMPLEMENT\n- [ ] Task 1\n- [ ] Task 2"
+        )
 
         # Mock provider to return status blocks that trigger no-progress detection
         no_progress_status = {
@@ -498,7 +576,65 @@ class TestWorkflowRun:
             orchestrator.run("Test prompt")
 
         # Verify state was saved when circuit breaker triggered
-        state_file = orchestrator.config.nelson_dir / "state.json"
+        state_file = orchestrator.state_file
+        assert state_file.exists()
+
+    def test_run_with_blocked_status_exits_gracefully(
+        self, orchestrator: WorkflowOrchestrator
+    ) -> None:
+        """Test workflow exits gracefully when task is blocked."""
+        # Create plan file with unchecked tasks
+        orchestrator.plan_file.write_text(
+            "# Plan\n## Phase 4: TEST\n- [ ] Run tests"
+        )
+
+        # Mock provider to return BLOCKED status
+        blocked_status = {
+            "status": "BLOCKED",
+            "tasks_completed": 0,
+            "files_modified": 0,
+            "tests_status": "NOT_RUN",
+            "work_type": "TESTING",
+            "exit_signal": False,
+            "recommendation": "Waiting for AWS credentials",
+        }
+
+        orchestrator.provider.extract_status_block.return_value = blocked_status
+
+        # Should NOT raise - exits gracefully
+        orchestrator.run("Test prompt")
+
+        # Verify state was saved
+        state_file = orchestrator.state_file
+        assert state_file.exists()
+
+    def test_run_with_complete_tasks_exits_gracefully(
+        self, orchestrator: WorkflowOrchestrator
+    ) -> None:
+        """Test workflow exits gracefully when all tasks are complete."""
+        # Create plan file with ALL tasks checked off
+        orchestrator.plan_file.write_text(
+            "# Plan\n## Phase 2: IMPLEMENT\n- [x] Task 1\n- [x] Task 2"
+        )
+
+        # Mock provider to return status indicating no more work
+        complete_status = {
+            "status": "COMPLETE",
+            "tasks_completed": 0,
+            "files_modified": 0,
+            "tests_status": "PASSING",
+            "work_type": "IMPLEMENTATION",
+            "exit_signal": False,
+            "recommendation": "All done",
+        }
+
+        orchestrator.provider.extract_status_block.return_value = complete_status
+
+        # Should NOT raise - exits gracefully with COMPLETE
+        orchestrator.run("Test prompt")
+
+        # Verify state was saved
+        state_file = orchestrator.state_file
         assert state_file.exists()
 
 

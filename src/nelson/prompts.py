@@ -169,6 +169,12 @@ Create a plan at {plan_file} with 6 phases:
 - Phase 5 (FINAL-REVIEW): Add task '- [ ] Final review: all changes, patterns, completeness'
 - Phase 6 (COMMIT): Add task '- [ ] Commit any remaining changes'
 
+SUBTASKS FROM PRD:
+- If the task includes "Subtasks to complete:", these are from the PRD file
+- Add these subtasks at the END of Phase 2 (after all implementation tasks)
+- This ensures implementation work happens first, then subtask checklist items are verified
+- Preserve the subtask text exactly as provided
+
 IMPORTANT - For review/audit/code-review tasks:
 - Phase 1: Review the code and identify specific issues/improvements
 - Phase 2: Create fix tasks for EACH issue found (e.g., '- [ ] Fix: SQL injection in auth.py:123')

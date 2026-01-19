@@ -37,6 +37,8 @@ class CircuitBreakerResult(Enum):
     OK = "ok"  # No issues, continue
     EXIT_SIGNAL = "exit_signal"  # Clean exit requested
     TRIGGERED = "triggered"  # Circuit breaker activated
+    BLOCKED = "blocked"  # Task blocked on external dependency
+    COMPLETE = "complete"  # All tasks complete, no more work to do
 
 
 class WorkflowOrchestrator:
@@ -79,7 +81,8 @@ class WorkflowOrchestrator:
         self.provider = provider
         self.run_dir = run_dir
 
-        # File paths
+        # File paths - all run-specific files live in run_dir
+        self.state_file = run_dir / "state.json"
         self.plan_file = run_dir / "plan.md"
         self.decisions_file = run_dir / "decisions.md"
         self.last_output_file = run_dir / "last_output.txt"
@@ -129,7 +132,7 @@ class WorkflowOrchestrator:
             # Check limits before each iteration
             if not self._check_limits():
                 # Save state before raising error
-                state_file = self.config.nelson_dir / "state.json"
+                state_file = self.state_file
                 self.state.save(state_file)
                 raise WorkflowError("Stopping due to limits")
 
@@ -198,7 +201,7 @@ class WorkflowOrchestrator:
             except ProviderError as e:
                 logger.error(f"Provider execution failed: {e.message}")
                 # Save state before raising error
-                state_file = self.config.nelson_dir / "state.json"
+                state_file = self.state_file
                 self.state.save(state_file)
                 raise WorkflowError(f"Claude execution failed: {e.message}")
 
@@ -221,6 +224,24 @@ class WorkflowOrchestrator:
                 logger.success("EXIT_SIGNAL detected - phase complete")
                 self._log_completion_status(status_block)
 
+            elif breaker_result == CircuitBreakerResult.COMPLETE:
+                # All tasks complete - graceful exit (success)
+                logger.success("All tasks complete - workflow finished successfully")
+                state_file = self.state_file
+                self.state.save(state_file)
+                break  # Exit loop gracefully
+
+            elif breaker_result == CircuitBreakerResult.BLOCKED:
+                # Task blocked on external dependency - graceful exit (not failure)
+                logger.warning("Task blocked on external dependency - halting workflow")
+                logger.info("Resolve the blocking issue and resume the task")
+                logger.info(
+                    f"Review {self.last_output_file} and {self.decisions_file} for details"
+                )
+                state_file = self.state_file
+                self.state.save(state_file)
+                break  # Exit loop gracefully (not an error)
+
             elif breaker_result == CircuitBreakerResult.TRIGGERED:
                 # Circuit breaker tripped - stagnation detected
                 logger.error("Circuit breaker triggered - halting workflow")
@@ -228,7 +249,7 @@ class WorkflowOrchestrator:
                     f"Review {self.last_output_file} and {self.decisions_file} for details"
                 )
                 # Save state before raising error
-                state_file = self.config.nelson_dir / "state.json"
+                state_file = self.state_file
                 self.state.save(state_file)
                 raise WorkflowError("Circuit breaker triggered")
 
@@ -236,7 +257,7 @@ class WorkflowOrchestrator:
             self._update_progress_metrics(status_block)
 
             # Save state after each iteration to keep state.json synchronized
-            state_file = self.config.nelson_dir / "state.json"
+            state_file = self.state_file
             self.state.save(state_file)
 
             # Check if phase transition is needed
@@ -274,7 +295,7 @@ class WorkflowOrchestrator:
                             )
                             logger.info("Task appears complete - stopping workflow")
                             # Save state and exit
-                            state_file = self.config.nelson_dir / "state.json"
+                            state_file = self.state_file
                             self.state.save(state_file)
                             break  # Exit the main loop
 
@@ -354,7 +375,7 @@ class WorkflowOrchestrator:
                     logger.info(f"State updated: now in Phase {self.state.current_phase} ({self.state.phase_name})")
 
         # Save final state
-        state_file = self.config.nelson_dir / "state.json"
+        state_file = self.state_file
         self.state.save(state_file)
 
         logger.success("All done!")
@@ -506,6 +527,22 @@ class WorkflowOrchestrator:
         else:
             files_modified = 0
 
+        # Track blocked status (task waiting on external dependency)
+        status = status_block.get("status", "")
+        if "blocked" in status.lower():
+            self.state.blocked_iterations += 1
+        else:
+            self.state.blocked_iterations = 0
+
+        # Check for blocked status FIRST (external dependency - not a failure)
+        # This allows graceful exit when task needs user intervention
+        if self.state.blocked_iterations >= 3:
+            logger.warning(
+                f"Task blocked on external dependency "
+                f"({self.state.blocked_iterations} consecutive BLOCKED iterations)"
+            )
+            return CircuitBreakerResult.BLOCKED
+
         # Check for progress this iteration
         # tasks_completed is per-loop count (TASKS_COMPLETED_THIS_LOOP), not cumulative
         # Any non-zero tasks or files means progress was made
@@ -521,6 +558,13 @@ class WorkflowOrchestrator:
 
         # Check for no progress (3+ iterations with 0 tasks, 0 files)
         if self.state.no_progress_iterations >= 3:
+            # Before treating as failure, check if all tasks are complete
+            # "No progress" because work is done is SUCCESS, not failure
+            if not self._has_any_unchecked_tasks():
+                logger.success("All tasks complete - no more work to do")
+                return CircuitBreakerResult.COMPLETE
+
+            # Actually stuck - no progress with remaining work
             logger.error(f"No progress detected for {self.state.no_progress_iterations} iterations")
             return CircuitBreakerResult.TRIGGERED
 
@@ -537,7 +581,8 @@ class WorkflowOrchestrator:
 
         # Check for repeated errors
         recommendation = status_block.get("recommendation", "")
-        if "error" in recommendation.lower() or "blocked" in status_block.get("status", "").lower():
+        # Note: Don't treat BLOCKED as an error - it's handled separately above
+        if "error" in recommendation.lower():
             self.state.record_error(recommendation)
 
             if self.state.repeated_error_count >= 3:
@@ -560,6 +605,26 @@ class WorkflowOrchestrator:
         # when provider supports cost reporting
         # For now, no cost tracking implemented
         pass
+
+    def _has_any_unchecked_tasks(self) -> bool:
+        """Check if any phase has unchecked (incomplete) tasks.
+
+        Used to distinguish between "no progress because stuck" vs
+        "no progress because all work is complete".
+
+        Returns:
+            True if there are unchecked tasks in any phase, False if all done
+        """
+        if not self.plan_file.exists():
+            # No plan file means we can't verify completion - assume work remains
+            return True
+
+        # Check all phases for unchecked tasks
+        for phase in Phase:
+            if has_unchecked_tasks(phase, self.plan_file):
+                return True
+
+        return False
 
     def _log_cycle_completion(self, completed_cycle: int, new_cycle: int) -> None:
         """Log cycle completion to decisions file.

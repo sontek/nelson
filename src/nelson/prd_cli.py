@@ -104,6 +104,11 @@ console = Console()
     type=str,
     help="Additional arguments to pass to Nelson CLI (space-separated)",
 )
+@click.option(
+    "--no-branch-setup",
+    is_flag=True,
+    help="Skip automatic branch creation and use current branch",
+)
 def main(
     prd_file: Path,
     path: Path | None,
@@ -120,6 +125,7 @@ def main(
     stop_on_failure: bool,
     prd_dir: Path | None,
     nelson_args: str | None,
+    no_branch_setup: bool,
 ) -> None:
     """Execute tasks from a PRD (Product Requirements Document) file.
 
@@ -231,7 +237,9 @@ def main(
 
         # Handle resume-task command
         if resume_task_id:
-            success = orchestrator.resume_task(resume_task_id, parsed_nelson_args)
+            success = orchestrator.resume_task(
+                resume_task_id, parsed_nelson_args, no_branch_setup=no_branch_setup
+            )
             sys.exit(0 if success else 1)
 
         # Handle dry-run
@@ -255,7 +263,9 @@ def main(
         click.echo(f"PRD directory: {orchestrator.prd_dir}\n")
 
         results = orchestrator.execute_all_pending(
-            nelson_args=parsed_nelson_args, stop_on_failure=stop_on_failure
+            nelson_args=parsed_nelson_args,
+            stop_on_failure=stop_on_failure,
+            no_branch_setup=no_branch_setup,
         )
 
         # Print summary

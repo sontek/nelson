@@ -19,13 +19,14 @@ After completing all 6 phases (one complete cycle), Nelson loops back to Phase 1
 
 - **Autonomous Multi-Cycle Execution**: Runs multiple complete cycles until work is done
 - **Structured Phase System**: 6 distinct phases with clear responsibilities
-- **Circuit Breaker Protection**: Detects stagnation and repeated errors
+- **Circuit Breaker Protection**: Detects stagnation, repeated errors, and stalled processes
+- **Progress Monitoring**: Real-time file activity and heartbeat during long-running phases
+- **Stall Detection**: Automatic detection and recovery from hung Claude processes
 - **Resume Support**: Resume from any previous run
 - **Cost & Iteration Limits**: Configurable safety limits
 - **Model Selection**: Choose different models per phase (opus/sonnet/haiku)
 - **Jail Mode Support**: Docker sandbox via claude-jail
 - **Rich Terminal Output**: Colored, formatted logs
-- **Comprehensive Testing**: 421 tests with 91% coverage
 
 ## Installation
 
@@ -112,13 +113,14 @@ nelson --auto-approve-push "skip push approval prompts"
 
 ```bash
 # Set in your shell profile or .envrc
-export NELSON_MAX_ITERATIONS=10        # Max complete cycles (default: 10)
-export NELSON_COST_LIMIT=10.00         # Max cost in USD (default: 10.00)
-export NELSON_MODEL=sonnet             # Model for all phases (default: sonnet)
-export NELSON_PLAN_MODEL=opus          # Model for Phase 1 (default: NELSON_MODEL)
-export NELSON_REVIEW_MODEL=sonnet      # Model for Phase 3 & 5 (default: NELSON_MODEL)
-export NELSON_CLAUDE_COMMAND=claude    # Claude command (default: claude-jail)
-export NELSON_AUTO_APPROVE_PUSH=false  # Skip push approval (default: false)
+export NELSON_MAX_ITERATIONS=10            # Max complete cycles (default: 10)
+export NELSON_COST_LIMIT=10.00             # Max cost in USD (default: 10.00)
+export NELSON_MODEL=sonnet                 # Model for all phases (default: sonnet)
+export NELSON_PLAN_MODEL=opus              # Model for Phase 1 (default: NELSON_MODEL)
+export NELSON_REVIEW_MODEL=sonnet          # Model for Phase 3 & 5 (default: NELSON_MODEL)
+export NELSON_CLAUDE_COMMAND=claude        # Claude command (default: claude-jail)
+export NELSON_AUTO_APPROVE_PUSH=false      # Skip push approval (default: false)
+export NELSON_STALL_TIMEOUT_MINUTES=15     # Minutes before killing stalled process (default: 15)
 ```
 
 ## How It Works
@@ -151,8 +153,9 @@ Nelson automatically detects problematic patterns:
 - **Stagnation**: 3+ iterations with no progress
 - **Test-Only Loops**: 3+ iterations of testing without changes
 - **Repeated Errors**: Same error pattern 3+ times
+- **Stalled Process**: No file activity for 15+ minutes (configurable via `NELSON_STALL_TIMEOUT_MINUTES`)
 
-When triggered, the workflow stops gracefully for human intervention.
+When triggered, the workflow stops gracefully for human intervention. For stalled processes, Nelson automatically kills the hung Claude process and retries.
 
 ### EXIT_SIGNAL Behavior
 

@@ -4,9 +4,14 @@ This module defines the interface that all AI providers (Claude, OpenAI Codex, e
 must implement to work with Nelson's workflow engine.
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from nelson.progress_monitor import ProgressMonitor
 
 
 @dataclass
@@ -85,6 +90,7 @@ class AIProvider(ABC):
         model: str,
         max_retries: int = 3,
         retry_delay: float = 3.0,
+        progress_monitor: ProgressMonitor | None = None,
     ) -> AIResponse:
         """Execute an AI call with the given prompts.
 
@@ -101,6 +107,7 @@ class AIProvider(ABC):
             model: Model identifier (e.g., "sonnet", "opus", "gpt-4")
             max_retries: Maximum number of retry attempts for transient errors
             retry_delay: Delay in seconds between retry attempts
+            progress_monitor: Optional progress monitor to notify with subprocess PID
 
         Returns:
             AIResponse object containing the provider's response

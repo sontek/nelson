@@ -33,6 +33,7 @@ def mock_config(tmp_path: Path) -> NelsonConfig:
         plan_model="sonnet",
         review_model="sonnet",
         auto_approve_push=False,
+        stall_timeout_minutes=15.0,
     )
 
 
@@ -240,6 +241,7 @@ class TestProviderExecution:
             plan_model="opus",
             review_model="sonnet",
             auto_approve_push=False,
+            stall_timeout_minutes=15.0,
         )
         orchestrator = WorkflowOrchestrator(config, mock_state, mock_provider, mock_run_dir)
         orchestrator.state.current_phase = Phase.PLAN.value
@@ -272,6 +274,7 @@ class TestProviderExecution:
             plan_model="sonnet",
             review_model="opus",
             auto_approve_push=False,
+            stall_timeout_minutes=15.0,
         )
         orchestrator = WorkflowOrchestrator(config, mock_state, mock_provider, mock_run_dir)
 
@@ -501,6 +504,7 @@ class TestWorkflowRun:
             plan_model="sonnet",
             review_model="sonnet",
             auto_approve_push=False,
+            stall_timeout_minutes=15.0,
         )
 
         # Set state to be exactly at cycle limit (will fail on next _check_limits call)
@@ -657,6 +661,7 @@ class TestCycleLoopBehavior:
             plan_model="sonnet",
             review_model="sonnet",
             auto_approve_push=False,
+            stall_timeout_minutes=15.0,
         )
 
         # Create state starting at Phase 2
@@ -762,6 +767,7 @@ class TestCycleLoopBehavior:
             plan_model="sonnet",
             review_model="sonnet",
             auto_approve_push=False,
+            stall_timeout_minutes=15.0,
         )
 
         # Create state starting at Phase 1, cycle 1 (in a new cycle)
@@ -857,6 +863,7 @@ class TestCycleLoopBehavior:
             plan_model="sonnet",
             review_model="sonnet",
             auto_approve_push=False,
+            stall_timeout_minutes=15.0,
         )
 
         # Create state starting at cycle 0, Phase 6
@@ -951,6 +958,7 @@ class TestCycleLoopBehavior:
             plan_model="sonnet",
             review_model="sonnet",
             auto_approve_push=False,
+            stall_timeout_minutes=15.0,
         )
 
         # Create state with test values
@@ -1019,6 +1027,7 @@ class TestCycleLoopBehavior:
             plan_model="sonnet",
             review_model="sonnet",
             auto_approve_push=False,
+            stall_timeout_minutes=15.0,
         )
 
         # Start at Phase 2 (IMPLEMENT) to avoid PLAN phase complexity

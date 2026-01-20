@@ -31,6 +31,7 @@ def config(tmp_path: Path) -> NelsonConfig:
         plan_model="sonnet",
         review_model="sonnet",
         auto_approve_push=False,
+        stall_timeout_minutes=15.0,
     )
 
 

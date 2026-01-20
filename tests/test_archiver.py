@@ -24,6 +24,7 @@ class TestArchiveOldState:
             plan_model="sonnet",
             review_model="sonnet",
             auto_approve_push=False,
+            stall_timeout_minutes=15.0,
         )
 
         # Create directories
@@ -55,6 +56,7 @@ class TestArchiveOldState:
             plan_model="sonnet",
             review_model="sonnet",
             auto_approve_push=False,
+            stall_timeout_minutes=15.0,
         )
 
         # Create directories
@@ -95,6 +97,7 @@ class TestArchiveOldState:
             plan_model="sonnet",
             review_model="sonnet",
             auto_approve_push=False,
+            stall_timeout_minutes=15.0,
         )
 
         # Create directories
@@ -136,6 +139,7 @@ class TestArchiveOldState:
             plan_model="sonnet",
             review_model="sonnet",
             auto_approve_push=False,
+            stall_timeout_minutes=15.0,
         )
 
         # Create directories
@@ -177,6 +181,7 @@ class TestArchiveOldState:
             plan_model="sonnet",
             review_model="sonnet",
             auto_approve_push=False,
+            stall_timeout_minutes=15.0,
         )
 
         # Create directories

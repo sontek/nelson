@@ -77,6 +77,12 @@ logger = get_logger()
     envvar="NELSON_AUTO_APPROVE_PUSH",
     help="Skip push approval prompt (env: NELSON_AUTO_APPROVE_PUSH)",
 )
+@click.option(
+    "--stall-timeout",
+    type=float,
+    envvar="NELSON_STALL_TIMEOUT_MINUTES",
+    help="Minutes of inactivity before killing stalled process (env: NELSON_STALL_TIMEOUT_MINUTES)",
+)
 @click.version_option(version="0.1.0", prog_name="nelson")
 def main(
     prompt: str | None,
@@ -89,6 +95,7 @@ def main(
     review_model: str | None,
     claude_command: str | None,
     auto_approve_push: bool,
+    stall_timeout: float | None,
 ) -> None:
     """Nelson: AI orchestration CLI for autonomous development workflows.
 
@@ -117,15 +124,17 @@ def main(
 
     \b
     Environment Variables:
-      NELSON_MAX_ITERATIONS      Max complete cycles through all 6 phases (default: 10)
-                                 One cycle = PLAN → IMPLEMENT → REVIEW → TEST →
-                                 FINAL-REVIEW → COMMIT
-      NELSON_COST_LIMIT          Max cost in USD (default: 10.00)
-      NELSON_AUTO_APPROVE_PUSH   Skip push approval (default: false)
-      NELSON_CLAUDE_COMMAND      Claude command (default: claude-jail)
-      NELSON_MODEL               Model for all phases (default: sonnet)
-      NELSON_PLAN_MODEL          Model for Phase 1 (default: NELSON_MODEL)
-      NELSON_REVIEW_MODEL        Model for Phase 3 & 5 (default: NELSON_MODEL)
+      NELSON_MAX_ITERATIONS        Max complete cycles through all 6 phases (default: 10)
+                                   One cycle = PLAN → IMPLEMENT → REVIEW → TEST →
+                                   FINAL-REVIEW → COMMIT
+      NELSON_COST_LIMIT            Max cost in USD (default: 10.00)
+      NELSON_AUTO_APPROVE_PUSH     Skip push approval (default: false)
+      NELSON_CLAUDE_COMMAND        Claude command (default: claude-jail)
+      NELSON_MODEL                 Model for all phases (default: sonnet)
+      NELSON_PLAN_MODEL            Model for Phase 1 (default: NELSON_MODEL)
+      NELSON_REVIEW_MODEL          Model for Phase 3 & 5 (default: NELSON_MODEL)
+      NELSON_STALL_TIMEOUT_MINUTES Minutes of inactivity before killing stalled process
+                                   (default: 15)
     """
     # Validate that we have either a prompt or --resume
     if not prompt and resume_path is None:
@@ -193,6 +202,7 @@ def main(
         review_model=review_model,
         claude_command=claude_command,
         auto_approve_push=auto_approve_push,
+        stall_timeout=stall_timeout,
     )
 
     # Run the workflow
@@ -317,6 +327,7 @@ def _build_config(
     review_model: str | None = None,
     claude_command: str | None = None,
     auto_approve_push: bool = False,
+    stall_timeout: float | None = None,
 ) -> NelsonConfig:
     """Build configuration with CLI overrides."""
     # Load base config from environment
@@ -326,6 +337,7 @@ def _build_config(
     final_max_iterations = max_iterations if max_iterations is not None else config.max_iterations
     final_max_iterations_explicit = max_iterations is not None or config.max_iterations_explicit
     final_cost_limit = cost_limit if cost_limit is not None else config.cost_limit
+    final_stall_timeout = stall_timeout if stall_timeout is not None else config.stall_timeout_minutes
     final_claude_command = claude_command if claude_command is not None else config.claude_command
     final_model = model if model is not None else config.model
     final_auto_approve_push = auto_approve_push or config.auto_approve_push
@@ -353,6 +365,7 @@ def _build_config(
         max_iterations=final_max_iterations,
         max_iterations_explicit=final_max_iterations_explicit,
         cost_limit=final_cost_limit,
+        stall_timeout_minutes=final_stall_timeout,
         nelson_dir=config.nelson_dir,
         audit_dir=config.audit_dir,
         runs_dir=config.runs_dir,

@@ -18,6 +18,7 @@ from rich.panel import Panel
 from nelson.config import NelsonConfig
 from nelson.logging_config import get_logger
 from nelson.phases import Phase
+from nelson.progress_monitor import ProgressMonitor
 from nelson.prompts import (
     build_full_prompt,
     build_loop_context,
@@ -468,13 +469,28 @@ class WorkflowOrchestrator:
 
         system_prompt = get_system_prompt(self.decisions_file)
 
-        return self.provider.execute(
-            system_prompt=system_prompt,
-            user_prompt=full_prompt,
-            model=model,
-            max_retries=3,
-            retry_delay=3.0,
+        # Start progress monitor to show activity during long-running calls
+        # Monitor the run directory for file changes (decisions.md, plan.md, etc.)
+        # If no activity for configured timeout, flag as stalled and kill the process
+        progress_monitor = ProgressMonitor(
+            watch_dir=self.run_dir,
+            heartbeat_interval=60.0,  # Print heartbeat every 60 seconds
+            check_interval=2.0,  # Check for file changes every 2 seconds
+            max_idle_minutes=self.config.stall_timeout_minutes,
         )
+        progress_monitor.start()
+
+        try:
+            return self.provider.execute(
+                system_prompt=system_prompt,
+                user_prompt=full_prompt,
+                model=model,
+                max_retries=3,
+                retry_delay=3.0,
+                progress_monitor=progress_monitor,
+            )
+        finally:
+            progress_monitor.stop()
 
     def _check_circuit_breaker(self, status_block: dict[str, Any]) -> "CircuitBreakerResult":
         """Check for circuit breaker conditions.

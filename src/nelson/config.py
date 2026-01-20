@@ -25,6 +25,7 @@ class NelsonConfig:
     max_iterations: int  # Max complete 6-phase cycles (not total phase executions)
     max_iterations_explicit: bool  # True if user explicitly set max_iterations
     cost_limit: float
+    stall_timeout_minutes: float  # Minutes of inactivity before killing stalled process
 
     # Directory paths
     nelson_dir: Path
@@ -68,6 +69,9 @@ class NelsonConfig:
         # Cost limit in USD
         cost_limit = float(os.getenv("NELSON_COST_LIMIT", "10.00"))
 
+        # Stall timeout in minutes (default 15 minutes)
+        stall_timeout_minutes = float(os.getenv("NELSON_STALL_TIMEOUT_MINUTES", "15.0"))
+
         # Directory configuration
         # If target_path is provided, make directories relative to it
         # Otherwise, they're relative to current working directory
@@ -98,6 +102,7 @@ class NelsonConfig:
             max_iterations=max_iterations,
             max_iterations_explicit=max_iterations_explicit,
             cost_limit=cost_limit,
+            stall_timeout_minutes=stall_timeout_minutes,
             nelson_dir=nelson_dir,
             audit_dir=audit_dir,
             runs_dir=runs_dir,
@@ -145,6 +150,11 @@ class NelsonConfig:
 
         if self.cost_limit <= 0:
             raise ValueError(f"cost_limit must be > 0, got {self.cost_limit}")
+
+        if self.stall_timeout_minutes <= 0:
+            raise ValueError(
+                f"stall_timeout_minutes must be > 0, got {self.stall_timeout_minutes}"
+            )
 
         if self.claude_command_path and not self.claude_command_path.exists():
             raise ValueError(f"Claude command path does not exist: {self.claude_command_path}")

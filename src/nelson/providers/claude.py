@@ -5,16 +5,21 @@ It handles calling the Claude command-line tool, parsing JSON output, and extrac
 the Nelson status block from responses.
 """
 
+from __future__ import annotations
+
 import json
 import re
 import subprocess
 import tempfile
 import time
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from nelson.logging_config import get_logger
 from nelson.providers.base import AIProvider, AIResponse, ProviderError
+
+if TYPE_CHECKING:
+    from nelson.progress_monitor import ProgressMonitor
 
 logger = get_logger()
 
@@ -60,6 +65,7 @@ class ClaudeProvider(AIProvider):
         model: str,
         max_retries: int = 3,
         retry_delay: float = 3.0,
+        progress_monitor: ProgressMonitor | None = None,
     ) -> AIResponse:
         """Execute Claude call with retry logic.
 
@@ -69,6 +75,7 @@ class ClaudeProvider(AIProvider):
             model: Model identifier (sonnet, opus, haiku)
             max_retries: Maximum retry attempts for transient errors
             retry_delay: Delay between retries in seconds
+            progress_monitor: Optional progress monitor to notify with subprocess PID
 
         Returns:
             AIResponse with Claude's output
@@ -80,7 +87,7 @@ class ClaudeProvider(AIProvider):
 
         while retry_count < max_retries:
             try:
-                return self._execute_once(system_prompt, user_prompt, model)
+                return self._execute_once(system_prompt, user_prompt, model, progress_monitor)
             except ProviderError as e:
                 if not e.is_retryable:
                     # Non-retryable error - fail immediately
@@ -108,13 +115,20 @@ class ClaudeProvider(AIProvider):
             is_retryable=False,
         )
 
-    def _execute_once(self, system_prompt: str, user_prompt: str, model: str) -> AIResponse:
+    def _execute_once(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        model: str,
+        progress_monitor: ProgressMonitor | None = None,
+    ) -> AIResponse:
         """Execute a single Claude call (no retry logic).
 
         Args:
             system_prompt: System-level prompt
             user_prompt: User prompt
             model: Model identifier
+            progress_monitor: Optional progress monitor to notify with subprocess PID
 
         Returns:
             AIResponse with Claude's output
@@ -143,20 +157,14 @@ class ClaudeProvider(AIProvider):
             f"--permission-mode bypassPermissions"
         )
 
-        # Execute command
+        # Execute command using Popen for PID access
         try:
             if self._uses_jail_mode:
                 # claude-jail needs script wrapper for pseudo-TTY
-                result = self._execute_with_script(cmd)
+                result = self._execute_with_script(cmd, progress_monitor)
             else:
-                # Native claude handles TTY properly
-                result = subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                    cwd=self.target_path,
-                )
+                # Native claude - use Popen for PID access
+                result = self._execute_with_popen(cmd, progress_monitor)
         except FileNotFoundError as e:
             raise ProviderError(
                 f"Claude command not found: {self.claude_command}",
@@ -240,7 +248,95 @@ class ClaudeProvider(AIProvider):
             is_error=False,
         )
 
-    def _execute_with_script(self, cmd: list[str]) -> subprocess.CompletedProcess[str]:
+    def _execute_with_popen(
+        self,
+        cmd: list[str],
+        progress_monitor: ProgressMonitor | None = None,
+        stall_check_interval: float = 5.0,
+    ) -> subprocess.CompletedProcess[str]:
+        """Execute command using Popen for PID access and stall detection.
+
+        This method uses Popen instead of subprocess.run() so we can:
+        1. Get the subprocess PID immediately
+        2. Notify the progress monitor
+        3. Check for stalls and kill hung processes
+        4. Wait for completion
+
+        Args:
+            cmd: Command to execute
+            progress_monitor: Optional progress monitor to notify with PID
+            stall_check_interval: Seconds between stall checks (default: 5)
+
+        Returns:
+            CompletedProcess with command result
+
+        Raises:
+            ProviderError: If process is killed due to stall (retryable)
+        """
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            cwd=self.target_path,
+        )
+
+        # Log and notify progress monitor with PID
+        logger.info(f"Claude subprocess started (PID: {process.pid})")
+        if progress_monitor:
+            progress_monitor.set_subprocess_pid(process.pid)
+
+        # Wait for completion with stall checking
+        stdout_data = ""
+        stderr_data = ""
+
+        if progress_monitor:
+            # Use polling loop to check for stalls
+            while True:
+                # Check if process has finished
+                retcode = process.poll()
+                if retcode is not None:
+                    # Process finished - read remaining output
+                    remaining_stdout, remaining_stderr = process.communicate()
+                    stdout_data += remaining_stdout or ""
+                    stderr_data += remaining_stderr or ""
+                    break
+
+                # Check for stall
+                if progress_monitor.is_stalled:
+                    idle_seconds = progress_monitor.get_idle_seconds()
+                    idle_minutes = idle_seconds / 60.0
+                    logger.warning(
+                        f"Killing stalled Claude process (PID: {process.pid}) "
+                        f"after {idle_minutes:.1f} minutes of inactivity"
+                    )
+                    process.kill()
+                    process.wait()  # Clean up zombie
+                    raise ProviderError(
+                        f"Claude process stalled (no activity for {idle_minutes:.1f} minutes). "
+                        "Process was killed and will be retried.",
+                        is_retryable=True,
+                    )
+
+                # Sleep before next check
+                time.sleep(stall_check_interval)
+        else:
+            # No progress monitor - just wait normally
+            stdout_data, stderr_data = process.communicate()
+
+        return subprocess.CompletedProcess(
+            args=cmd,
+            returncode=process.returncode,
+            stdout=stdout_data,
+            stderr=stderr_data or "",
+        )
+
+    def _execute_with_script(
+        self,
+        cmd: list[str],
+        progress_monitor: ProgressMonitor | None = None,
+        stall_check_interval: float = 5.0,
+    ) -> subprocess.CompletedProcess[str]:
         """Execute command with script wrapper (for claude-jail).
 
         The script command creates a pseudo-TTY, which is required for
@@ -248,24 +344,70 @@ class ClaudeProvider(AIProvider):
 
         Args:
             cmd: Command to execute
+            progress_monitor: Optional progress monitor to notify with PID
+            stall_check_interval: Seconds between stall checks (default: 5)
 
         Returns:
             CompletedProcess with command result
+
+        Raises:
+            ProviderError: If process is killed due to stall (retryable)
         """
         # Create temporary file for output
         with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".txt") as f:
             output_file = f.name
 
         try:
-            # Run with script command
+            # Run with script command using Popen for PID access
             script_cmd = ["script", "-q", output_file] + cmd
-            result = subprocess.run(
+            process = subprocess.Popen(
                 script_cmd,
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=True,
-                check=False,
                 cwd=self.target_path,
             )
+
+            # Log and notify progress monitor with PID
+            logger.info(f"Claude subprocess started (PID: {process.pid})")
+            if progress_monitor:
+                progress_monitor.set_subprocess_pid(process.pid)
+
+            # Wait for completion with stall checking
+            stderr_data = ""
+
+            if progress_monitor:
+                # Use polling loop to check for stalls
+                while True:
+                    # Check if process has finished
+                    retcode = process.poll()
+                    if retcode is not None:
+                        # Process finished - read remaining stderr
+                        _, remaining_stderr = process.communicate()
+                        stderr_data += remaining_stderr or ""
+                        break
+
+                    # Check for stall
+                    if progress_monitor.is_stalled:
+                        idle_seconds = progress_monitor.get_idle_seconds()
+                        idle_minutes = idle_seconds / 60.0
+                        logger.warning(
+                            f"Killing stalled Claude process (PID: {process.pid}) "
+                            f"after {idle_minutes:.1f} minutes of inactivity"
+                        )
+                        process.kill()
+                        process.wait()  # Clean up zombie
+                        raise ProviderError(
+                            f"Claude process stalled (no activity for {idle_minutes:.1f} minutes). "
+                            "Process was killed and will be retried.",
+                            is_retryable=True,
+                        )
+
+                    # Sleep before next check
+                    time.sleep(stall_check_interval)
+            else:
+                # No progress monitor - just wait normally
+                _, stderr_data = process.communicate()
 
             # Read output from file
             with open(output_file) as f:
@@ -274,9 +416,9 @@ class ClaudeProvider(AIProvider):
             # Return as CompletedProcess
             return subprocess.CompletedProcess(
                 args=cmd,
-                returncode=result.returncode,
+                returncode=process.returncode,
                 stdout=stdout,
-                stderr=result.stderr,
+                stderr=stderr_data or "",
             )
         finally:
             # Clean up temp file

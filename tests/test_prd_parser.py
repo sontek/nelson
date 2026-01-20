@@ -194,9 +194,7 @@ def test_update_task_status_to_blocked_with_reason(tmp_path: Path):
     parser.parse()
 
     # Block task with reason
-    parser.update_task_status(
-        "PRD-001", PRDTaskStatus.BLOCKED, "Need database schema approved"
-    )
+    parser.update_task_status("PRD-001", PRDTaskStatus.BLOCKED, "Need database schema approved")
 
     # Re-read file
     content = prd_file.read_text()
@@ -1190,6 +1188,7 @@ def test_task_context_reset_between_files(tmp_path: Path):
 # NEW TESTS: Demonstrating current limitations (will fail until parser is fixed)
 # ============================================================================
 
+
 def test_parser_reads_only_first_line_not_indented_content(tmp_path: Path):
     """FAILING TEST: Demonstrates parser only reads first line, ignores indented content."""
     content = """## High Priority
@@ -1215,11 +1214,12 @@ def test_parser_reads_only_first_line_not_indented_content(tmp_path: Path):
     assert task.task_text == "Review and implement fixes for PR #2921"
 
     # Check that full_description captures all indented content
-    assert "This is additional context" in task.full_description, \
+    assert "This is additional context" in task.full_description, (
         f"Expected indented content to be captured, but got: {task.full_description!r}"
+    )
     assert "Make a pull request" in task.full_description
-    assert len(task.full_description) > 100, \
-        f"Expected full description, but only got {len(task.full_description)} chars: {task.full_description!r}"
+    desc_len = len(task.full_description)
+    assert desc_len > 100, f"Expected full description, got {desc_len} chars"
 
 
 def test_parser_does_not_support_subtasks(tmp_path: Path):
@@ -1242,7 +1242,7 @@ def test_parser_does_not_support_subtasks(tmp_path: Path):
     task = tasks[0]
 
     # Check subtasks attribute exists and is populated
-    assert hasattr(task, 'subtasks'), "PRDTask should have subtasks attribute"
+    assert hasattr(task, "subtasks"), "PRDTask should have subtasks attribute"
     assert len(task.subtasks) == 3, f"Expected 3 subtasks, got {len(task.subtasks)}"
     assert task.subtasks[0].text == "Fix critical code issues"
     assert task.subtasks[0].completed is False
@@ -1266,10 +1266,12 @@ def test_task_with_subtasks_not_complete_until_all_checked(tmp_path: Path):
     task = tasks[0]
 
     # Check has_incomplete_subtasks method exists and works
-    assert hasattr(task, 'has_incomplete_subtasks'), \
+    assert hasattr(task, "has_incomplete_subtasks"), (
         "Should have method to check subtask completion"
-    assert task.has_incomplete_subtasks() is True, \
+    )
+    assert task.has_incomplete_subtasks() is True, (
         "Should have incomplete subtasks (third one not checked)"
+    )
 
     # Count completion
     completed_subtasks = sum(1 for st in task.subtasks if st.completed)
@@ -1303,5 +1305,5 @@ def test_subtasks_with_multiline_descriptions(tmp_path: Path):
 
     # Check subtask descriptions are captured
     assert task.subtasks[0].text == "Subtask one"
-    assert "Additional detail about subtask one" in task.subtasks[0].description, \
-        f"Subtasks should capture their indented descriptions, got: {task.subtasks[0].description!r}"
+    desc = task.subtasks[0].description
+    assert "Additional detail about subtask one" in desc, f"Missing subtask desc: {desc!r}"

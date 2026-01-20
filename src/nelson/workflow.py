@@ -152,7 +152,7 @@ class WorkflowOrchestrator:
                 f"Phase {current_phase.value}: {phase_name} | "
                 f"API Call #{self.state.total_iterations} | "
                 f"{timestamp}[/bold yellow]",
-                style="yellow"
+                style="yellow",
             )
             logger.console.print("")
 
@@ -235,9 +235,7 @@ class WorkflowOrchestrator:
                 # Task blocked on external dependency - graceful exit (not failure)
                 logger.warning("Task blocked on external dependency - halting workflow")
                 logger.info("Resolve the blocking issue and resume the task")
-                logger.info(
-                    f"Review {self.last_output_file} and {self.decisions_file} for details"
-                )
+                logger.info(f"Review {self.last_output_file} and {self.decisions_file} for details")
                 state_file = self.state_file
                 self.state.save(state_file)
                 break  # Exit loop gracefully (not an error)
@@ -308,9 +306,7 @@ class WorkflowOrchestrator:
                         new_cycle = self.state.cycle_iterations
 
                         # Display cycles as 1-indexed for user-friendliness (internal is 0-indexed)
-                        logger.success(
-                            f"Cycle {new_cycle} complete - no implementation work"
-                        )
+                        logger.success(f"Cycle {new_cycle} complete - no implementation work")
                         logger.info(f"Starting cycle {new_cycle + 1} - returning to Phase 1 (PLAN)")
 
                         # Archive the old plan.md (use 1-indexed to match plan content)
@@ -372,7 +368,9 @@ class WorkflowOrchestrator:
 
                     # Update state
                     self.state.transition_phase(next_phase.value, next_phase_name)
-                    logger.info(f"State updated: now in Phase {self.state.current_phase} ({self.state.phase_name})")
+                    phase = self.state.current_phase
+                    name = self.state.phase_name
+                    logger.info(f"State updated: now in Phase {phase} ({name})")
 
         # Save final state
         state_file = self.state_file

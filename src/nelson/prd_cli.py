@@ -11,7 +11,6 @@ import click
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from rich.text import Text
 
 from nelson.prd_orchestrator import PRDOrchestrator
 from nelson.prd_task_state import TaskStatus
@@ -193,6 +192,7 @@ def main(
 
             # Verify it's a git repository
             from nelson.git_utils import is_git_repo
+
             if not is_git_repo(target_path):
                 click.echo(
                     f"Error: The specified path is not a git repository: {target_path}\n"
@@ -294,7 +294,8 @@ def _show_status(orchestrator: PRDOrchestrator, status_filter: str | None = None
 
     Args:
         orchestrator: PRD orchestrator instance
-        status_filter: Optional filter by status (pending, in-progress, blocked, completed, failed, active)
+        status_filter: Optional filter by status
+            (pending, in-progress, blocked, completed, failed, active)
     """
     summary = orchestrator.get_status_summary()
 
@@ -305,8 +306,10 @@ def _show_status(orchestrator: PRDOrchestrator, status_filter: str | None = None
         if status_filter_lower == "active":
             # Active = pending + in-progress + blocked (not completed)
             filtered_tasks = [
-                task for task in summary["tasks"]
-                if task["status"] in [
+                task
+                for task in summary["tasks"]
+                if task["status"]
+                in [
                     TaskStatus.PENDING.value,
                     TaskStatus.IN_PROGRESS.value,
                     TaskStatus.BLOCKED.value,
@@ -324,8 +327,7 @@ def _show_status(orchestrator: PRDOrchestrator, status_filter: str | None = None
             target_status = status_map.get(status_filter_lower)
             if target_status:
                 filtered_tasks = [
-                    task for task in summary["tasks"]
-                    if task["status"] == target_status
+                    task for task in summary["tasks"] if task["status"] == target_status
                 ]
 
     # Create header panel
@@ -337,13 +339,15 @@ def _show_status(orchestrator: PRDOrchestrator, status_filter: str | None = None
         f"[bold red]! Blocked:[/] {summary['blocked']} | "
         f"[bold]○ Pending:[/] {summary['pending']}"
     )
-    if summary['failed'] > 0:
+    if summary["failed"] > 0:
         header_text += f" | [bold red]✗ Failed:[/] {summary['failed']}"
     header_text += f"\n[bold]Total Cost:[/] ${summary['total_cost']:.2f}"
 
     # Add filter info if active
     if status_filter:
-        header_text += f"\n[dim]Filtered by: {status_filter} ({len(filtered_tasks)} tasks shown)[/dim]"
+        header_text += (
+            f"\n[dim]Filtered by: {status_filter} ({len(filtered_tasks)} tasks shown)[/dim]"
+        )
 
     title = f"[bold]PRD Status: {summary['prd_file']}[/bold]"
     console.print(
@@ -512,7 +516,7 @@ def _show_task_info(orchestrator: PRDOrchestrator, task_id: str) -> None:
 def _show_dry_run(orchestrator: PRDOrchestrator) -> None:
     """Display tasks that would be executed without running them."""
     click.echo(f"\nDry run for: {orchestrator.prd_file}")
-    click.echo(f"{'='*60}\n")
+    click.echo(f"{'=' * 60}\n")
 
     pending_tasks = []
 
@@ -521,8 +525,7 @@ def _show_dry_run(orchestrator: PRDOrchestrator) -> None:
         tasks = [
             t
             for t in orchestrator.tasks
-            if t.priority == priority
-            and t.status.value == " "  # PRDTaskStatus.PENDING
+            if t.priority == priority and t.status.value == " "  # PRDTaskStatus.PENDING
         ]
         pending_tasks.extend(tasks)
 
@@ -538,9 +541,7 @@ def _show_dry_run(orchestrator: PRDOrchestrator) -> None:
         click.echo()
 
 
-def _print_execution_summary(
-    results: dict[str, bool], orchestrator: PRDOrchestrator
-) -> None:
+def _print_execution_summary(results: dict[str, bool], orchestrator: PRDOrchestrator) -> None:
     """Print summary of execution results using rich formatting."""
     if not results:
         console.print("[yellow]No tasks were executed[/yellow]")
@@ -553,21 +554,18 @@ def _print_execution_summary(
 
     # Build summary text
     summary_text = (
-        f"[bold]Tasks executed:[/bold] {len(results)}\n"
-        f"  [green]Succeeded:[/green] {succeeded}"
+        f"[bold]Tasks executed:[/bold] {len(results)}\n  [green]Succeeded:[/green] {succeeded}"
     )
     if failed > 0:
         summary_text += f"\n  [red]Failed:[/red] {failed}"
 
     summary_text += f"\n\n[bold]Total cost:[/bold] ${summary['total_cost']:.2f}"
     summary_text += "\n\n[bold]Overall progress:[/bold]"
-    summary_text += (
-        f"\n  [green]Completed:[/green] {summary['completed']}/{summary['total_tasks']}"
-    )
+    summary_text += f"\n  [green]Completed:[/green] {summary['completed']}/{summary['total_tasks']}"
     summary_text += f"\n  [bold]Pending:[/bold] {summary['pending']}"
-    if summary['blocked'] > 0:
+    if summary["blocked"] > 0:
         summary_text += f"\n  [yellow]Blocked:[/yellow] {summary['blocked']}"
-    if summary['failed'] > 0:
+    if summary["failed"] > 0:
         summary_text += f"\n  [red]Failed:[/red] {summary['failed']}"
 
     console.print()

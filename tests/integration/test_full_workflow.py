@@ -290,8 +290,8 @@ class TestWorkflowIntegration:
             # Expected - should hit limits after completing first cycle
             assert "stopping due to limits" in str(e).lower()
 
-        # Verify state file was created
-        state_file = mock_config.nelson_dir / "state.json"
+        # Verify state file was created (in run directory, not nelson_dir)
+        state_file = mock_run_manager.run_dir / "state.json"
         assert state_file.exists()
         # Verify state was saved with some iterations
         final_state = NelsonState.load(state_file)

@@ -121,9 +121,7 @@ def branch_exists(branch_name: str, path: Path | None = None) -> bool:
         return False
 
 
-def create_branch(
-    branch_name: str, path: Path | None = None, force: bool = False
-) -> None:
+def create_branch(branch_name: str, path: Path | None = None, force: bool = False) -> None:
     """Create a new git branch.
 
     Args:
@@ -242,16 +240,12 @@ def create_and_switch_branch(
             check=True,
         )
     except subprocess.CalledProcessError as e:
-        raise GitError(
-            f"Failed to create and switch to branch {branch_name}: {e.stderr}"
-        ) from e
+        raise GitError(f"Failed to create and switch to branch {branch_name}: {e.stderr}") from e
     except FileNotFoundError as e:
         raise GitError("git command not found") from e
 
 
-def delete_branch(
-    branch_name: str, path: Path | None = None, force: bool = False
-) -> None:
+def delete_branch(branch_name: str, path: Path | None = None, force: bool = False) -> None:
     """Delete a git branch.
 
     Args:
@@ -289,9 +283,7 @@ def delete_branch(
         raise GitError("git command not found") from e
 
 
-def ensure_branch_for_task(
-    task_id: str, task_text: str, path: Path | None = None
-) -> str:
+def ensure_branch_for_task(task_id: str, task_text: str, path: Path | None = None) -> str:
     """Ensure a branch exists for the task and switch to it.
 
     If the branch already exists, just switch to it.

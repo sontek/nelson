@@ -37,6 +37,7 @@ class TestGetGitAuthor:
     @patch("subprocess.run")
     def test_get_git_author_no_name(self, mock_run: MagicMock, tmp_path: Path) -> None:
         """Test when user.name is not configured."""
+
         # Mock git config responses: name returns error (not set), email returns value
         def side_effect(*args: tuple, **kwargs: dict) -> MagicMock:  # type: ignore
             cmd = args[0]
@@ -57,6 +58,7 @@ class TestGetGitAuthor:
     @patch("subprocess.run")
     def test_get_git_author_no_email(self, mock_run: MagicMock, tmp_path: Path) -> None:
         """Test when user.email is not configured."""
+
         # Mock git config responses: name returns value, email returns error (not set)
         def side_effect(*args: tuple, **kwargs: dict) -> MagicMock:  # type: ignore
             cmd = args[0]
@@ -133,6 +135,7 @@ class TestValidateGitAuthor:
     @patch("subprocess.run")
     def test_validate_git_author_missing_name(self, mock_run: MagicMock, tmp_path: Path) -> None:
         """Test validation fails when user.name is missing."""
+
         # Mock git config responses: name not set, email set
         def side_effect(*args: tuple, **kwargs: dict) -> MagicMock:  # type: ignore
             cmd = args[0]
@@ -152,6 +155,7 @@ class TestValidateGitAuthor:
     @patch("subprocess.run")
     def test_validate_git_author_missing_email(self, mock_run: MagicMock, tmp_path: Path) -> None:
         """Test validation fails when user.email is missing."""
+
         # Mock git config responses: name set, email not set
         def side_effect(*args: tuple, **kwargs: dict) -> MagicMock:  # type: ignore
             cmd = args[0]

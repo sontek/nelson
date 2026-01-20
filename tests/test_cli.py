@@ -249,9 +249,7 @@ class TestPathArgument:
         git_dir.mkdir()
 
         # Use relative path (../<dir_name>)
-        result = cli_runner.invoke(
-            main, ["Test task", str(repo_path)], catch_exceptions=False
-        )
+        result = cli_runner.invoke(main, ["Test task", str(repo_path)], catch_exceptions=False)
         assert result.exit_code == 0
 
     def test_path_argument_stored_in_config(
@@ -376,9 +374,7 @@ class TestBuildConfig:
 class TestGitAuthorValidation:
     """Test git author validation during workflow startup."""
 
-    def test_workflow_validates_git_author(
-        self, cli_runner: CliRunner, tmp_path: Path
-    ) -> None:
+    def test_workflow_validates_git_author(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         """Test that workflow validates git author before starting."""
         # Create a git repo without author config
         import subprocess
@@ -407,7 +403,6 @@ class TestGitAuthorValidation:
         """Test that workflow logs git author when properly configured."""
         import subprocess
 
-        from nelson.git_auth import GitAuthor
 
         # Create a git repo with initial commit
         subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)

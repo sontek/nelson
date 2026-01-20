@@ -68,9 +68,7 @@ class PRDState:
         """Update the updated_at timestamp to current UTC time."""
         self.updated_at = _utc_timestamp()
 
-    def add_task(
-        self, task_id: str, task_text: str, priority: str, line_number: int
-    ) -> None:
+    def add_task(self, task_id: str, task_text: str, priority: str, line_number: int) -> None:
         """Add a new task to the mapping.
 
         Args:
@@ -172,11 +170,7 @@ class PRDState:
         Returns:
             List of task IDs
         """
-        return [
-            task_id
-            for task_id, task in self.tasks.items()
-            if task["status"] == status.value
-        ]
+        return [task_id for task_id, task in self.tasks.items() if task["status"] == status.value]
 
     def get_task_ids_by_priority(
         self, priority: str, status: TaskStatus | None = None
@@ -198,9 +192,7 @@ class PRDState:
 
         if status is not None:
             matching_ids = [
-                task_id
-                for task_id in matching_ids
-                if self.tasks[task_id]["status"] == status.value
+                task_id for task_id in matching_ids if self.tasks[task_id]["status"] == status.value
             ]
 
         return matching_ids
@@ -302,9 +294,7 @@ class PRDStateManager:
         """
         return self.prd_dir / task_id / "state.json"
 
-    def load_task_state(
-        self, task_id: str, task_text: str, priority: str
-    ) -> TaskState:
+    def load_task_state(self, task_id: str, task_text: str, priority: str) -> TaskState:
         """Load or create task state.
 
         Args:
@@ -386,9 +376,7 @@ class PRDStateManager:
         self.save_task_state(task_state)
         return task_state
 
-    def block_task(
-        self, task_id: str, task_text: str, priority: str, reason: str
-    ) -> TaskState:
+    def block_task(self, task_id: str, task_text: str, priority: str, reason: str) -> TaskState:
         """Block a task with reason.
 
         Args:
@@ -432,16 +420,12 @@ class PRDStateManager:
         """
         # Check priorities in order: high, medium, low
         for priority in ["high", "medium", "low"]:
-            task_ids = self.prd_state.get_task_ids_by_priority(
-                priority, TaskStatus.PENDING
-            )
+            task_ids = self.prd_state.get_task_ids_by_priority(priority, TaskStatus.PENDING)
             if task_ids:
                 # Return first pending task in this priority
                 task_id = task_ids[0]
                 mapping = self.prd_state.task_mapping[task_id]
-                task_state = self.load_task_state(
-                    task_id, mapping["original_text"], priority
-                )
+                task_state = self.load_task_state(task_id, mapping["original_text"], priority)
                 return (task_id, task_state)
 
         return None

@@ -184,9 +184,7 @@ class TestDecisionsLog:
         log_path = tmp_path / "decisions.md"
         log = DecisionsLog(log_path)
 
-        summary_text = (
-            "Phase 1 complete. Successfully analyzed nelson bash implementation."
-        )
+        summary_text = "Phase 1 complete. Successfully analyzed nelson bash implementation."
         log.append_summary(summary_text)
 
         content = log_path.read_text()

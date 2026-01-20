@@ -179,9 +179,7 @@ def test_cli_status_command_with_filter(
     }
 
     # Test filter=active (should show 3 tasks: in-progress, blocked, pending)
-    result = cli_runner.invoke(
-        main, ["--status", "--filter", "active", str(temp_prd_file)]
-    )
+    result = cli_runner.invoke(main, ["--status", "--filter", "active", str(temp_prd_file)])
 
     assert result.exit_code == 0
     assert "Filtered by: active (3 tasks shown)" in result.output
@@ -194,9 +192,7 @@ def test_cli_status_command_with_filter(
     assert "PRD-001" not in result.output  # completed
 
     # Test filter=pending (should show 1 task)
-    result = cli_runner.invoke(
-        main, ["--status", "--filter", "pending", str(temp_prd_file)]
-    )
+    result = cli_runner.invoke(main, ["--status", "--filter", "pending", str(temp_prd_file)])
 
     assert result.exit_code == 0
     assert "Filtered by: pending (1 tasks shown)" in result.output
@@ -206,9 +202,7 @@ def test_cli_status_command_with_filter(
     assert "PRD-003" not in result.output  # blocked
 
     # Test filter=completed (should show 1 task)
-    result = cli_runner.invoke(
-        main, ["--status", "--filter", "completed", str(temp_prd_file)]
-    )
+    result = cli_runner.invoke(main, ["--status", "--filter", "completed", str(temp_prd_file)])
 
     assert result.exit_code == 0
     assert "Filtered by: completed (1 tasks shown)" in result.output
@@ -273,9 +267,7 @@ def test_cli_block_command_missing_reason(
     mock_orchestrator = MagicMock()
     mock_orchestrator_class.return_value = mock_orchestrator
 
-    result = cli_runner.invoke(
-        main, ["--block", "PRD-001", str(temp_prd_file)]
-    )
+    result = cli_runner.invoke(main, ["--block", "PRD-001", str(temp_prd_file)])
 
     assert result.exit_code == 1
     assert "--reason is required" in result.output
@@ -290,9 +282,7 @@ def test_cli_unblock_command_success(
     mock_orchestrator_class.return_value = mock_orchestrator
     mock_orchestrator.unblock_task.return_value = True
 
-    result = cli_runner.invoke(
-        main, ["--unblock", "PRD-001", str(temp_prd_file)]
-    )
+    result = cli_runner.invoke(main, ["--unblock", "PRD-001", str(temp_prd_file)])
 
     assert result.exit_code == 0
     mock_orchestrator.unblock_task.assert_called_once_with("PRD-001", None)
@@ -319,9 +309,7 @@ def test_cli_unblock_command_with_context(
     )
 
     assert result.exit_code == 0
-    mock_orchestrator.unblock_task.assert_called_once_with(
-        "PRD-001", "API keys added to .env"
-    )
+    mock_orchestrator.unblock_task.assert_called_once_with("PRD-001", "API keys added to .env")
 
 
 @patch("nelson.prd_cli.PRDOrchestrator")
@@ -333,9 +321,7 @@ def test_cli_unblock_command_failure(
     mock_orchestrator_class.return_value = mock_orchestrator
     mock_orchestrator.unblock_task.return_value = False
 
-    result = cli_runner.invoke(
-        main, ["--unblock", "PRD-999", str(temp_prd_file)]
-    )
+    result = cli_runner.invoke(main, ["--unblock", "PRD-999", str(temp_prd_file)])
 
     assert result.exit_code == 1
 
@@ -349,12 +335,12 @@ def test_cli_resume_task_command_success(
     mock_orchestrator_class.return_value = mock_orchestrator
     mock_orchestrator.resume_task.return_value = True
 
-    result = cli_runner.invoke(
-        main, ["--resume-task", "PRD-001", str(temp_prd_file)]
-    )
+    result = cli_runner.invoke(main, ["--resume-task", "PRD-001", str(temp_prd_file)])
 
     assert result.exit_code == 0
-    mock_orchestrator.resume_task.assert_called_once_with("PRD-001", None)
+    mock_orchestrator.resume_task.assert_called_once_with(
+        "PRD-001", None, no_branch_setup=False
+    )
 
 
 @patch("nelson.prd_cli.PRDOrchestrator")
@@ -366,9 +352,7 @@ def test_cli_resume_task_command_failure(
     mock_orchestrator_class.return_value = mock_orchestrator
     mock_orchestrator.resume_task.return_value = False
 
-    result = cli_runner.invoke(
-        main, ["--resume-task", "PRD-999", str(temp_prd_file)]
-    )
+    result = cli_runner.invoke(main, ["--resume-task", "PRD-999", str(temp_prd_file)])
 
     assert result.exit_code == 1
 
@@ -399,9 +383,7 @@ def test_cli_task_info_command_success(
         "resume_context": None,
     }
 
-    result = cli_runner.invoke(
-        main, ["--task-info", "PRD-001", str(temp_prd_file)]
-    )
+    result = cli_runner.invoke(main, ["--task-info", "PRD-001", str(temp_prd_file)])
 
     assert result.exit_code == 0
     assert "Task Details: PRD-001" in result.output
@@ -424,9 +406,7 @@ def test_cli_task_info_command_not_found(
     mock_orchestrator_class.return_value = mock_orchestrator
     mock_orchestrator.get_task_info.return_value = None
 
-    result = cli_runner.invoke(
-        main, ["--task-info", "PRD-999", str(temp_prd_file)]
-    )
+    result = cli_runner.invoke(main, ["--task-info", "PRD-999", str(temp_prd_file)])
 
     assert result.exit_code == 1
     assert "Task not found" in result.output
@@ -458,9 +438,7 @@ def test_cli_task_info_with_blocking_info(
         "resume_context": "Keys added to .env as API_KEY",
     }
 
-    result = cli_runner.invoke(
-        main, ["--task-info", "PRD-003", str(temp_prd_file)]
-    )
+    result = cli_runner.invoke(main, ["--task-info", "PRD-003", str(temp_prd_file)])
 
     assert result.exit_code == 0
     assert "Blocking Reason" in result.output  # In box format, no colon
@@ -580,7 +558,7 @@ def test_cli_main_execution_flow(
     assert "Succeeded: 2" in result.output
     assert "Total cost: $3.45" in result.output
     mock_orchestrator.execute_all_pending.assert_called_once_with(
-        nelson_args=None, stop_on_failure=False
+        nelson_args=None, stop_on_failure=False, no_branch_setup=False
     )
 
 
@@ -608,16 +586,14 @@ def test_cli_main_execution_with_stop_on_failure(
         "total_cost": 1.23,
     }
 
-    result = cli_runner.invoke(
-        main, ["--stop-on-failure", str(temp_prd_file)]
-    )
+    result = cli_runner.invoke(main, ["--stop-on-failure", str(temp_prd_file)])
 
     assert result.exit_code == 1  # Exit code 1 because a task failed
     assert "Tasks executed: 2" in result.output
     assert "Succeeded: 1" in result.output
     assert "Failed: 1" in result.output
     mock_orchestrator.execute_all_pending.assert_called_once_with(
-        nelson_args=None, stop_on_failure=True
+        nelson_args=None, stop_on_failure=True, no_branch_setup=False
     )
 
 
@@ -701,9 +677,7 @@ def test_cli_custom_prd_dir(
 
     mock_orchestrator.execute_all_pending.return_value = {}
 
-    result = cli_runner.invoke(
-        main, ["--prd-dir", str(custom_dir), str(temp_prd_file)]
-    )
+    result = cli_runner.invoke(main, ["--prd-dir", str(custom_dir), str(temp_prd_file)])
 
     assert result.exit_code == 0
     mock_orchestrator_class.assert_called_once_with(temp_prd_file, custom_dir)
@@ -838,6 +812,7 @@ def test_cli_nelson_args_passed_to_execute_all_pending(
     mock_orchestrator.execute_all_pending.assert_called_once_with(
         nelson_args=["--model", "opus", "--max-iterations", "100"],
         stop_on_failure=False,
+        no_branch_setup=False,
     )
 
 
@@ -863,7 +838,7 @@ def test_cli_nelson_args_passed_to_resume_task(
 
     assert result.exit_code == 0
     mock_orchestrator.resume_task.assert_called_once_with(
-        "PRD-001", ["--model", "haiku"]
+        "PRD-001", ["--model", "haiku"], no_branch_setup=False
     )
 
 

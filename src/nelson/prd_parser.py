@@ -42,6 +42,7 @@ class PRDTaskStatus(Enum):
 @dataclass
 class Subtask:
     """A subtask within a PRD task."""
+
     text: str  # Subtask description
     completed: bool  # Whether subtask is checked off
     description: str = ""  # Additional indented content under subtask
@@ -75,9 +76,7 @@ class PRDParser:
     """Parser for PRD markdown files with explicit task IDs."""
 
     # Regex patterns
-    PRIORITY_HEADER_PATTERN = re.compile(
-        r"^##\s+(High|Medium|Low)\s+Priority\s*$", re.IGNORECASE
-    )
+    PRIORITY_HEADER_PATTERN = re.compile(r"^##\s+(High|Medium|Low)\s+Priority\s*$", re.IGNORECASE)
     TASK_PATTERN = re.compile(r"^-\s+\[([x~! ])\]\s+(PRD-\d+)\s+(.+)$")
     BLOCKING_REASON_PATTERN = re.compile(r"\(blocked:\s*(.+?)\)\s*$", re.IGNORECASE)
     # Pattern for subtasks (indented checkbox items without PRD-ID)
@@ -305,8 +304,9 @@ class PRDParser:
                     # Subtasks start with "      - [ ]" (6+ spaces), so further indent is 8+
                     if indent > 8:
                         # Part of current subtask's description
-                        if current_subtask["description"]:
-                            current_subtask["description"] += "\n" + line.strip()
+                        desc = str(current_subtask.get("description", ""))
+                        if desc:
+                            current_subtask["description"] = desc + "\n" + line.strip()
                         else:
                             current_subtask["description"] = line.strip()
                     else:

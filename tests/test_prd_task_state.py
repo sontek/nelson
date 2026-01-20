@@ -197,9 +197,7 @@ def test_task_state_load_or_create_existing(tmp_path: Path):
     state_file = tmp_path / "PRD-001" / "state.json"
 
     # Create and save state
-    original = TaskState(
-        task_id="PRD-001", task_text="Original task", priority="high"
-    )
+    original = TaskState(task_id="PRD-001", task_text="Original task", priority="high")
     original.cost_usd = 5.0
     original.save(state_file)
 
@@ -231,6 +229,7 @@ def test_task_state_update_timestamp():
 
     # Small delay to ensure timestamp changes (1 second for timestamp granularity)
     import time
+
     time.sleep(1.0)
 
     state.update_cost(1.0)
@@ -247,5 +246,6 @@ def test_utc_timestamp_format():
 
     # Should be parseable
     from datetime import datetime
+
     parsed = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
     assert parsed is not None

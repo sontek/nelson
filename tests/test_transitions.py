@@ -188,9 +188,7 @@ class TestDetermineNextPhase:
         next_phase = determine_next_phase(Phase.FINAL_REVIEW, plan_file)
         assert next_phase == Phase.IMPLEMENT
 
-    def test_final_review_advances_when_complete(
-        self, all_complete_plan_file: Path
-    ) -> None:
+    def test_final_review_advances_when_complete(self, all_complete_plan_file: Path) -> None:
         """Phase 5 advances to Phase 6 when all tasks checked."""
         next_phase = determine_next_phase(Phase.FINAL_REVIEW, all_complete_plan_file)
         assert next_phase == Phase.COMMIT
@@ -200,22 +198,14 @@ class TestDetermineNextPhase:
         next_phase = determine_next_phase(Phase.COMMIT, sample_plan_file)
         assert next_phase is None
 
-    def test_should_advance_false_on_looping_phase(
-        self, sample_plan_file: Path
-    ) -> None:
+    def test_should_advance_false_on_looping_phase(self, sample_plan_file: Path) -> None:
         """When should_advance=False, looping phases stay in current phase."""
-        next_phase = determine_next_phase(
-            Phase.REVIEW, sample_plan_file, should_advance=False
-        )
+        next_phase = determine_next_phase(Phase.REVIEW, sample_plan_file, should_advance=False)
         assert next_phase == Phase.REVIEW
 
-    def test_should_advance_false_on_non_looping_phase(
-        self, sample_plan_file: Path
-    ) -> None:
+    def test_should_advance_false_on_non_looping_phase(self, sample_plan_file: Path) -> None:
         """When should_advance=False, non-looping phases still advance."""
-        next_phase = determine_next_phase(
-            Phase.PLAN, sample_plan_file, should_advance=False
-        )
+        next_phase = determine_next_phase(Phase.PLAN, sample_plan_file, should_advance=False)
         assert next_phase == Phase.IMPLEMENT
 
 
@@ -228,18 +218,14 @@ class TestShouldTransitionPhase:
         assert not should_transition_phase(Phase.PLAN, sample_plan_file, exit_signal=False)
         assert not should_transition_phase(Phase.TEST, sample_plan_file, exit_signal=False)
 
-    def test_non_looping_phase_transitions_with_exit_signal(
-        self, sample_plan_file: Path
-    ) -> None:
+    def test_non_looping_phase_transitions_with_exit_signal(self, sample_plan_file: Path) -> None:
         """Non-looping phases always transition when EXIT_SIGNAL is True."""
         # Phase 1 (PLAN) is non-looping
         assert should_transition_phase(Phase.PLAN, sample_plan_file, exit_signal=True)
         # Phase 2 (IMPLEMENT) is non-looping
         assert should_transition_phase(Phase.IMPLEMENT, sample_plan_file, exit_signal=True)
 
-    def test_looping_phase_with_complete_tasks(
-        self, all_complete_plan_file: Path
-    ) -> None:
+    def test_looping_phase_with_complete_tasks(self, all_complete_plan_file: Path) -> None:
         """Looping phase transitions when EXIT_SIGNAL=True and all tasks checked."""
         # Phase 3 (REVIEW) is looping and complete
         assert should_transition_phase(Phase.REVIEW, all_complete_plan_file, exit_signal=True)
@@ -259,9 +245,7 @@ class TestShouldTransitionPhase:
         plan_file.write_text(plan_content)
         assert not should_transition_phase(Phase.TEST, plan_file, exit_signal=True)
 
-    def test_commit_phase_with_complete_tasks(
-        self, all_complete_plan_file: Path
-    ) -> None:
+    def test_commit_phase_with_complete_tasks(self, all_complete_plan_file: Path) -> None:
         """Phase 6 (COMMIT) transitions when complete and EXIT_SIGNAL=True."""
         assert should_transition_phase(Phase.COMMIT, all_complete_plan_file, exit_signal=True)
 
@@ -310,7 +294,7 @@ class TestTransitionIntegration:
         assert next_phase == Phase.TEST
 
     def test_final_review_returns_to_implement(self, tmp_path: Path) -> None:
-        """Test Phase 5 returns to Phase 2 when critical issues found (adds Fix tasks to Phase 2)."""
+        """Test Phase 5 returns to Phase 2 when critical issues found."""
         plan_content = """
 ## Phase 2: IMPLEMENT
 - [ ] Fix: Critical issue found during final review

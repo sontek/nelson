@@ -155,36 +155,71 @@ def get_phase_prompt(phase: Phase, plan_file: Path, decisions_file: Path) -> str
 
 def _get_plan_prompt(plan_file: Path, decisions_file: Path) -> str:
     """Generate Phase 1 (PLAN) prompt."""
-    return f"""Read {decisions_file}, git status. Analyze the task and create an \
-implementation plan.
+    return f"""FIRST - Detect Task Type by checking for these keywords in the original task:
+
+REVIEW KEYWORDS: "review", "audit", "analyze", "check", "inspect", "assess", "evaluate",
+                 "code review", "PR review", "pull request", "quality check", "DRY"
+IMPLEMENT KEYWORDS: "implement", "build", "create", "add", "fix", "update", "write", "develop"
+
+Task Type Rules:
+- If task contains REVIEW keywords → REVIEW_TASK (even if it also says "implement fixes")
+- If task says "review AND implement" or "review + implement" → REVIEW_AND_IMPLEMENT_TASK
+- If task contains only IMPLEMENT keywords → IMPLEMENTATION_TASK
+- When in doubt, treat as REVIEW_TASK if any review-like language is present
+
+═══════════════════════════════════════════════════════════════════════════════
+
+IF REVIEW_TASK or REVIEW_AND_IMPLEMENT_TASK:
+
+  Phase 1 MUST include these analysis tasks:
+  - [ ] Fetch/read the FULL diff or codebase to be reviewed (use git diff, read files, etc.)
+  - [ ] Apply comprehensive review checklist to identify ALL issues
+  - [ ] Document findings in {decisions_file}
+
+  Phase 2 MUST contain:
+  - [ ] Fix: <specific issue with file:line> for EACH issue found during Phase 1 review
+  - If code review finds DRY violations: "Fix: Extract duplicate code in X and Y to shared module"
+  - If code review finds architecture issues: "Fix: Refactor X to follow Y pattern"
+  - If code review finds bugs: "Fix: Handle edge case Z in file.py:123"
+  - NEVER mark Phase 2 as "N/A" or skip it - always produce findings or explicit approval
+
+  If no issues found after thorough review:
+  - Phase 1 must document WHY code passes review (not just "CI is green")
+  - Phase 2 should have: "- [x] No fixes needed - code passes comprehensive review"
+
+═══════════════════════════════════════════════════════════════════════════════
+
+IF IMPLEMENTATION_TASK:
+
+  Phase 1 should have 2-4 analysis tasks to understand the problem
+  Phase 2 should break implementation into ATOMIC tasks (each task = one commit)
+  - Break large features into small, independent tasks
+  - Each Phase 2 task must be committable on its own
+
+═══════════════════════════════════════════════════════════════════════════════
+
+COMMON TO ALL TASK TYPES:
+
+Read {decisions_file}, git status. Analyze the task and create an implementation plan.
 
 Create a plan at {plan_file} with 6 phases:
-- Phase 1 should have 2-4 analysis tasks to understand the problem
-- Phase 2 should break implementation into ATOMIC tasks (each task = one commit)
-- Break large features into small, independent tasks
-- Each Phase 2 task must be committable on its own
 - Format: '- [ ] description' for unchecked, '- [x] description' for checked
 - Phase 3 (REVIEW): Add task '- [ ] Review all changes: bugs, patterns, quality, security'
 - Phase 4 (TEST): Add task(s) for running tests/linter/type-checker
 - Phase 5 (FINAL-REVIEW): Add task '- [ ] Final review: all changes, patterns, completeness'
 - Phase 6 (COMMIT): Add task '- [ ] Commit any remaining changes'
 
-SUBTASKS FROM PRD:
-- If the task includes "Subtasks to complete:", these are from the PRD file
-- Add these subtasks at the END of Phase 2 (after all implementation tasks)
-- This ensures implementation work happens first, then subtask checklist items are verified
-- Preserve the subtask text exactly as provided
-
-IMPORTANT - For review/audit/code-review tasks:
-- Phase 1: Review the code and identify specific issues/improvements
-- Phase 2: Create fix tasks for EACH issue found (e.g., '- [ ] Fix: SQL injection in auth.py:123')
-- Phase 2 should NOT be empty - if you find issues during review, they go in Phase 2 as fix tasks
-- If no issues found, explain in Phase 1 why code is acceptable, then Phase 2 can note "no changes needed"
+VERIFICATION SUBTASKS (labeled "FINAL VERIFICATION STEPS" in task):
+- These are verification/completion steps - NOT the main task
+- The MAIN TASK is described BEFORE the verification steps section
+- First create Phase 2 tasks for the MAIN TASK (review findings, implementation, etc.)
+- Add verification subtasks at the END of Phase 2 (after all main work tasks)
+- Do NOT skip the main task just because subtasks exist - subtasks are final checks
 
 EXIT_SIGNAL in Phase 1:
 - If this is a NEW cycle and there's work to plan: EXIT_SIGNAL=true (advance to Phase 2)
-- If reviewing previous cycle's work and ALL work is complete: EXIT_SIGNAL=true with clear note in plan
-- If rebuilding context after a cycle: Check if original task is 100% complete before creating empty phases
+- If reviewing previous cycle's work and ALL complete: EXIT_SIGNAL=true with note in plan
+- If rebuilding context: Check if original task is 100% complete before creating empty phases
 
 Mark Phase 1 tasks [x] as you complete them, log to {decisions_file}, then STOP.
 """
@@ -194,13 +229,28 @@ def _get_implement_prompt(plan_file: Path, decisions_file: Path) -> str:
     """Generate Phase 2 (IMPLEMENT) prompt."""
     return f"""Read {decisions_file}, {plan_file}. Find FIRST unchecked Phase 2 task.
 
-Complete ONE task: code/tests/config only. Then:
-1. Stage changes: git add (ONLY files you modified)
-2. Create commit: git commit with descriptive message for THIS task
-3. Mark [x], log to {decisions_file}, STOP
+TASK TYPE DETECTION:
+- If task starts with "Fix:" → This is a REVIEW FINDING - implement the specific fix
+- If task is "No fixes needed" → Mark [x] and verify the review was thorough
+- Otherwise → This is an IMPLEMENTATION task
 
-NO docs (SUMMARY.md, guides). Testing: 20% effort, new features only, Phase 4 is main testing.
-Each task = one atomic commit.
+FOR "Fix:" TASKS (from code review):
+- Read the specific file:line mentioned
+- Understand the issue from Phase 1 findings in {decisions_file}
+- Implement the fix properly (not a band-aid)
+- Stage: git add (ONLY files you modified)
+- Commit: git commit with message like "fix: <what was fixed>"
+
+FOR IMPLEMENTATION TASKS:
+- Complete ONE task: code/tests/config only
+- Stage: git add (ONLY files you modified)
+- Commit: git commit with descriptive message for THIS task
+
+COMMON:
+- Mark [x], log to {decisions_file}, STOP
+- NO docs (SUMMARY.md, guides)
+- Testing: 20% effort, new features only, Phase 4 is main testing
+- Each task = one atomic commit
 
 CRITICAL: Implement completely - no TODO/FIXME/XXX comments or placeholder stubs.
 Write production-ready code. If you cannot complete, explain why in {decisions_file}.

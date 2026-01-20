@@ -217,9 +217,7 @@ class TaskState:
         return cls.from_dict(data)
 
     @classmethod
-    def load_or_create(
-        cls, path: Path, task_id: str, task_text: str, priority: str
-    ) -> "TaskState":
+    def load_or_create(cls, path: Path, task_id: str, task_text: str, priority: str) -> "TaskState":
         """Load state from file, or create new state if file doesn't exist.
 
         Args:

@@ -490,7 +490,7 @@ def test_task_state_load_or_create_handles_corruption(tmp_path: Path):
     task_state_file.parent.mkdir(parents=True)
 
     # Write corrupted JSON
-    task_state_file.write_text('{invalid json}')
+    task_state_file.write_text("{invalid json}")
 
     # Should raise error, not create new state
     with pytest.raises(json.JSONDecodeError):
@@ -516,9 +516,7 @@ def test_task_state_recovery_by_deleting_corrupted_file(tmp_path: Path):
         task_state_file.unlink()
 
         # Now load_or_create will create fresh state
-        recovered = TaskState.load_or_create(
-            task_state_file, "PRD-001", "Recovered task", "high"
-        )
+        recovered = TaskState.load_or_create(task_state_file, "PRD-001", "Recovered task", "high")
 
         assert recovered.task_id == "PRD-001"
         assert recovered.task_text == "Recovered task"
@@ -538,7 +536,7 @@ def test_prd_state_manager_handles_corrupted_task_state(tmp_path: Path):
     # Create corrupted task state file
     task_state_path = manager.get_task_state_path("PRD-001")
     task_state_path.parent.mkdir(parents=True)
-    task_state_path.write_text('{bad json}')
+    task_state_path.write_text("{bad json}")
 
     # Manager should propagate the error
     with pytest.raises(json.JSONDecodeError):
@@ -849,9 +847,7 @@ def test_state_synchronization_between_prd_and_task_states(tmp_path: Path):
     manager.save_prd_state()
 
     # Start task - should update both PRD state and task state
-    task_state = manager.start_task(
-        "PRD-001", "Task 1", "high", "run-001", "feature/PRD-001"
-    )
+    task_state = manager.start_task("PRD-001", "Task 1", "high", "run-001", "feature/PRD-001")
 
     # Verify synchronization: PRD state
     assert manager.prd_state.tasks["PRD-001"]["status"] == "in_progress"
@@ -924,9 +920,7 @@ def test_state_recovery_after_execution_interruption(tmp_path: Path):
     manager1.prd_state.add_task("PRD-002", "Task 2", "medium", 2)
     manager1.save_prd_state()
 
-    task_state = manager1.start_task(
-        "PRD-001", "Task 1", "high", "run-001", "feature/PRD-001"
-    )
+    task_state = manager1.start_task("PRD-001", "Task 1", "high", "run-001", "feature/PRD-001")
     task_state.update_cost(1.5)
     task_state.increment_iterations(10)
     manager1.save_task_state(task_state)
@@ -965,9 +959,7 @@ def test_state_recovery_after_execution_interruption(tmp_path: Path):
     assert manager2.prd_state.in_progress_count == 0
 
     # Continue with next task
-    task_state_2 = manager2.start_task(
-        "PRD-002", "Task 2", "medium", "run-002", "feature/PRD-002"
-    )
+    task_state_2 = manager2.start_task("PRD-002", "Task 2", "medium", "run-002", "feature/PRD-002")
     manager2.save_task_state(task_state_2)
 
     # Verify workflow continues normally after recovery

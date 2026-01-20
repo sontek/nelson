@@ -37,18 +37,14 @@ class TestNelsonLogger:
         logger = NelsonLogger()
         with patch.object(logger.console, "print") as mock_print:
             logger.success("Test success message")
-            mock_print.assert_called_once_with(
-                "[success][SUCCESS][/success] Test success message"
-            )
+            mock_print.assert_called_once_with("[success][SUCCESS][/success] Test success message")
 
     def test_warning_message(self) -> None:
         """Test warning message output."""
         logger = NelsonLogger()
         with patch.object(logger.console, "print") as mock_print:
             logger.warning("Test warning message")
-            mock_print.assert_called_once_with(
-                "[warning][WARNING][/warning] Test warning message"
-            )
+            mock_print.assert_called_once_with("[warning][WARNING][/warning] Test warning message")
 
     def test_error_message(self) -> None:
         """Test error message output."""
@@ -76,9 +72,7 @@ class TestNelsonLogger:
         logger = NelsonLogger()
         with patch.object(logger.console, "print") as mock_print:
             logger.info("Test message", style="bold")
-            mock_print.assert_called_once_with(
-                "[info][INFO][/info] Test message", style="bold"
-            )
+            mock_print.assert_called_once_with("[info][INFO][/info] Test message", style="bold")
 
     def test_no_duplicate_handlers(self) -> None:
         """Test that creating multiple loggers doesn't create duplicate handlers."""

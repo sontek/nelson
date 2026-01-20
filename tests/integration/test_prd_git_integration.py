@@ -113,12 +113,14 @@ def prd_dir(git_repo: Path) -> Path:
 @pytest.fixture
 def mock_nelson_success():
     """Create a mock for successful Nelson execution."""
+
     def _mock_run(*args, **kwargs):
         result = Mock()
         result.returncode = 0
         result.stdout = "Nelson execution completed successfully"
         result.stderr = ""
         return result
+
     return _mock_run
 
 
@@ -221,6 +223,7 @@ class TestPRDOrchestratorWithRealGit:
         import os
 
         from nelson.prd_branch import ensure_branch_for_task
+
         original_cwd = os.getcwd()
         try:
             os.chdir(git_repo)
@@ -248,6 +251,7 @@ class TestPRDOrchestratorWithRealGit:
     def test_multiple_branches_can_be_created(self, git_repo: Path):
         """Test creating multiple branches for different tasks."""
         import os
+
         original_cwd = os.getcwd()
         try:
             os.chdir(git_repo)
@@ -275,6 +279,7 @@ class TestPRDOrchestratorWithRealGit:
     def test_branch_switching_between_tasks(self, git_repo: Path):
         """Test switching between task branches."""
         import os
+
         original_cwd = os.getcwd()
         try:
             os.chdir(git_repo)
@@ -355,7 +360,7 @@ class TestGitBranchAdditionalOperations:
         from nelson.prd_branch import slugify_task_text
 
         # Parentheses, brackets, quotes
-        assert slugify_task_text("Fix [bug] in \"API\" (v2.0)") == "fix-bug-in-api-v20"
+        assert slugify_task_text('Fix [bug] in "API" (v2.0)') == "fix-bug-in-api-v20"
 
         # Punctuation
         assert slugify_task_text("Update README.md, docs, etc.") == "update-readmemd-docs-etc"
@@ -609,6 +614,7 @@ class TestGitErrorHandling:
 
         # Test with ensure_branch_for_task
         import os
+
         original_cwd = os.getcwd()
         try:
             os.chdir(non_git_dir)

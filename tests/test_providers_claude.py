@@ -241,9 +241,7 @@ class TestClaudeProviderExecution:
                 ),
             ]
 
-            response = provider.execute(
-                "system", "user", "sonnet", max_retries=3, retry_delay=0.1
-            )
+            response = provider.execute("system", "user", "sonnet", max_retries=3, retry_delay=0.1)
 
             assert not response.is_error
             assert "Success" in response.content
@@ -287,11 +285,13 @@ class TestClaudeProviderJailMode:
             mock_script.return_value = subprocess.CompletedProcess(
                 args=[],
                 returncode=0,
-                stdout=json.dumps({
-                    "type": "result",
-                    "result": f"Test\n{status_block}",
-                    "is_error": False,
-                }),
+                stdout=json.dumps(
+                    {
+                        "type": "result",
+                        "result": f"Test\n{status_block}",
+                        "is_error": False,
+                    }
+                ),
                 stderr="",
             )
 

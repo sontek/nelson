@@ -350,9 +350,7 @@ class TestCircuitBreaker:
     def test_circuit_breaker_test_only_loop(self, orchestrator: WorkflowOrchestrator) -> None:
         """Test circuit breaker detects test-only loops when tasks remain."""
         # Create plan file with unchecked tasks
-        orchestrator.plan_file.write_text(
-            "# Plan\n## Phase 4: TEST\n- [ ] Run tests"
-        )
+        orchestrator.plan_file.write_text("# Plan\n## Phase 4: TEST\n- [ ] Run tests")
 
         status_block = {
             "exit_signal": False,
@@ -584,9 +582,7 @@ class TestWorkflowRun:
     ) -> None:
         """Test workflow exits gracefully when task is blocked."""
         # Create plan file with unchecked tasks
-        orchestrator.plan_file.write_text(
-            "# Plan\n## Phase 4: TEST\n- [ ] Run tests"
-        )
+        orchestrator.plan_file.write_text("# Plan\n## Phase 4: TEST\n- [ ] Run tests")
 
         # Mock provider to return BLOCKED status
         blocked_status = {
@@ -646,7 +642,7 @@ class TestCycleLoopBehavior:
         mock_run_dir: Path,
         tmp_path: Path,
     ) -> None:
-        """Test that EXIT_SIGNAL advances through all phases correctly, not skipping to new cycle."""
+        """Test that EXIT_SIGNAL advances through all phases correctly."""
         # Create config with max_iterations=2 to allow Phase 1 of cycle 1 to execute
         config = NelsonConfig(
             max_iterations=2,
@@ -1039,9 +1035,7 @@ class TestCycleLoopBehavior:
 
         # Track which phase we're in based on state
         def execute_side_effect(*args, **kwargs):
-            """Return different responses based on current phase."""
-            current_phase = orchestrator.state.current_phase
-
+            """Return EXIT_SIGNAL=true to advance through phases."""
             # All phases: return EXIT_SIGNAL=true to advance phases
             return AIResponse(
                 content="Work complete\n"

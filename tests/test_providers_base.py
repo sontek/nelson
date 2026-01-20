@@ -67,9 +67,7 @@ class TestProviderError:
     def test_error_with_original_exception(self) -> None:
         """Test error with underlying exception."""
         original = ValueError("Bad value")
-        error = ProviderError(
-            "Provider failed", is_retryable=True, original_error=original
-        )
+        error = ProviderError("Provider failed", is_retryable=True, original_error=original)
 
         assert error.message == "Provider failed"
         assert error.original_error is original
@@ -169,9 +167,7 @@ class TestAIProvider:
                 return 0.01
 
         provider = TestProvider()
-        response = provider.execute(
-            system_prompt="System", user_prompt="User", model="test-model"
-        )
+        response = provider.execute(system_prompt="System", user_prompt="User", model="test-model")
 
         assert response.content == "Model: test-model"
         assert response.metadata["retries"] == 3
@@ -300,9 +296,7 @@ class TestAIProvider:
                 max_retries: int = 3,
                 retry_delay: float = 3.0,
             ) -> AIResponse:
-                return AIResponse(
-                    content="test", raw_output="test", metadata={"cost": 0.05}
-                )
+                return AIResponse(content="test", raw_output="test", metadata={"cost": 0.05})
 
             def validate_response(self, response: AIResponse) -> bool:
                 return True
@@ -318,9 +312,7 @@ class TestAIProvider:
                 return cost
 
         provider = TestProvider()
-        response = provider.execute(
-            system_prompt="", user_prompt="", model="test-model"
-        )
+        response = provider.execute(system_prompt="", user_prompt="", model="test-model")
         cost = provider.get_cost(response)
 
         assert isinstance(cost, float)

@@ -167,9 +167,7 @@ class TestFindLastRun:
         manager = RunManager.find_last_run(config)
         assert manager is None
 
-    def test_find_last_run_returns_none_when_runs_dir_empty(
-        self, config: NelsonConfig
-    ) -> None:
+    def test_find_last_run_returns_none_when_runs_dir_empty(self, config: NelsonConfig) -> None:
         """Test find_last_run returns None when runs directory is empty."""
         config.runs_dir.mkdir(parents=True)
         manager = RunManager.find_last_run(config)

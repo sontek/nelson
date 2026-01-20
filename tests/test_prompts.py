@@ -328,9 +328,7 @@ class TestPromptIntegration:
 
         # Phase 1: Planning
         system_prompt = get_system_prompt(decisions_file)
-        full_prompt_p1 = build_full_prompt(
-            task, Phase.PLAN, plan_file, decisions_file
-        )
+        full_prompt_p1 = build_full_prompt(task, Phase.PLAN, plan_file, decisions_file)
 
         assert "6-phase autonomous workflow" in system_prompt
         assert "Original task: Implement authentication system" in full_prompt_p1

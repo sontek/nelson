@@ -81,9 +81,7 @@ def test_orchestrator_initialization(temp_prd_file: Path, temp_prd_dir: Path):
     assert len(orchestrator.tasks) == 5
 
 
-def test_orchestrator_initializes_task_mapping(
-    temp_prd_file: Path, temp_prd_dir: Path
-):
+def test_orchestrator_initializes_task_mapping(temp_prd_file: Path, temp_prd_dir: Path):
     """Test that orchestrator initializes task mapping in state."""
     orchestrator = PRDOrchestrator(temp_prd_file, temp_prd_dir)
 
@@ -195,7 +193,11 @@ def test_execute_task_success(
 ):
     """Test successful task execution."""
     # Setup mocks
-    mock_ensure_branch.return_value = {"branch": "feature/PRD-001", "base_branch": "main", "reason": "test"}
+    mock_ensure_branch.return_value = {
+        "branch": "feature/PRD-001",
+        "base_branch": "main",
+        "reason": "test",
+    }
     # CliRunner already set up above
 
     # Execute task
@@ -238,7 +240,11 @@ def test_execute_task_success_when_nelson_returns_none(
     This test ensures we handle that correctly.
     """
     # Setup mocks
-    mock_ensure_branch.return_value = {"branch": "feature/PRD-001", "base_branch": "main", "reason": "test"}
+    mock_ensure_branch.return_value = {
+        "branch": "feature/PRD-001",
+        "base_branch": "main",
+        "reason": "test",
+    }
     # Click returns None on success with standalone_mode=False
     mock_cli_runner.return_value = None
 
@@ -246,7 +252,9 @@ def test_execute_task_success_when_nelson_returns_none(
     success = orchestrator.execute_task("PRD-001", "Implement user authentication", "high")
 
     # Verify success - this is the bug: None should be treated as success
-    assert success is True, "Task should succeed when nelson_main returns None (Click's success value)"
+    assert success is True, (
+        "Task should succeed when nelson_main returns None (Click's success value)"
+    )
 
     # Verify task state was saved as completed
     task_state = orchestrator.state_manager.load_task_state(
@@ -268,7 +276,11 @@ def test_execute_task_failure(
 ):
     """Test failed task execution."""
     # Setup mocks
-    mock_ensure_branch.return_value = {"branch": "feature/PRD-001", "base_branch": "main", "reason": "test"}
+    mock_ensure_branch.return_value = {
+        "branch": "feature/PRD-001",
+        "base_branch": "main",
+        "reason": "test",
+    }
     mock_cli_runner.return_value = 1  # Exit code 1 = failure
 
     # Execute task
@@ -310,7 +322,11 @@ def test_execute_task_with_resume_context(
 ):
     """Test that execute_task prepends resume context to prompt."""
     # Setup mocks
-    mock_ensure_branch.return_value = {"branch": "feature/PRD-001-implement-user-authentication", "base_branch": "main", "reason": "test"}
+    mock_ensure_branch.return_value = {
+        "branch": "feature/PRD-001-implement-user-authentication",
+        "base_branch": "main",
+        "reason": "test",
+    }
     # CliRunner already set up above
 
     # Load task state and set resume context
@@ -341,7 +357,11 @@ def test_execute_task_with_custom_prompt(
 ):
     """Test execute_task with custom prompt."""
     # Setup mocks
-    mock_ensure_branch.return_value = {"branch": "feature/PRD-001-implement-user-authentication", "base_branch": "main", "reason": "test"}
+    mock_ensure_branch.return_value = {
+        "branch": "feature/PRD-001-implement-user-authentication",
+        "base_branch": "main",
+        "reason": "test",
+    }
     # CliRunner already set up above
 
     # Execute task with custom prompt
@@ -365,7 +385,11 @@ def test_execute_task_with_nelson_args(
 ):
     """Test execute_task with additional Nelson arguments."""
     # Setup mocks
-    mock_ensure_branch.return_value = {"branch": "feature/PRD-001-implement-user-authentication", "base_branch": "main", "reason": "test"}
+    mock_ensure_branch.return_value = {
+        "branch": "feature/PRD-001-implement-user-authentication",
+        "base_branch": "main",
+        "reason": "test",
+    }
     # CliRunner already set up above
 
     # Execute task with Nelson args
@@ -393,7 +417,11 @@ def test_nelson_cli_command_construction(
 ):
     """Test that nelson CLI commands are constructed correctly with all components."""
     # Setup mocks
-    mock_ensure_branch.return_value = {"branch": "feature/PRD-001-test-task", "base_branch": "main", "reason": "test"}
+    mock_ensure_branch.return_value = {
+        "branch": "feature/PRD-001-test-task",
+        "base_branch": "main",
+        "reason": "test",
+    }
 
     # Test 1: Basic command without args or resume context
     orchestrator.execute_task("PRD-001", "Implement feature", "high")
@@ -407,7 +435,7 @@ def test_nelson_cli_command_construction(
 
     # Verify standalone_mode is used
     kwargs = call_args[1]
-    assert kwargs.get("standalone_mode") == False, "Should use standalone_mode=False"
+    assert kwargs.get("standalone_mode") is False, "Should use standalone_mode=False"
 
     # Reset for next test
     orchestrator.parser.update_task_status("PRD-001", PRDTaskStatus.PENDING)
@@ -418,7 +446,7 @@ def test_nelson_cli_command_construction(
         "PRD-001",
         "Implement feature",
         "high",
-        nelson_args=["--max-iterations", "100", "--model", "opus"]
+        nelson_args=["--max-iterations", "100", "--model", "opus"],
     )
 
     # Verify nelson_main was called correctly
@@ -437,9 +465,7 @@ def test_nelson_cli_command_construction(
 
     # Test 3: Command with resume context (no nelson args)
     # Set up task state with resume context
-    task_state = orchestrator.state_manager.load_task_state(
-        "PRD-001", "Implement feature", "high"
-    )
+    task_state = orchestrator.state_manager.load_task_state("PRD-001", "Implement feature", "high")
     task_state.start("test-run-001", "feature/PRD-001-test-task")
     task_state.resume_context = "API keys now in .env file"
     orchestrator.state_manager.save_task_state(task_state)
@@ -450,11 +476,7 @@ def test_nelson_cli_command_construction(
     mock_cli_runner.reset_mock()
 
     # Now execute with resume context
-    orchestrator.execute_task(
-        "PRD-001",
-        "Implement feature",
-        "high"
-    )
+    orchestrator.execute_task("PRD-001", "Implement feature", "high")
 
     # Verify nelson_main was called correctly
     call_args = mock_cli_runner.call_args
@@ -471,9 +493,7 @@ def test_nelson_cli_command_construction(
 
     # Test 4: Command with both resume context AND nelson args
     # Set up task state with resume context
-    task_state = orchestrator.state_manager.load_task_state(
-        "PRD-001", "Implement feature", "high"
-    )
+    task_state = orchestrator.state_manager.load_task_state("PRD-001", "Implement feature", "high")
     task_state.start("test-run-002", "feature/PRD-001-test-task")
     task_state.resume_context = "Dependencies installed: requests, pytest"
     orchestrator.state_manager.save_task_state(task_state)
@@ -484,10 +504,7 @@ def test_nelson_cli_command_construction(
     mock_cli_runner.reset_mock()
 
     orchestrator.execute_task(
-        "PRD-001",
-        "Implement feature",
-        "high",
-        nelson_args=["--max-iterations", "50"]
+        "PRD-001", "Implement feature", "high", nelson_args=["--max-iterations", "50"]
     )
 
     # Verify nelson_main was called correctly
@@ -517,7 +534,11 @@ def test_execute_task_updates_cost_from_nelson_state(
     orchestrator = PRDOrchestrator(temp_prd_file, temp_prd_dir, target_path=temp_prd_file.parent)
 
     # Setup mocks
-    mock_ensure_branch.return_value = {"branch": "feature/PRD-001-implement-user-authentication", "base_branch": "main", "reason": "test"}
+    mock_ensure_branch.return_value = {
+        "branch": "feature/PRD-001-implement-user-authentication",
+        "base_branch": "main",
+        "reason": "test",
+    }
     mock_find_run.return_value = "nelson-20260115-120000"
 
     # Create actual state file structure
@@ -557,7 +578,11 @@ def test_cost_extraction_when_nelson_state_file_missing(
 ):
     """Test that task completes successfully even when Nelson state file doesn't exist."""
     # Setup mocks
-    mock_ensure_branch.return_value = {"branch": "feature/PRD-001-test-task", "base_branch": "main", "reason": "test"}
+    mock_ensure_branch.return_value = {
+        "branch": "feature/PRD-001-test-task",
+        "base_branch": "main",
+        "reason": "test",
+    }
     # CliRunner already set up above
 
     # Mock Path.exists() to return False (state file doesn't exist)
@@ -574,9 +599,7 @@ def test_cost_extraction_when_nelson_state_file_missing(
     assert success is True
 
     # Task state should be completed but with no cost/iteration data
-    task_state = orchestrator.state_manager.load_task_state(
-        "PRD-001", "Implement feature", "high"
-    )
+    task_state = orchestrator.state_manager.load_task_state("PRD-001", "Implement feature", "high")
     assert task_state.status == TaskStatus.COMPLETED
     assert task_state.cost_usd == 0.0  # No cost extracted
     assert task_state.iterations == 0  # No iterations extracted
@@ -599,7 +622,11 @@ def test_cost_extraction_handles_corrupted_nelson_state(
     orchestrator = PRDOrchestrator(temp_prd_file, temp_prd_dir, target_path=temp_prd_file.parent)
 
     # Setup mocks
-    mock_ensure_branch.return_value = {"branch": "feature/PRD-001-test-task", "base_branch": "main", "reason": "test"}
+    mock_ensure_branch.return_value = {
+        "branch": "feature/PRD-001-test-task",
+        "base_branch": "main",
+        "reason": "test",
+    }
     mock_find_run.return_value = "nelson-20260115-120000"
 
     # Create the state file
@@ -610,6 +637,7 @@ def test_cost_extraction_handles_corrupted_nelson_state(
 
     # Mock NelsonState.load() to raise JSONDecodeError
     import json
+
     mock_load.side_effect = json.JSONDecodeError("Invalid JSON", "", 0)
 
     # Execute task
@@ -623,9 +651,7 @@ def test_cost_extraction_handles_corrupted_nelson_state(
     assert "Warning: Could not read Nelson state:" in captured.out
 
     # Task state should be completed but with no cost data
-    task_state = orchestrator.state_manager.load_task_state(
-        "PRD-001", "Implement feature", "high"
-    )
+    task_state = orchestrator.state_manager.load_task_state("PRD-001", "Implement feature", "high")
     assert task_state.status == TaskStatus.COMPLETED
     assert task_state.cost_usd == 0.0  # No cost extracted
 
@@ -647,7 +673,11 @@ def test_cost_extraction_handles_missing_fields_in_nelson_state(
     orchestrator = PRDOrchestrator(temp_prd_file, temp_prd_dir, target_path=temp_prd_file.parent)
 
     # Setup mocks
-    mock_ensure_branch.return_value = {"branch": "feature/PRD-001-test-task", "base_branch": "main", "reason": "test"}
+    mock_ensure_branch.return_value = {
+        "branch": "feature/PRD-001-test-task",
+        "base_branch": "main",
+        "reason": "test",
+    }
     mock_find_run.return_value = "nelson-20260115-120000"
 
     # Create actual state file structure
@@ -672,9 +702,7 @@ def test_cost_extraction_handles_missing_fields_in_nelson_state(
     assert "Warning: Could not read Nelson state:" in captured.out
 
     # Task state should be completed but with no cost data
-    task_state = orchestrator.state_manager.load_task_state(
-        "PRD-001", "Implement feature", "high"
-    )
+    task_state = orchestrator.state_manager.load_task_state("PRD-001", "Implement feature", "high")
     assert task_state.status == TaskStatus.COMPLETED
     assert task_state.cost_usd == 0.0  # No cost extracted
 
@@ -695,7 +723,11 @@ def test_cost_extraction_with_zero_cost(
     orchestrator = PRDOrchestrator(temp_prd_file, temp_prd_dir, target_path=temp_prd_file.parent)
 
     # Setup mocks
-    mock_ensure_branch.return_value = {"branch": "feature/PRD-001-test-task", "base_branch": "main", "reason": "test"}
+    mock_ensure_branch.return_value = {
+        "branch": "feature/PRD-001-test-task",
+        "base_branch": "main",
+        "reason": "test",
+    }
     mock_find_run.return_value = "nelson-20260115-120000"  # Return a valid run ID
 
     # Create the state file path that the orchestrator will look for
@@ -719,9 +751,7 @@ def test_cost_extraction_with_zero_cost(
     assert success is True
 
     # Verify zero cost was correctly extracted
-    task_state = orchestrator.state_manager.load_task_state(
-        "PRD-001", "Implement feature", "high"
-    )
+    task_state = orchestrator.state_manager.load_task_state("PRD-001", "Implement feature", "high")
     assert task_state.cost_usd == 0.0
     assert task_state.iterations == 3
     assert task_state.status == TaskStatus.COMPLETED
@@ -743,7 +773,11 @@ def test_cost_extraction_with_high_cost_values(
     orchestrator = PRDOrchestrator(temp_prd_file, temp_prd_dir, target_path=temp_prd_file.parent)
 
     # Setup mocks
-    mock_ensure_branch.return_value = {"branch": "feature/PRD-001-test-task", "base_branch": "main", "reason": "test"}
+    mock_ensure_branch.return_value = {
+        "branch": "feature/PRD-001-test-task",
+        "base_branch": "main",
+        "reason": "test",
+    }
     mock_find_run.return_value = "nelson-20260115-120000"
 
     # Create the state file
@@ -767,9 +801,7 @@ def test_cost_extraction_with_high_cost_values(
     assert success is True
 
     # Verify high cost was correctly extracted
-    task_state = orchestrator.state_manager.load_task_state(
-        "PRD-001", "Implement feature", "high"
-    )
+    task_state = orchestrator.state_manager.load_task_state("PRD-001", "Implement feature", "high")
     assert task_state.cost_usd == 47.85
     assert task_state.iterations == 150
     assert task_state.phase == 6
@@ -793,7 +825,11 @@ def test_cost_extraction_with_partial_phase_data(
     orchestrator = PRDOrchestrator(temp_prd_file, temp_prd_dir, target_path=temp_prd_file.parent)
 
     # Setup mocks
-    mock_ensure_branch.return_value = {"branch": "feature/PRD-001-test-task", "base_branch": "main", "reason": "test"}
+    mock_ensure_branch.return_value = {
+        "branch": "feature/PRD-001-test-task",
+        "base_branch": "main",
+        "reason": "test",
+    }
     mock_find_run.return_value = "nelson-20260115-120000"
 
     # Create the state file
@@ -817,9 +853,7 @@ def test_cost_extraction_with_partial_phase_data(
     assert success is True
 
     # Verify cost and iterations were extracted but phase update was skipped
-    task_state = orchestrator.state_manager.load_task_state(
-        "PRD-001", "Implement feature", "high"
-    )
+    task_state = orchestrator.state_manager.load_task_state("PRD-001", "Implement feature", "high")
     assert task_state.cost_usd == 2.50
     assert task_state.iterations == 10
     # Phase should remain at default (not updated due to None)
@@ -933,6 +967,7 @@ def test_execute_all_pending_with_nelson_args(
     orchestrator: PRDOrchestrator,
 ):
     """Test that execute_all_pending passes Nelson args to execute_task."""
+
     def execute_side_effect(task_id, *args, **kwargs):
         # Update PRD file to mark as complete
         orchestrator.parser.update_task_status(task_id, PRDTaskStatus.COMPLETED)
@@ -998,9 +1033,7 @@ def test_unblock_task(tmp_path: Path):
     assert success is True
 
     # Verify task state was updated
-    task_state = orchestrator.state_manager.load_task_state(
-        "PRD-001", "Implement auth", "high"
-    )
+    task_state = orchestrator.state_manager.load_task_state("PRD-001", "Implement auth", "high")
     assert task_state.status.value == "pending"
     assert task_state.resume_context == "API keys added to .env"
 
@@ -1167,7 +1200,11 @@ def test_execute_task_exception(
 ):
     """Test that execute_task handles general exceptions."""
     # Setup mocks
-    mock_ensure_branch.return_value = {"branch": "feature/PRD-001-implement-user-authentication", "base_branch": "main", "reason": "test"}
+    mock_ensure_branch.return_value = {
+        "branch": "feature/PRD-001-implement-user-authentication",
+        "base_branch": "main",
+        "reason": "test",
+    }
     mock_cli_runner.side_effect = Exception("Unexpected error")
 
     # Execute task
@@ -1187,7 +1224,11 @@ def test_execute_task_handles_missing_nelson_state(
 ):
     """Test that execute_task handles missing Nelson state gracefully."""
     # Setup mocks
-    mock_ensure_branch.return_value = {"branch": "feature/PRD-001-implement-user-authentication", "base_branch": "main", "reason": "test"}
+    mock_ensure_branch.return_value = {
+        "branch": "feature/PRD-001-implement-user-authentication",
+        "base_branch": "main",
+        "reason": "test",
+    }
     # CliRunner already set up above
     mock_load.side_effect = FileNotFoundError("State file not found")
 
@@ -1213,7 +1254,11 @@ def test_execute_task_provides_exit_code_feedback(
 ):
     """Test that execute_task provides specific feedback for exit codes."""
     # Setup mocks
-    mock_ensure_branch.return_value = {"branch": "feature/PRD-001-implement-user-authentication", "base_branch": "main", "reason": "test"}
+    mock_ensure_branch.return_value = {
+        "branch": "feature/PRD-001-implement-user-authentication",
+        "base_branch": "main",
+        "reason": "test",
+    }
 
     # Test exit code 1 (general error)
     mock_cli_runner.return_value = 1
@@ -1246,7 +1291,11 @@ def test_execute_task_handles_unexpected_exception(
 ):
     """Test that execute_task handles unexpected exceptions gracefully."""
     # Setup mocks
-    mock_ensure_branch.return_value = {"branch": "feature/PRD-001-implement-user-authentication", "base_branch": "main", "reason": "test"}
+    mock_ensure_branch.return_value = {
+        "branch": "feature/PRD-001-implement-user-authentication",
+        "base_branch": "main",
+        "reason": "test",
+    }
 
     # Create an unexpected exception type
     class UnexpectedError(Exception):
@@ -1289,7 +1338,11 @@ def test_execute_all_pending_shows_progress_indicators(
     prd_file.write_text(prd_content)
 
     # Setup mocks
-    mock_ensure_branch.return_value = {"branch": "feature/test-branch", "base_branch": "main", "reason": "test"}
+    mock_ensure_branch.return_value = {
+        "branch": "feature/test-branch",
+        "base_branch": "main",
+        "reason": "test",
+    }
 
     # Create orchestrator
     prd_dir = tmp_path / ".nelson/prd"
@@ -1341,7 +1394,11 @@ def test_execute_all_pending_shows_completion_percentage(
     prd_file.write_text(prd_content)
 
     # Setup mocks
-    mock_ensure_branch.return_value = {"branch": "feature/test-branch", "base_branch": "main", "reason": "test"}
+    mock_ensure_branch.return_value = {
+        "branch": "feature/test-branch",
+        "base_branch": "main",
+        "reason": "test",
+    }
 
     # Create orchestrator
     prd_dir = tmp_path / ".nelson/prd"
@@ -1374,7 +1431,11 @@ def test_execute_task_shows_resume_indicator(
 ):
     """Test that execute_task shows resume indicator when resuming with context."""
     # Setup mocks
-    mock_ensure_branch.return_value = {"branch": "feature/PRD-001-implement-user-authentication", "base_branch": "main", "reason": "test"}
+    mock_ensure_branch.return_value = {
+        "branch": "feature/PRD-001-implement-user-authentication",
+        "base_branch": "main",
+        "reason": "test",
+    }
 
     # Create task state with resume context
     task_state = orchestrator.state_manager.load_task_state(
@@ -1404,7 +1465,11 @@ def test_execute_task_shows_visual_status_icons(
 ):
     """Test that execute_task shows visual status icons (success/failure)."""
     # Setup mocks
-    mock_ensure_branch.return_value = {"branch": "feature/PRD-001-implement-user-authentication", "base_branch": "main", "reason": "test"}
+    mock_ensure_branch.return_value = {
+        "branch": "feature/PRD-001-implement-user-authentication",
+        "base_branch": "main",
+        "reason": "test",
+    }
 
     # Test success case
     success = orchestrator.execute_task("PRD-001", "Implement user authentication", "high")
@@ -1626,8 +1691,6 @@ def test_check_task_text_changes_case_sensitive(tmp_path: Path):
     assert changes[0]["current_text"] == "Implement Authentication"
 
 
-
-
 def test_full_prd_workflow_integration(tmp_path: Path):
     """Integration test for complete PRD orchestration workflow.
 
@@ -1664,11 +1727,18 @@ def test_full_prd_workflow_integration(tmp_path: Path):
     assert summary["pending"] == 4
 
     # Mock git branch and Nelson operations
-    with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_ensure_branch, \
-         patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main:
-
+    with (
+        patch(
+            "nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task"
+        ) as mock_ensure_branch,
+        patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main,
+    ):
         # Setup branch mock to return branch name
-        mock_ensure_branch.return_value = {"branch": "feature/PRD-001-add-user-authentication", "base_branch": "main", "reason": "test"}
+        mock_ensure_branch.return_value = {
+            "branch": "feature/PRD-001-add-user-authentication",
+            "base_branch": "main",
+            "reason": "test",
+        }
 
         # Setup Nelson mock for successful execution (exit code 0)
         mock_nelson_main.return_value = 0
@@ -1766,11 +1836,18 @@ def test_full_workflow_with_failure_handling(tmp_path: Path):
     prd_dir = tmp_path / ".nelson/prd"
     orchestrator = PRDOrchestrator(prd_file, prd_dir)
 
-    with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_ensure_branch, \
-         patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main:
-
+    with (
+        patch(
+            "nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task"
+        ) as mock_ensure_branch,
+        patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main,
+    ):
         # Setup branch mock
-        mock_ensure_branch.return_value = {"branch": "feature/PRD-001-task-that-will-succeed", "base_branch": "main", "reason": "test"}
+        mock_ensure_branch.return_value = {
+            "branch": "feature/PRD-001-task-that-will-succeed",
+            "base_branch": "main",
+            "reason": "test",
+        }
 
         # First task succeeds (exit code 0)
         mock_nelson_main.return_value = 0
@@ -1827,13 +1904,18 @@ def test_concurrent_state_file_read_write(tmp_path: Path):
     # Create first orchestrator and execute a task
     orchestrator1 = PRDOrchestrator(prd_file, prd_dir)
 
-    with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
-         patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main:
-
+    with (
+        patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch,
+        patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main,
+    ):
         # Setup nelson_main mock for success (exit code 0)
         mock_nelson_main.return_value = 0
 
-        mock_branch.return_value = {"branch": "feature/PRD-001-first-task", "base_branch": "main", "reason": "test"}
+        mock_branch.return_value = {
+            "branch": "feature/PRD-001-first-task",
+            "base_branch": "main",
+            "reason": "test",
+        }
 
         # Orchestrator 1 completes PRD-001
         orchestrator1.execute_task("PRD-001", "First task", "high")
@@ -1875,13 +1957,18 @@ def test_concurrent_prd_file_modifications(tmp_path: Path):
     prd_dir = tmp_path / ".nelson/prd"
     orchestrator1 = PRDOrchestrator(prd_file, prd_dir)
 
-    with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
-         patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main:
-
+    with (
+        patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch,
+        patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main,
+    ):
         # Setup nelson_main mock for success (exit code 0)
         mock_nelson_main.return_value = 0
 
-        mock_branch.return_value = {"branch": "feature/PRD-001-first-task", "base_branch": "main", "reason": "test"}
+        mock_branch.return_value = {
+            "branch": "feature/PRD-001-first-task",
+            "base_branch": "main",
+            "reason": "test",
+        }
 
         # Orchestrator 1 updates PRD-001 to in-progress
         orchestrator1.parser.update_task_status("PRD-001", PRDTaskStatus.IN_PROGRESS)
@@ -1916,13 +2003,18 @@ def test_concurrent_task_double_execution_prevention(tmp_path: Path):
 
     prd_dir = tmp_path / ".nelson/prd"
 
-    with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
-         patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main:
-
+    with (
+        patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch,
+        patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main,
+    ):
         # Setup nelson_main mock for success (exit code 0)
         mock_nelson_main.return_value = 0
 
-        mock_branch.return_value = {"branch": "feature/PRD-001-first-task", "base_branch": "main", "reason": "test"}
+        mock_branch.return_value = {
+            "branch": "feature/PRD-001-first-task",
+            "base_branch": "main",
+            "reason": "test",
+        }
 
         # Orchestrator 1 starts execution
         orchestrator1 = PRDOrchestrator(prd_file, prd_dir)
@@ -2021,13 +2113,18 @@ def test_concurrent_cost_tracking_isolation(tmp_path: Path):
     prd_dir = tmp_path / ".nelson/prd"
     orchestrator1 = PRDOrchestrator(prd_file, prd_dir)
 
-    with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
-         patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main:
-
+    with (
+        patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch,
+        patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main,
+    ):
         # Setup nelson_main mock for success (exit code 0)
         mock_nelson_main.return_value = 0
 
-        mock_branch.return_value = {"branch": "feature/PRD-001-first-task", "base_branch": "main", "reason": "test"}
+        mock_branch.return_value = {
+            "branch": "feature/PRD-001-first-task",
+            "base_branch": "main",
+            "reason": "test",
+        }
 
         # Orchestrator 1 completes PRD-001 - cost will be 0 since no Nelson state file
         orchestrator1.execute_task("PRD-001", "First task", "high")
@@ -2081,10 +2178,15 @@ def test_concurrent_backup_file_creation(tmp_path: Path):
     orchestrator1 = PRDOrchestrator(prd_file, prd_dir)
     orchestrator2 = PRDOrchestrator(prd_file, prd_dir)
 
-    with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
-         patch("nelson.prd_orchestrator.nelson_main"):
-
-        mock_branch.return_value = {"branch": "feature/PRD-001-first-task", "base_branch": "main", "reason": "test"}
+    with (
+        patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch,
+        patch("nelson.prd_orchestrator.nelson_main"),
+    ):
+        mock_branch.return_value = {
+            "branch": "feature/PRD-001-first-task",
+            "base_branch": "main",
+            "reason": "test",
+        }
 
         # Both orchestrators update task status (creates backups)
         orchestrator1.parser.update_task_status("PRD-001", PRDTaskStatus.IN_PROGRESS)
@@ -2146,6 +2248,7 @@ def test_concurrent_state_persistence_consistency(tmp_path: Path):
     assert state_file.exists()
 
     import json
+
     with open(state_file) as f:
         state_data = json.load(f)
 
@@ -2167,12 +2270,18 @@ def test_concurrent_branch_creation_same_task(tmp_path: Path):
 
     prd_dir = tmp_path / ".nelson/prd"
 
-
-    with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_ensure_branch, \
-         patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main:
-
+    with (
+        patch(
+            "nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task"
+        ) as mock_ensure_branch,
+        patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main,
+    ):
         # First call succeeds
-        mock_ensure_branch.return_value = {"branch": "feature/PRD-001-first-task", "base_branch": "main", "reason": "test"}
+        mock_ensure_branch.return_value = {
+            "branch": "feature/PRD-001-first-task",
+            "base_branch": "main",
+            "reason": "test",
+        }
         # Setup nelson_main mock for success (exit code 0)
         mock_nelson_main.return_value = 0
 
@@ -2211,13 +2320,18 @@ def test_concurrent_execution_with_failures(tmp_path: Path):
 
     prd_dir = tmp_path / ".nelson/prd"
 
-    with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
-         patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main:
-
+    with (
+        patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch,
+        patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main,
+    ):
         # Setup nelson_main mock for success (exit code 0)
         mock_nelson_main.return_value = 0
 
-        mock_branch.return_value = {"branch": "feature/PRD-001-first-task", "base_branch": "main", "reason": "test"}
+        mock_branch.return_value = {
+            "branch": "feature/PRD-001-first-task",
+            "base_branch": "main",
+            "reason": "test",
+        }
 
         # Orchestrator 1 - task succeeds
         orchestrator1 = PRDOrchestrator(prd_file, prd_dir)
@@ -2260,13 +2374,18 @@ def test_resume_context_prepending_format(tmp_path: Path):
 
     prd_dir = tmp_path / ".nelson/prd"
 
-    with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
-         patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main:
-
+    with (
+        patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch,
+        patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main,
+    ):
         # Setup nelson_main mock for success (exit code 0)
         mock_nelson_main.return_value = 0
 
-        mock_branch.return_value = {"branch": "feature/PRD-001-test", "base_branch": "main", "reason": "test"}
+        mock_branch.return_value = {
+            "branch": "feature/PRD-001-test",
+            "base_branch": "main",
+            "reason": "test",
+        }
 
         orchestrator = PRDOrchestrator(prd_file, prd_dir)
 
@@ -2288,8 +2407,7 @@ def test_resume_context_prepending_format(tmp_path: Path):
 
         # Check exact format with newlines
         expected_start = (
-            "RESUME CONTEXT: API keys have been added to .env file\n\n"
-            "Implement authentication"
+            "RESUME CONTEXT: API keys have been added to .env file\n\nImplement authentication"
         )
         assert prompt == expected_start, f"Expected: {expected_start!r}, Got: {prompt!r}"
 
@@ -2305,13 +2423,18 @@ def test_resume_context_prepending_order(tmp_path: Path):
 
     prd_dir = tmp_path / ".nelson/prd"
 
-    with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
-         patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main:
-
+    with (
+        patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch,
+        patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main,
+    ):
         # Setup nelson_main mock for success (exit code 0)
         mock_nelson_main.return_value = 0
 
-        mock_branch.return_value = {"branch": "feature/PRD-001-test", "base_branch": "main", "reason": "test"}
+        mock_branch.return_value = {
+            "branch": "feature/PRD-001-test",
+            "base_branch": "main",
+            "reason": "test",
+        }
 
         orchestrator = PRDOrchestrator(prd_file, prd_dir)
 
@@ -2351,13 +2474,18 @@ def test_resume_context_with_custom_prompt(tmp_path: Path):
 
     prd_dir = tmp_path / ".nelson/prd"
 
-    with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
-         patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main:
-
+    with (
+        patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch,
+        patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main,
+    ):
         # Setup nelson_main mock for success (exit code 0)
         mock_nelson_main.return_value = 0
 
-        mock_branch.return_value = {"branch": "feature/PRD-001-test", "base_branch": "main", "reason": "test"}
+        mock_branch.return_value = {
+            "branch": "feature/PRD-001-test",
+            "base_branch": "main",
+            "reason": "test",
+        }
 
         orchestrator = PRDOrchestrator(prd_file, prd_dir)
 
@@ -2398,13 +2526,18 @@ def test_no_resume_context_prepending_when_none(tmp_path: Path):
 
     prd_dir = tmp_path / ".nelson/prd"
 
-    with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
-         patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main:
-
+    with (
+        patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch,
+        patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main,
+    ):
         # Setup nelson_main mock for success (exit code 0)
         mock_nelson_main.return_value = 0
 
-        mock_branch.return_value = {"branch": "feature/PRD-001-test", "base_branch": "main", "reason": "test"}
+        mock_branch.return_value = {
+            "branch": "feature/PRD-001-test",
+            "base_branch": "main",
+            "reason": "test",
+        }
 
         orchestrator = PRDOrchestrator(prd_file, prd_dir)
 
@@ -2433,13 +2566,18 @@ def test_resume_context_with_special_characters(tmp_path: Path):
 
     prd_dir = tmp_path / ".nelson/prd"
 
-    with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
-         patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main:
-
+    with (
+        patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch,
+        patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main,
+    ):
         # Setup nelson_main mock for success (exit code 0)
         mock_nelson_main.return_value = 0
 
-        mock_branch.return_value = {"branch": "feature/PRD-001-test", "base_branch": "main", "reason": "test"}
+        mock_branch.return_value = {
+            "branch": "feature/PRD-001-test",
+            "base_branch": "main",
+            "reason": "test",
+        }
 
         orchestrator = PRDOrchestrator(prd_file, prd_dir)
 
@@ -2449,8 +2587,7 @@ def test_resume_context_with_special_characters(tmp_path: Path):
         )
         # Context with newlines, quotes, and special chars
         task_state.resume_context = (
-            'GitHub Actions configured:\n- API_KEY="secret123"\n- '
-            "DEPLOY_ENV='production'"
+            "GitHub Actions configured:\n- API_KEY=\"secret123\"\n- DEPLOY_ENV='production'"
         )
         orchestrator.state_manager.save_task_state(task_state)
 
@@ -2481,13 +2618,18 @@ def test_resume_context_with_long_text(tmp_path: Path):
 
     prd_dir = tmp_path / ".nelson/prd"
 
-    with patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch, \
-         patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main:
-
+    with (
+        patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task") as mock_branch,
+        patch("nelson.prd_orchestrator.nelson_main") as mock_nelson_main,
+    ):
         # Setup nelson_main mock for success (exit code 0)
         mock_nelson_main.return_value = 0
 
-        mock_branch.return_value = {"branch": "feature/PRD-001-test", "base_branch": "main", "reason": "test"}
+        mock_branch.return_value = {
+            "branch": "feature/PRD-001-test",
+            "base_branch": "main",
+            "reason": "test",
+        }
 
         orchestrator = PRDOrchestrator(prd_file, prd_dir)
 
@@ -2547,7 +2689,11 @@ def test_cost_accumulation_across_multiple_runs(
     orchestrator = PRDOrchestrator(temp_prd_file, temp_prd_dir, target_path=temp_prd_file.parent)
 
     # Setup mocks
-    mock_ensure_branch.return_value = {"branch": "feature/PRD-001-test", "base_branch": "main", "reason": "test"}
+    mock_ensure_branch.return_value = {
+        "branch": "feature/PRD-001-test",
+        "base_branch": "main",
+        "reason": "test",
+    }
 
     # Create base directory for all runs
     runs_dir = temp_prd_file.parent / ".nelson" / "runs"
@@ -2627,5 +2773,3 @@ def test_cost_accumulation_across_multiple_runs(
     )
     assert task_state.cost_usd == 4.50  # 1.50 + 2.25 + 0.75
     assert task_state.iterations == 30  # 10 + 15 + 5
-
-

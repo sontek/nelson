@@ -104,11 +104,13 @@ class PRDOrchestrator:
             if task.task_id in task_mapping:
                 original_text = task_mapping[task.task_id]["original_text"]
                 if task.task_text != original_text:
-                    changes.append({
-                        "task_id": task.task_id,
-                        "original_text": original_text,
-                        "current_text": task.task_text,
-                    })
+                    changes.append(
+                        {
+                            "task_id": task.task_id,
+                            "original_text": original_text,
+                            "current_text": task.task_text,
+                        }
+                    )
 
         return changes
 
@@ -124,7 +126,13 @@ class PRDOrchestrator:
         import re
 
         # Look for the marker block
-        pattern = r"=== BRANCH_INFO ===\s*\nBRANCH:\s*(.+?)\s*\nBASE:\s*(.+?)\s*\nREASON:\s*(.+?)\s*\n==================="
+        pattern = (
+            r"=== BRANCH_INFO ===\s*\n"
+            r"BRANCH:\s*(.+?)\s*\n"
+            r"BASE:\s*(.+?)\s*\n"
+            r"REASON:\s*(.+?)\s*\n"
+            r"==================="
+        )
         match = re.search(pattern, output, re.DOTALL)
 
         if match:
@@ -136,9 +144,7 @@ class PRDOrchestrator:
 
         return None
 
-    def _setup_branch_for_task(
-        self, task_id: str, task_text: str
-    ) -> dict[str, str | None]:
+    def _setup_branch_for_task(self, task_id: str, task_text: str) -> dict[str, str | None]:
         """Analyze task and create appropriate branch using Claude.
 
         This makes a single, focused Claude API call to:
@@ -165,7 +171,7 @@ class PRDOrchestrator:
         )
 
         # Build focused system prompt for branching
-        system_prompt = """You are a git branching expert helping set up the correct branch for a task.
+        system_prompt = """You are a git branching expert helping set up the correct branch.
 
 Your job is to:
 1. Analyze the task description
@@ -174,9 +180,10 @@ Your job is to:
 4. Return structured information about what you did
 
 Guidelines:
-- If the task involves reviewing/fixing a PR, use gh CLI to checkout that PR branch, then create a fix branch from it
+- If the task involves reviewing/fixing a PR, use gh CLI to checkout that PR branch,
+  then create a fix branch from it
 - If the task is new work, branch from main/master
-- Choose descriptive, concise branch names (e.g., "execution_queue_tables-fixes" not "feature/PRD-001-code-review-pr-https...")
+- Choose descriptive, concise branch names (e.g., "execution_queue_tables-fixes")
 - Use lowercase with hyphens, keep it under 40 characters
 
 After setting up the branch, you MUST output EXACTLY this format:
@@ -196,7 +203,7 @@ Output ONLY the JSON, nothing else."""
 Task Description:
 {task_text}
 
-Please analyze this task, create the appropriate git branch, and return the JSON with branch information."""
+Analyze this task, create the appropriate git branch, and return the JSON."""
 
         try:
             # Call Claude with haiku (fast and cheap for simple task)
@@ -222,21 +229,27 @@ Please analyze this task, create the appropriate git branch, and return the JSON
             else:
                 json_str = content
 
-            branch_info = json.loads(json_str)
+            parsed = json.loads(json_str)
 
             # Validate we got the required fields
-            if not all(k in branch_info for k in ["branch", "base_branch", "reason"]):
+            if not all(k in parsed for k in ["branch", "base_branch", "reason"]):
                 raise ValueError("Missing required fields in branch info")
 
-            logger.info(
-                f"Branch setup complete: {branch_info['branch']} (from {branch_info['base_branch']})"
-            )
+            branch_info: dict[str, str | None] = {
+                "branch": str(parsed["branch"]),
+                "base_branch": str(parsed["base_branch"]),
+                "reason": str(parsed["reason"]),
+            }
+
+            branch = branch_info["branch"]
+            base = branch_info["base_branch"]
+            logger.info(f"Branch setup complete: {branch} (from {base})")
 
             # Verify with git that we're actually on this branch
             actual_branch = get_current_branch(self.target_path)
             if actual_branch != branch_info["branch"]:
                 logger.warning(
-                    f"Git shows branch '{actual_branch}' but Claude reported '{branch_info['branch']}'"
+                    f"Git shows branch '{actual_branch}' but Claude reported '{branch}'"
                 )
                 branch_info["branch"] = actual_branch
 
@@ -255,9 +268,7 @@ Please analyze this task, create the appropriate git branch, and return the JSON
                 }
             else:
                 # No branch at all - this is a problem
-                raise GitError(
-                    f"Failed to setup branch and no current branch exists: {e}"
-                )
+                raise GitError(f"Failed to setup branch and no current branch exists: {e}")
 
     def _find_actual_nelson_run(self, expected_time: str) -> str | None:
         """Find the actual Nelson run directory created around the expected time.
@@ -280,9 +291,7 @@ Please analyze this task, create the appropriate git branch, and return the JSON
 
         # Parse expected timestamp
         try:
-            expected_dt = datetime.strptime(
-                expected_time.replace("nelson-", ""), "%Y%m%d-%H%M%S"
-            )
+            expected_dt = datetime.strptime(expected_time.replace("nelson-", ""), "%Y%m%d-%H%M%S")
         except ValueError:
             return None
 
@@ -293,9 +302,7 @@ Please analyze this task, create the appropriate git branch, and return the JSON
                 continue
 
             try:
-                run_dt = datetime.strptime(
-                    run_dir.name.replace("nelson-", ""), "%Y%m%d-%H%M%S"
-                )
+                run_dt = datetime.strptime(run_dir.name.replace("nelson-", ""), "%Y%m%d-%H%M%S")
                 time_diff = abs((run_dt - expected_dt).total_seconds())
 
                 # Within 5 minutes (300 seconds)
@@ -323,10 +330,7 @@ Please analyze this task, create the appropriate git branch, and return the JSON
         # Check priorities in order: high, medium, low
         for priority in ["high", "medium", "low"]:
             for task in self.tasks:
-                if (
-                    task.priority == priority
-                    and task.status == PRDTaskStatus.PENDING
-                ):
+                if task.priority == priority and task.status == PRDTaskStatus.PENDING:
                     return (task.task_id, task.task_text, task.priority)
 
         return None
@@ -367,14 +371,14 @@ Please analyze this task, create the appropriate git branch, and return the JSON
                 return False
 
             print(f"\n🌿 Using current branch (--no-branch-setup): {current_branch}")
-            branch_name = current_branch
-            base_branch = None
-            branch_reason = "Using current branch (--no-branch-setup)"
+            branch_name: str = current_branch
+            base_branch: str | None = None
+            branch_reason: str | None = "Using current branch (--no-branch-setup)"
         else:
             print("\n🌿 Setting up git branch for task...")
             try:
                 branch_info = self._setup_branch_for_task(task_id, task_text)
-                branch_name = branch_info["branch"]
+                branch_name = branch_info["branch"] or ""
                 base_branch = branch_info.get("base_branch")
                 branch_reason = branch_info.get("reason")
 
@@ -395,6 +399,7 @@ Please analyze this task, create the appropriate git branch, and return the JSON
 
         # Generate Nelson run ID
         from datetime import UTC, datetime
+
         run_id = datetime.now(UTC).strftime("nelson-%Y%m%d-%H%M%S")
 
         # Start task (updates state) with branch info
@@ -429,12 +434,15 @@ Please analyze this task, create the appropriate git branch, and return the JSON
                     checkbox = "[x]" if st.completed else "[ ]"
                     subtask_lines.append(f"- {checkbox} {st.text}")
                 if subtask_lines:
-                    task_prompt += "\n\nSubtasks to complete:\n" + "\n".join(subtask_lines)
                     task_prompt += (
-                        f"\n\nIMPORTANT: You must complete ALL unchecked subtasks above. "
-                        f"When you complete each subtask, mark it as done by editing the PRD file "
-                        f"at {self.prd_file} - change '- [ ]' to '- [x]' for that subtask. "
-                        f"The task is not complete until all subtasks are marked [x] in the PRD file."
+                        "\n\n═══════════════════════════════════════════════════════════"
+                        "\nFINAL VERIFICATION STEPS (do these AFTER completing main task):\n"
+                        + "\n".join(subtask_lines)
+                    )
+                    task_prompt += (
+                        "\n\nNOTE: These subtasks are verification/completion steps. "
+                        "First complete the MAIN TASK described above, then verify these. "
+                        f"When done, edit {self.prd_file} - change '- [ ]' to '- [x]'."
                     )
 
         # Prepend resume context if present
@@ -452,13 +460,13 @@ Please analyze this task, create the appropriate git branch, and return the JSON
             args.extend(nelson_args)
 
         # Execute Nelson
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"🚀 Starting task: {task_id}")
         print(f"   Description: {task_text}")
         print(f"   Branch: {branch_name}")
         if task_state.resume_context:
             print("   🔄 Resuming with context")
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")
 
         try:
             # Run Nelson directly (in-process, no subprocess)
@@ -532,18 +540,16 @@ Please analyze this task, create the appropriate git branch, and return the JSON
                 subtask_retry_count += 1
 
                 # Build list of remaining subtasks
-                remaining_subtasks = [
-                    st.text for st in task.subtasks if not st.completed
-                ]
+                remaining_subtasks = [st.text for st in task.subtasks if not st.completed]
 
-                print(f"\n{'='*60}")
+                print(f"\n{'=' * 60}")
                 print(f"🔄 Task {task_id} has incomplete subtasks ({completed}/{total} done)")
                 print(
                     f"   Retry {subtask_retry_count}/{max_subtask_retries}: "
                     "Re-running Nelson to complete remaining subtasks"
                 )
                 print(f"   Remaining: {remaining_subtasks}")
-                print(f"{'='*60}\n")
+                print(f"{'=' * 60}\n")
 
                 # Build focused prompt for remaining subtasks
                 retry_prompt = f"""CONTINUATION: You previously worked on task {task_id}.
@@ -565,7 +571,7 @@ Original task context:
 {task_text}
 
 IMPORTANT: Complete ALL the unchecked subtasks above.
-When you complete each subtask, mark it as done by editing the PRD file at {self.prd_file} - change '- [ ]' to '- [x]' for that subtask.
+When you complete each subtask, mark it done in {self.prd_file} (change '[ ]' to '[x]').
 The task is not complete until all subtasks are marked [x] in the PRD file.
 """
 
@@ -593,11 +599,9 @@ The task is not complete until all subtasks are marked [x] in the PRD file.
             # After retries, check if subtasks are still incomplete
             if task and task.has_incomplete_subtasks():
                 completed, total = task.get_subtask_completion_count()
-                remaining_subtasks = [
-                    st.text for st in task.subtasks if not st.completed
-                ]
+                remaining_subtasks = [st.text for st in task.subtasks if not st.completed]
 
-                print(f"\n{'='*60}")
+                print(f"\n{'=' * 60}")
                 print(
                     f"⚠️  Task {task_id} still has incomplete subtasks "
                     f"after {max_subtask_retries} retries"
@@ -605,7 +609,7 @@ The task is not complete until all subtasks are marked [x] in the PRD file.
                 print(f"   Completed: {completed}/{total}")
                 print(f"   Remaining: {remaining_subtasks}")
                 print("   Marking as in-progress for manual review.")
-                print(f"{'='*60}\n")
+                print(f"{'=' * 60}\n")
 
                 # Mark as blocked instead with reason
                 task_state.fail()
@@ -625,7 +629,7 @@ The task is not complete until all subtasks are marked [x] in the PRD file.
             # Update PRD file
             self.parser.update_task_status(task_id, PRDTaskStatus.COMPLETED)
 
-            print(f"\n{'='*60}")
+            print(f"\n{'=' * 60}")
             print(f"✅ Task completed: {task_id}")
             if task_state.branch:
                 print(f"   Branch: {task_state.branch}")
@@ -637,7 +641,7 @@ The task is not complete until all subtasks are marked [x] in the PRD file.
             print(f"   Iterations: {task_state.iterations}")
             if task_state.phase_name:
                 print(f"   Final phase: {task_state.phase_name}")
-            print(f"{'='*60}\n")
+            print(f"{'=' * 60}\n")
         else:
             # Try to find actual run directory even on failure to extract partial state
             actual_run_id = self._find_actual_nelson_run(run_id)
@@ -666,10 +670,10 @@ The task is not complete until all subtasks are marked [x] in the PRD file.
             self.state_manager.save_task_state(task_state)
 
             # Keep in-progress in PRD file for manual review
-            print(f"\n{'='*60}")
+            print(f"\n{'=' * 60}")
             print(f"❌ Task failed: {task_id}")
             print("   Review the task and fix any issues before resuming")
-            print(f"{'='*60}\n")
+            print(f"{'=' * 60}\n")
 
         return success
 
@@ -693,7 +697,9 @@ The task is not complete until all subtasks are marked [x] in the PRD file.
 
         # Get count of pending tasks for progress tracking
         pending_tasks = [
-            t for t in self.tasks if t.status.value == " "  # PRDTaskStatus.PENDING
+            t
+            for t in self.tasks
+            if t.status.value == " "  # PRDTaskStatus.PENDING
         ]
         total_pending = len(pending_tasks)
 
@@ -704,13 +710,13 @@ The task is not complete until all subtasks are marked [x] in the PRD file.
 
         # Show initial progress
         if total_pending > 0:
-            print(f"\n{'='*60}")
+            print(f"\n{'=' * 60}")
             print("PRD Execution Progress")
-            print(f"{'='*60}")
+            print(f"{'=' * 60}")
             print(f"Total tasks in PRD: {total_tasks}")
             print(f"Already completed: {completed_before}")
             print(f"Pending to execute: {total_pending}")
-            print(f"{'='*60}\n")
+            print(f"{'=' * 60}\n")
 
         current_task_num = 0
         try:
@@ -725,9 +731,11 @@ The task is not complete until all subtasks are marked [x] in the PRD file.
                 current_task_num += 1
 
                 # Show progress indicator
-                print(f"\n{'─'*60}")
-                print(f"📋 Task {current_task_num} of {total_pending} | Priority: {priority.upper()}")
-                print(f"{'─'*60}")
+                print(f"\n{'─' * 60}")
+                print(
+                    f"📋 Task {current_task_num} of {total_pending} | Priority: {priority.upper()}"
+                )
+                print(f"{'─' * 60}")
 
                 # Execute task
                 success = self.execute_task(
@@ -744,13 +752,13 @@ The task is not complete until all subtasks are marked [x] in the PRD file.
                 remaining = total_tasks - completed_so_far
                 completion_pct = (completed_so_far / total_tasks * 100) if total_tasks > 0 else 0
 
-                print(f"\n{'─'*60}")
+                print(f"\n{'─' * 60}")
                 print(
                     f"📊 Progress: {completed_so_far}/{total_tasks} tasks "
                     f"({completion_pct:.1f}% complete)"
                 )
                 print(f"   Remaining: {remaining} tasks")
-                print(f"{'─'*60}")
+                print(f"{'─' * 60}")
 
                 if not success and stop_on_failure:
                     print(f"\n⚠️  Stopping execution due to task failure: {task_id}")
@@ -789,16 +797,12 @@ The task is not complete until all subtasks are marked [x] in the PRD file.
             PRDTaskStatus.IN_PROGRESS,
             PRDTaskStatus.PENDING,
         ]:
-            print(
-                f"Error: Task {task_id} is not in a resumable state (status: {task.status})"
-            )
+            print(f"Error: Task {task_id} is not in a resumable state (status: {task.status})")
             return False
 
         # If task is pending, it must have resume context to be resumable
         if task.status == PRDTaskStatus.PENDING:
-            task_state = self.state_manager.load_task_state(
-                task_id, task.task_text, task.priority
-            )
+            task_state = self.state_manager.load_task_state(task_id, task.task_text, task.priority)
             if not task_state.resume_context:
                 print(
                     f"Error: Task {task_id} is PENDING but has no resume context. "
@@ -1004,9 +1008,7 @@ The task is not complete until all subtasks are marked [x] in the PRD file.
 
         task_state_path = self.state_manager.get_task_state_path(task_id)
         if task_state_path.exists():
-            task_state = self.state_manager.load_task_state(
-                task_id, task.task_text, task.priority
-            )
+            task_state = self.state_manager.load_task_state(task_id, task.task_text, task.priority)
         else:
             # Task hasn't been started yet
             from nelson.prd_task_state import TaskState

@@ -212,7 +212,14 @@ def _get_review_prompt(plan_file: Path, decisions_file: Path) -> str:
     return f"""Read {decisions_file}, {plan_file}. Find FIRST unchecked Phase 3 task.
 
 IF task is "Review all changes" or similar review task:
-  Review Phase 2 commits: git log + git status
+  First, check for Phase 2 commits: git log --oneline HEAD~10..HEAD
+
+  IF there are recent commits from Phase 2:
+    Review those commits (highest priority - they're the new changes)
+
+  IF there are NO recent Phase 2 commits (verification-only task):
+    Review the current branch diff against base: git diff main...HEAD (or master)
+    This ensures review phases always have substantive code to review
 
   COMPREHENSIVE CODE REVIEW CHECKLIST:
 
@@ -306,12 +313,17 @@ def _get_final_review_prompt(plan_file: Path, decisions_file: Path) -> str:
 
 COMPREHENSIVE FINAL REVIEW - Tests passed, now verify ALL changes:
 
+First, determine what to review:
+- Check for commits from this cycle: git log --oneline HEAD~10..HEAD
+- IF there are recent commits: Review those commits
+- IF NO recent commits (verification-only task): Review git diff main...HEAD (or master)
+
 1. VERIFY TESTS:
    - Confirm Phase 4 tests/linter/type-checker all passed
    - No test failures or warnings ignored
 
-2. FULL CODE REVIEW (entire changeset):
-   - Review ALL commits from this implementation cycle
+2. FULL CODE REVIEW (entire changeset or branch diff):
+   - Review ALL changes (commits from this cycle OR branch diff against base)
    - Bugs/logic errors: Check edge cases, error handling, return values
    - Patterns: Follows existing codebase conventions and architecture
    - Quality: Readable, maintainable, proper abstractions, no duplication

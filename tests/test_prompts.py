@@ -112,8 +112,9 @@ class TestPhasePrompts:
             Path(".nelson/plan.md"),
             Path(".nelson/decisions.md"),
         )
-        assert "Review Phase 2 commits" in prompt
+        assert "check for Phase 2 commits" in prompt
         assert "git log" in prompt
+        assert "git diff main...HEAD" in prompt  # Fallback for no commits
         assert "COMPREHENSIVE CODE REVIEW CHECKLIST" in prompt
         assert "CORRECTNESS & BUGS" in prompt
         assert "CODEBASE PATTERNS & CONSISTENCY" in prompt

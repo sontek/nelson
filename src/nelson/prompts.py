@@ -212,14 +212,18 @@ def _get_review_prompt(plan_file: Path, decisions_file: Path) -> str:
     return f"""Read {decisions_file}, {plan_file}. Find FIRST unchecked Phase 3 task.
 
 IF task is "Review all changes" or similar review task:
-  First, check for Phase 2 commits: git log --oneline HEAD~10..HEAD
+  Determine what to review using these checks in order:
 
-  IF there are recent commits from Phase 2:
-    Review those commits (highest priority - they're the new changes)
+  1. git status - Check for uncommitted changes (staged or unstaged)
+     IF uncommitted changes exist: Review with git diff HEAD (shows all uncommitted)
 
-  IF there are NO recent Phase 2 commits (verification-only task):
-    Review the current branch diff against base: git diff main...HEAD (or master)
-    This ensures review phases always have substantive code to review
+  2. git diff main...HEAD (or master) - Check for committed branch changes
+     IF branch has commits vs base: Review the branch diff
+
+  3. git log --oneline -5 - Check recent commits for context
+
+  Review whatever changes exist - uncommitted changes are highest priority (shouldn't
+  exist but if they do, they need review), then committed branch diff.
 
   COMPREHENSIVE CODE REVIEW CHECKLIST:
 
@@ -313,10 +317,14 @@ def _get_final_review_prompt(plan_file: Path, decisions_file: Path) -> str:
 
 COMPREHENSIVE FINAL REVIEW - Tests passed, now verify ALL changes:
 
-First, determine what to review:
-- Check for commits from this cycle: git log --oneline HEAD~10..HEAD
-- IF there are recent commits: Review those commits
-- IF NO recent commits (verification-only task): Review git diff main...HEAD (or master)
+Determine what to review using these checks in order:
+1. git status - Check for uncommitted changes (staged or unstaged)
+   IF uncommitted changes exist: Review with git diff HEAD (shows all uncommitted)
+2. git diff main...HEAD (or master) - Check for committed branch changes
+   IF branch has commits vs base: Review the branch diff
+3. git log --oneline -5 - Check recent commits for context
+
+Review whatever changes exist - uncommitted changes need immediate attention.
 
 1. VERIFY TESTS:
    - Confirm Phase 4 tests/linter/type-checker all passed

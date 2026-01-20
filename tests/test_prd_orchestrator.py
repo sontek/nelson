@@ -2773,3 +2773,132 @@ def test_cost_accumulation_across_multiple_runs(
     )
     assert task_state.cost_usd == 4.50  # 1.50 + 2.25 + 0.75
     assert task_state.iterations == 30  # 10 + 15 + 5
+
+
+@patch("nelson.prd_orchestrator.PRDOrchestrator._find_actual_nelson_run")
+@patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
+@patch("nelson.state.NelsonState.load")
+def test_execute_task_marks_blocked_when_blocked_iterations_exceeded(
+    mock_load: Mock,
+    mock_ensure_branch: Mock,
+    mock_find_run: Mock,
+    temp_prd_file: Path,
+    temp_prd_dir: Path,
+    capsys: pytest.CaptureFixture,
+    mock_cli_runner,
+):
+    """Test that execute_task marks task as BLOCKED when Nelson's blocked_iterations >= 3.
+
+    When Nelson detects a task is blocked on external dependency (e.g., awaiting user input),
+    it increments blocked_iterations. When this reaches 3, Nelson exits gracefully (code 0)
+    but the task is NOT complete - it's blocked. The PRD orchestrator should detect this
+    and mark the task as BLOCKED instead of COMPLETED.
+    """
+    # Setup orchestrator with target_path
+    orchestrator = PRDOrchestrator(temp_prd_file, temp_prd_dir, target_path=temp_prd_file.parent)
+
+    # Setup mocks
+    mock_ensure_branch.return_value = {
+        "branch": "feature/PRD-001-implement-user-authentication",
+        "base_branch": "main",
+        "reason": "test",
+    }
+    mock_find_run.return_value = "nelson-20260120-082215"
+
+    # Create actual state file structure
+    state_dir = temp_prd_file.parent / ".nelson" / "runs" / "nelson-20260120-082215"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    state_file = state_dir / "state.json"
+    state_file.touch()
+
+    # Mock Nelson state with blocked_iterations >= 3 (task is blocked, not complete)
+    mock_nelson_state = MagicMock()
+    mock_nelson_state.cost_usd = 0.50
+    mock_nelson_state.total_iterations = 4
+    mock_nelson_state.current_phase = 2
+    mock_nelson_state.phase_name = "IMPLEMENT"
+    mock_nelson_state.blocked_iterations = 3  # Key: blocked circuit breaker triggered
+    mock_load.return_value = mock_nelson_state
+
+    # Nelson exits with code 0 (graceful exit)
+    mock_cli_runner.return_value = 0
+
+    # Execute task
+    success = orchestrator.execute_task("PRD-001", "Implement user authentication", "high")
+
+    # Task should return False (not successful completion)
+    assert success is False
+
+    # Verify task state is FAILED (internal state)
+    task_state = orchestrator.state_manager.load_task_state(
+        "PRD-001", "Implement user authentication", "high"
+    )
+    assert task_state.status == TaskStatus.FAILED
+
+    # Verify PRD file was updated to show BLOCKED status
+    prd_content = temp_prd_file.read_text()
+    assert "[!]" in prd_content or "BLOCKED" in prd_content.upper()
+
+    # Verify user-friendly output was shown
+    captured = capsys.readouterr()
+    assert "BLOCKED" in captured.out
+    assert "PRD-001" in captured.out
+    assert "external dependency" in captured.out.lower()
+
+
+@patch("nelson.prd_orchestrator.PRDOrchestrator._find_actual_nelson_run")
+@patch("nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task")
+@patch("nelson.state.NelsonState.load")
+def test_execute_task_completes_when_blocked_iterations_below_threshold(
+    mock_load: Mock,
+    mock_ensure_branch: Mock,
+    mock_find_run: Mock,
+    temp_prd_file: Path,
+    temp_prd_dir: Path,
+    mock_cli_runner,
+):
+    """Test that execute_task completes normally when blocked_iterations < 3.
+
+    If Nelson had some blocked iterations but didn't reach the threshold,
+    the task should still be marked as COMPLETED normally.
+    """
+    # Setup orchestrator with target_path
+    orchestrator = PRDOrchestrator(temp_prd_file, temp_prd_dir, target_path=temp_prd_file.parent)
+
+    # Setup mocks
+    mock_ensure_branch.return_value = {
+        "branch": "feature/PRD-001-implement-user-authentication",
+        "base_branch": "main",
+        "reason": "test",
+    }
+    mock_find_run.return_value = "nelson-20260120-090000"
+
+    # Create actual state file structure
+    state_dir = temp_prd_file.parent / ".nelson" / "runs" / "nelson-20260120-090000"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    state_file = state_dir / "state.json"
+    state_file.touch()
+
+    # Mock Nelson state with blocked_iterations < 3 (task completed normally)
+    mock_nelson_state = MagicMock()
+    mock_nelson_state.cost_usd = 1.00
+    mock_nelson_state.total_iterations = 10
+    mock_nelson_state.current_phase = 6
+    mock_nelson_state.phase_name = "COMMIT"
+    mock_nelson_state.blocked_iterations = 2  # Below threshold, task completed
+    mock_load.return_value = mock_nelson_state
+
+    # Nelson exits with code 0
+    mock_cli_runner.return_value = 0
+
+    # Execute task
+    success = orchestrator.execute_task("PRD-001", "Implement user authentication", "high")
+
+    # Task should return True (successful completion)
+    assert success is True
+
+    # Verify task state is COMPLETED
+    task_state = orchestrator.state_manager.load_task_state(
+        "PRD-001", "Implement user authentication", "high"
+    )
+    assert task_state.status == TaskStatus.COMPLETED

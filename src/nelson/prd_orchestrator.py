@@ -516,6 +516,28 @@ Analyze this task, create the appropriate git branch, and return the JSON."""
                             task_state.update_phase(
                                 nelson_state.current_phase, nelson_state.phase_name
                             )
+
+                        # Check if Nelson exited due to BLOCKED circuit breaker
+                        # blocked_iterations >= 3 means Nelson detected the task was blocked
+                        # on an external dependency and exited gracefully (but task is NOT complete)
+                        if nelson_state.blocked_iterations >= 3:
+                            print(f"\n{'=' * 60}")
+                            print(f"⏸️  Task {task_id} is BLOCKED on external dependency")
+                            print("   Nelson detected task requires user input/action")
+                            print(f"   Phase: {nelson_state.phase_name}")
+                            print(f"   Review: {nelson_state_path.parent / 'decisions.md'}")
+                            print(f"{'=' * 60}\n")
+
+                            task_state.fail()
+                            self.state_manager.save_task_state(task_state)
+                            phase = nelson_state.current_phase
+                            phase_name = nelson_state.phase_name
+                            self.parser.update_task_status(
+                                task_id,
+                                PRDTaskStatus.BLOCKED,
+                                f"Blocked on external dependency (Phase {phase}: {phase_name})",
+                            )
+                            return False
                     except Exception as e:
                         print(f"Warning: Could not read Nelson state: {e}")
                 else:

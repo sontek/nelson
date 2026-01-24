@@ -16,6 +16,13 @@ from typing import Any
 from rich.panel import Panel
 
 from nelson.config import NelsonConfig
+from nelson.ui import (
+    display_completion_summary,
+    display_deviation_summary,
+    display_phase_header,
+    display_planning_questions,
+    display_verification_results,
+)
 from nelson.decisions_log import (
     extract_recent_work,
     should_compact,
@@ -122,6 +129,10 @@ class WorkflowOrchestrator:
         logger.info("Starting Nelson autonomous workflow...")
         logger.info("")
 
+        # Track start time for summary
+        from datetime import datetime
+        start_time = datetime.now()
+
         # Display prompt with rich Panel
         prompt_preview = prompt[:200] + "..." if len(prompt) > 200 else prompt
         logger.console.print(
@@ -166,18 +177,18 @@ class WorkflowOrchestrator:
             current_phase = Phase(self.state.current_phase)
             phase_name = current_phase.name_str
 
-            # Show clear cycle/phase/iteration info with rich Rule and timestamp
-            # Cycles are 0-indexed internally, display as 1-indexed (Cycle 0 -> "Cycle 1")
+            # Determine total phases based on depth mode
+            from nelson.depth import get_phases_for_depth
+            total_phases = len(get_phases_for_depth(self.config.depth))
+
+            # Display phase header with progress
             display_cycle = self.state.cycle_iterations + 1
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            logger.console.rule(
-                f"[bold yellow]Cycle {display_cycle} | "
-                f"Phase {current_phase.value}: {phase_name} | "
-                f"API Call #{self.state.total_iterations} | "
-                f"{timestamp}[/bold yellow]",
-                style="yellow",
+            display_phase_header(
+                current_phase,
+                cycle=display_cycle,
+                iteration=self.state.total_iterations,
+                total_phases=total_phases,
             )
-            logger.console.print("")
 
             # Build loop context (recent activity, task count)
             loop_context = self._build_loop_context()
@@ -283,6 +294,8 @@ class WorkflowOrchestrator:
                 logger.success("All tasks complete - workflow finished successfully")
                 state_file = self.state_file
                 self.state.save(state_file)
+                # Display completion summary
+                display_completion_summary(self.state, start_time, success=True)
                 break  # Exit loop gracefully
 
             elif breaker_result == CircuitBreakerResult.BLOCKED:
@@ -462,6 +475,7 @@ class WorkflowOrchestrator:
 
                             if questions:
                                 logger.info(f"Found {len(questions)} planning questions from Claude")
+                                display_planning_questions(len(questions))
 
                                 # Ask user via UserInteraction
                                 answers = ask_planning_questions(questions, self.interaction)
@@ -529,6 +543,9 @@ class WorkflowOrchestrator:
                                 # Log blocked deviations
                                 log_deviations(blocked, self.decisions_file, blocked=True)
 
+                            # Display summary
+                            display_deviation_summary(len(allowed), len(blocked))
+
                             # Check if max deviations exceeded
                             if self.state.deviations_count >= self.config.deviations.max_deviations_per_task:
                                 logger.warning(
@@ -571,6 +588,12 @@ class WorkflowOrchestrator:
 
                                     # Log results
                                     log_verification_results(verification, self.decisions_file)
+
+                                    # Display results summary
+                                    total_checks = len(verification.checks)
+                                    passed_checks = sum(1 for c in verification.checks if c.passed)
+                                    failed_checks = total_checks - passed_checks
+                                    display_verification_results(passed_checks, failed_checks, total_checks)
 
                                     # Check for critical failures
                                     critical_failures = verification.critical_failures
@@ -638,6 +661,8 @@ class WorkflowOrchestrator:
         state_file = self.state_file
         self.state.save(state_file)
 
+        # Display final completion summary
+        display_completion_summary(self.state, start_time, success=True)
         logger.success("All done!")
 
     def _check_limits(self) -> bool:

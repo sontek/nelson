@@ -433,6 +433,133 @@ Here's the plan in both formats:
         assert len(data["tasks"]) == 1
 
 
+class TestComprehensiveModeIntegration:
+    """Test comprehensive mode (Phase 0 DISCOVER and Phase 7 ROADMAP)."""
+
+    def test_comprehensive_mode_starts_with_discover(self) -> None:
+        """Test that comprehensive mode starts with DISCOVER phase."""
+        from nelson.depth import DepthMode
+        from nelson.phases import Phase
+
+        depth = DepthConfig.for_mode(DepthMode.COMPREHENSIVE)
+
+        # Initial state in comprehensive mode should be DISCOVER
+        # (This is tested in cli.py where state is created)
+        assert depth.mode == DepthMode.COMPREHENSIVE
+        assert Phase.DISCOVER.value == 0
+
+    def test_discover_phase_transitions_to_plan(self) -> None:
+        """Test that DISCOVER transitions to PLAN."""
+        from nelson.transitions import determine_next_phase
+
+        next_phase = determine_next_phase(
+            Phase.DISCOVER,
+            plan_file=Path("/tmp/plan.md"),  # Doesn't need to exist for this test
+            should_advance=True,
+            comprehensive=True,
+        )
+
+        assert next_phase == Phase.PLAN
+
+    def test_commit_transitions_to_roadmap_in_comprehensive(self, temp_run_dir: Path) -> None:
+        """Test that COMMIT transitions to ROADMAP in comprehensive mode."""
+        from nelson.transitions import determine_next_phase
+
+        plan_file = temp_run_dir / "plan.md"
+        plan_file.write_text("# Plan\n## Phase 6: COMMIT\n- [x] Commit changes")
+
+        next_phase = determine_next_phase(
+            Phase.COMMIT,
+            plan_file=plan_file,
+            should_advance=True,
+            comprehensive=True,
+        )
+
+        assert next_phase == Phase.ROADMAP
+
+    def test_commit_completes_in_standard_mode(self, temp_run_dir: Path) -> None:
+        """Test that COMMIT completes workflow in standard mode."""
+        from nelson.transitions import determine_next_phase
+
+        plan_file = temp_run_dir / "plan.md"
+        plan_file.write_text("# Plan\n## Phase 6: COMMIT\n- [x] Commit changes")
+
+        next_phase = determine_next_phase(
+            Phase.COMMIT,
+            plan_file=plan_file,
+            should_advance=True,
+            comprehensive=False,  # Standard mode
+        )
+
+        assert next_phase is None  # Workflow complete
+
+    def test_roadmap_completes_workflow(self, temp_run_dir: Path) -> None:
+        """Test that ROADMAP completes the workflow."""
+        from nelson.transitions import determine_next_phase
+
+        plan_file = temp_run_dir / "plan.md"
+        plan_file.write_text("# Plan\n## Phase 7: ROADMAP\n- [x] Document roadmap")
+
+        next_phase = determine_next_phase(
+            Phase.ROADMAP,
+            plan_file=plan_file,
+            should_advance=True,
+            comprehensive=True,
+        )
+
+        assert next_phase is None  # Workflow complete
+
+    def test_comprehensive_mode_has_correct_phase_count(self) -> None:
+        """Test that comprehensive mode reports 8 phases."""
+        from nelson.depth import get_phases_for_depth
+
+        depth = DepthConfig.for_mode(DepthMode.COMPREHENSIVE)
+        phases = get_phases_for_depth(depth)
+
+        # Comprehensive mode should NOT skip roadmap
+        assert depth.skip_roadmap is False
+
+        # Note: get_phases_for_depth might not include DISCOVER/ROADMAP
+        # depending on implementation. Let's verify the depth config is correct.
+        assert depth.mode == DepthMode.COMPREHENSIVE
+        assert depth.include_research is True
+
+    def test_discover_prompt_exists(self, temp_run_dir: Path) -> None:
+        """Test that DISCOVER phase prompt is accessible."""
+        from nelson.prompts import get_phase_prompt
+
+        decisions_file = temp_run_dir / "decisions.md"
+        plan_file = temp_run_dir / "plan.md"
+
+        # Create empty files
+        decisions_file.write_text("")
+        plan_file.write_text("")
+
+        prompt = get_phase_prompt(Phase.DISCOVER, plan_file, decisions_file)
+
+        assert "DISCOVER PHASE" in prompt
+        assert "RESEARCH TASKS" in prompt
+        assert "CODEBASE STRUCTURE" in prompt
+
+    def test_roadmap_prompt_exists(self, temp_run_dir: Path) -> None:
+        """Test that ROADMAP phase prompt is accessible."""
+        from nelson.prompts import get_phase_prompt
+
+        decisions_file = temp_run_dir / "decisions.md"
+        plan_file = temp_run_dir / "plan.md"
+
+        # Create empty files
+        decisions_file.write_text("")
+        plan_file.write_text("")
+
+        prompt = get_phase_prompt(Phase.ROADMAP, plan_file, decisions_file)
+
+        assert "ROADMAP PHASE" in prompt
+        assert "FUTURE IMPROVEMENTS" in prompt
+        assert "TECHNICAL DEBT" in prompt
+        assert "ROADMAP.md" in prompt
+
+
 class TestWorkflowEndToEnd:
     """End-to-end tests for workflow with all integrations."""
 

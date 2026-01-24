@@ -337,7 +337,9 @@ def _execute_workflow(prompt: str, config: NelsonConfig) -> None:
     claude_command = (
         str(config.claude_command_path) if config.claude_command_path else config.claude_command
     )
-    provider = ClaudeProvider(claude_command=claude_command, target_path=config.target_path)
+    provider = ClaudeProvider(
+        claude_command=claude_command, target_path=config.target_path, config=config
+    )
 
     # Check provider availability
     if not provider.is_available():
@@ -385,6 +387,17 @@ def _execute_workflow(prompt: str, config: NelsonConfig) -> None:
     # Initialize decisions log
     decisions_file.write_text("# Nelson Implementation - Decisions Log\n\n")
 
+    # Determine starting phase based on depth mode
+    from nelson.depth import DepthMode
+
+    if config.depth.mode == DepthMode.COMPREHENSIVE:
+        # Comprehensive mode starts with Phase 0 (DISCOVER)
+        starting_phase = Phase.DISCOVER
+        logger.info("Comprehensive mode enabled - starting with DISCOVER phase")
+    else:
+        # Standard/Quick mode starts with Phase 1 (PLAN)
+        starting_phase = Phase.PLAN
+
     # Create initial state
     state = NelsonState(
         cycle_iterations=0,
@@ -393,8 +406,8 @@ def _execute_workflow(prompt: str, config: NelsonConfig) -> None:
         cost_usd=0.0,
         prompt=prompt,
         starting_commit=starting_commit,
-        current_phase=Phase.PLAN.value,
-        phase_name=Phase.PLAN.name_str,
+        current_phase=starting_phase.value,
+        phase_name=starting_phase.name_str,
     )
 
     # Save initial state
@@ -658,7 +671,9 @@ def _resume_from_path(run_dir: Path) -> None:
     claude_command = (
         str(config.claude_command_path) if config.claude_command_path else config.claude_command
     )
-    provider = ClaudeProvider(claude_command=claude_command, target_path=config.target_path)
+    provider = ClaudeProvider(
+        claude_command=claude_command, target_path=config.target_path, config=config
+    )
 
     # Check provider availability
     if not provider.is_available():

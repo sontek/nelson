@@ -57,11 +57,14 @@ def has_unchecked_tasks(phase: Phase, plan_file: Path) -> bool:
 
 
 def determine_next_phase(
-    current: Phase, plan_file: Path, should_advance: bool = True
+    current: Phase,
+    plan_file: Path,
+    should_advance: bool = True,
+    comprehensive: bool = False,
 ) -> Phase | None:
     """Determine the next phase based on current phase and completion status.
 
-    Phase transitions:
+    Standard Mode Phase transitions:
     - PLAN → IMPLEMENT (when all Phase 1 tasks checked)
     - IMPLEMENT → REVIEW (when all Phase 2 tasks checked)
     - REVIEW → REVIEW (if unchecked tasks remain) OR TEST (if all checked)
@@ -69,10 +72,17 @@ def determine_next_phase(
     - FINAL_REVIEW → TEST (if unchecked tasks remain) OR COMMIT (if all checked)
     - COMMIT → None (workflow complete)
 
+    Comprehensive Mode Phase transitions (adds DISCOVER and ROADMAP):
+    - DISCOVER → PLAN
+    - PLAN → ... → COMMIT (same as standard)
+    - COMMIT → ROADMAP
+    - ROADMAP → None (workflow complete)
+
     Args:
         current: Current phase
         plan_file: Path to plan.md file
         should_advance: Whether phase should advance (from EXIT_SIGNAL/completion check)
+        comprehensive: If True, use comprehensive mode (8 phases)
 
     Returns:
         Next phase, or None if workflow is complete
@@ -80,6 +90,10 @@ def determine_next_phase(
     # If should_advance is False, stay in current phase (unless it's a non-looping phase)
     if not should_advance and current.can_loop:
         return current
+
+    # Phase 0 (DISCOVER) → Phase 1 (PLAN) [comprehensive mode only]
+    if current == Phase.DISCOVER:
+        return Phase.PLAN
 
     # Phase 1 (PLAN) → Phase 2 (IMPLEMENT)
     if current == Phase.PLAN:
@@ -111,8 +125,14 @@ def determine_next_phase(
             return Phase.IMPLEMENT
         return Phase.COMMIT
 
-    # Phase 6 (COMMIT) → None (done)
+    # Phase 6 (COMMIT) → ROADMAP (comprehensive) OR None (standard)
     if current == Phase.COMMIT:
+        if comprehensive:
+            return Phase.ROADMAP
+        return None
+
+    # Phase 7 (ROADMAP) → None (workflow complete) [comprehensive mode only]
+    if current == Phase.ROADMAP:
         return None
 
     raise ValueError(f"Unknown phase: {current}")

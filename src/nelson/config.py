@@ -4,10 +4,17 @@ This module handles environment variables, defaults, and configuration validatio
 All configuration is immutable after creation for predictability.
 """
 
+from __future__ import annotations
+
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    from nelson.depth import DepthConfig
+    from nelson.deviations import DeviationConfig
+    from nelson.interaction import InteractionConfig
 
 # Valid model identifiers
 ModelType = Literal["opus", "sonnet", "haiku"]
@@ -44,13 +51,73 @@ class NelsonConfig:
     # Git/Push configuration
     auto_approve_push: bool
 
+    # Interaction configuration (lazy loaded to avoid circular imports)
+    _interaction: InteractionConfig | None = None
+
+    # Depth configuration (lazy loaded to avoid circular imports)
+    _depth: DepthConfig | None = None
+
+    # Deviation configuration (lazy loaded to avoid circular imports)
+    _deviations: DeviationConfig | None = None
+
     # Optional target repository path (None = current directory)
     target_path: Path | None = None
+
+    # Verification settings
+    skip_verification: bool = False
+
+    @property
+    def interaction(self) -> InteractionConfig:
+        """Get interaction configuration.
+
+        Lazy loads from environment if not explicitly set.
+
+        Returns:
+            InteractionConfig instance
+        """
+        if self._interaction is not None:
+            return self._interaction
+        # Import here to avoid circular dependency
+        from nelson.interaction import InteractionConfig
+
+        return InteractionConfig.from_env()
+
+    @property
+    def depth(self) -> DepthConfig:
+        """Get depth configuration.
+
+        Lazy loads from environment if not explicitly set.
+
+        Returns:
+            DepthConfig instance
+        """
+        if self._depth is not None:
+            return self._depth
+        # Import here to avoid circular dependency
+        from nelson.depth import DepthConfig
+
+        return DepthConfig.from_env()
+
+    @property
+    def deviations(self) -> DeviationConfig:
+        """Get deviation configuration.
+
+        Lazy loads from environment if not explicitly set.
+
+        Returns:
+            DeviationConfig instance
+        """
+        if self._deviations is not None:
+            return self._deviations
+        # Import here to avoid circular dependency
+        from nelson.deviations import DeviationConfig
+
+        return DeviationConfig.from_env()
 
     @classmethod
     def from_environment(
         cls, script_dir: Path | None = None, target_path: Path | None = None
-    ) -> "NelsonConfig":
+    ) -> NelsonConfig:
         """Load configuration from environment variables with defaults.
 
         Args:
@@ -95,6 +162,13 @@ class NelsonConfig:
             "yes",
         )
 
+        # Verification configuration
+        skip_verification = os.getenv("NELSON_SKIP_VERIFICATION", "false").lower() in (
+            "true",
+            "1",
+            "yes",
+        )
+
         # Resolve claude command path
         claude_command_path = cls._resolve_claude_path(claude_command, script_dir)
 
@@ -113,6 +187,7 @@ class NelsonConfig:
             plan_model=plan_model,
             review_model=review_model,
             auto_approve_push=auto_approve_push,
+            skip_verification=skip_verification,
         )
 
     @staticmethod

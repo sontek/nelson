@@ -6,7 +6,14 @@ from unittest.mock import patch
 
 from rich.console import Console
 
-from nelson.logging_config import NelsonLogger, get_logger, set_log_level
+from nelson.logging_config import (
+    NELSON_THEME,
+    PHASE_COLORS,
+    NelsonLogger,
+    get_logger,
+    get_phase_color,
+    set_log_level,
+)
 
 
 class TestNelsonLogger:
@@ -189,3 +196,137 @@ class TestRealOutput:
         assert "Warning test" in output
         assert "Error test" in output
         assert "Debug test" in output
+
+
+class TestPhaseColors:
+    """Tests for phase color mapping."""
+
+    def test_phase_colors_mapping_exists(self) -> None:
+        """Test that all phase colors are defined."""
+        assert 0 in PHASE_COLORS  # DISCOVER
+        assert 1 in PHASE_COLORS  # PLAN
+        assert 2 in PHASE_COLORS  # IMPLEMENT
+        assert 3 in PHASE_COLORS  # REVIEW
+        assert 4 in PHASE_COLORS  # TEST
+        assert 5 in PHASE_COLORS  # FINAL_REVIEW
+        assert 6 in PHASE_COLORS  # COMMIT
+        assert 7 in PHASE_COLORS  # ROADMAP
+
+    def test_get_phase_color_returns_correct_style(self) -> None:
+        """Test get_phase_color returns correct style for each phase."""
+        assert get_phase_color(0) == "phase.discover"
+        assert get_phase_color(1) == "phase.plan"
+        assert get_phase_color(2) == "phase.implement"
+        assert get_phase_color(3) == "phase.review"
+        assert get_phase_color(4) == "phase.test"
+        assert get_phase_color(5) == "phase.final_review"
+        assert get_phase_color(6) == "phase.commit"
+        assert get_phase_color(7) == "phase.roadmap"
+
+    def test_get_phase_color_fallback(self) -> None:
+        """Test get_phase_color returns fallback for unknown phases."""
+        assert get_phase_color(99) == "info"
+        assert get_phase_color(-1) == "info"
+
+
+class TestPhaseLogging:
+    """Tests for phase-specific logging."""
+
+    def test_phase_message(self) -> None:
+        """Test phase logging produces correct format."""
+        logger = NelsonLogger()
+        with patch.object(logger.console, "print") as mock_print:
+            logger.phase(1, "PLAN", "Creating implementation plan")
+            mock_print.assert_called_once()
+            call_args = mock_print.call_args[0][0]
+            assert "Phase 1: PLAN" in call_args
+            assert "Creating implementation plan" in call_args
+
+    def test_status_message(self) -> None:
+        """Test status line produces correct format."""
+        logger = NelsonLogger()
+        with patch.object(logger.console, "print") as mock_print:
+            logger.status(cycle=1, phase=2, phase_name="IMPLEMENT", iteration=5)
+            mock_print.assert_called_once()
+            call_args = mock_print.call_args[0][0]
+            assert "Cycle 1" in call_args
+            assert "Phase 2" in call_args
+            assert "IMPLEMENT" in call_args
+            assert "Iteration #5" in call_args
+
+    def test_status_message_with_cost(self) -> None:
+        """Test status line includes cost when provided."""
+        logger = NelsonLogger()
+        with patch.object(logger.console, "print") as mock_print:
+            logger.status(cycle=2, phase=3, phase_name="REVIEW", iteration=10, cost=1.23)
+            call_args = mock_print.call_args[0][0]
+            assert "$1.23" in call_args
+
+
+class TestSpinner:
+    """Tests for spinner context manager."""
+
+    def test_spinner_context_manager(self) -> None:
+        """Test spinner context manager works."""
+        logger = NelsonLogger()
+        with patch.object(logger.console, "status") as mock_status:
+            mock_status.return_value.__enter__ = lambda x: x
+            mock_status.return_value.__exit__ = lambda x, y, z, w: None
+
+            with logger.spinner("Testing...") as status:
+                assert status is not None
+
+            mock_status.assert_called_once()
+
+
+class TestSummaryPanel:
+    """Tests for summary panel display."""
+
+    def test_summary_panel(self) -> None:
+        """Test summary panel is displayed correctly."""
+        string_io = StringIO()
+        logger = NelsonLogger()
+        logger.console = Console(
+            file=string_io, theme=NELSON_THEME, force_terminal=True, legacy_windows=False
+        )
+
+        logger.summary_panel("Test Summary", {"Key1": "Value1", "Key2": "Value2"})
+        output = string_io.getvalue()
+
+        assert "Test Summary" in output
+        assert "Key1" in output
+        assert "Value1" in output
+        assert "Key2" in output
+        assert "Value2" in output
+
+    def test_workflow_complete_success(self) -> None:
+        """Test workflow complete panel for success case."""
+        string_io = StringIO()
+        logger = NelsonLogger()
+        logger.console = Console(
+            file=string_io, theme=NELSON_THEME, force_terminal=True, legacy_windows=False
+        )
+
+        logger.workflow_complete(cycles=3, iterations=25, cost=5.67, elapsed="2m 30s")
+        output = string_io.getvalue()
+
+        assert "Workflow Complete" in output
+        assert "3" in output  # cycles
+        assert "25" in output  # iterations
+        assert "$5.67" in output
+        assert "2m 30s" in output
+
+    def test_workflow_complete_failure(self) -> None:
+        """Test workflow complete panel for failure case."""
+        string_io = StringIO()
+        logger = NelsonLogger()
+        logger.console = Console(
+            file=string_io, theme=NELSON_THEME, force_terminal=True, legacy_windows=False
+        )
+
+        logger.workflow_complete(cycles=1, iterations=3, success=False)
+        output = string_io.getvalue()
+
+        assert "Workflow Failed" in output
+        assert "1" in output  # cycles
+        assert "3" in output  # iterations

@@ -16,8 +16,16 @@ from typing import Any
 from rich.panel import Panel
 
 from nelson.config import NelsonConfig
+from nelson.decisions_log import (
+    extract_recent_work,
+    should_compact,
+    write_progress_checkpoint,
+)
+from nelson.depth import DepthMode
+from nelson.interaction import UserInteraction
 from nelson.logging_config import get_logger
 from nelson.phases import Phase
+from nelson.plan_validation import log_validation_warnings
 from nelson.progress_monitor import ProgressMonitor
 from nelson.prompts import (
     build_full_prompt,
@@ -82,11 +90,22 @@ class WorkflowOrchestrator:
         self.provider = provider
         self.run_dir = run_dir
 
+        # User interaction handler
+        self.interaction = UserInteraction(config.interaction)
+
         # File paths - all run-specific files live in run_dir
         self.state_file = run_dir / "state.json"
         self.plan_file = run_dir / "plan.md"
         self.decisions_file = run_dir / "decisions.md"
         self.last_output_file = run_dir / "last_output.txt"
+
+        # Check if comprehensive mode is enabled
+        self._comprehensive = config.depth.mode == DepthMode.COMPREHENSIVE
+
+    @property
+    def comprehensive(self) -> bool:
+        """Check if comprehensive mode (8 phases) is enabled."""
+        return self._comprehensive
 
     def run(self, prompt: str) -> None:
         """Run the main workflow loop.
@@ -259,6 +278,11 @@ class WorkflowOrchestrator:
             state_file = self.state_file
             self.state.save(state_file)
 
+            # Write progress checkpoint periodically for context compaction
+            # This helps restore context efficiently for long-running tasks
+            if should_compact(self.state.total_iterations, compact_interval=10):
+                self._write_progress_checkpoint(prompt, current_phase, status_block)
+
             # Check if phase transition is needed
             # Parse exit_signal from status block (handle both boolean and string values)
             exit_signal_value = status_block.get("exit_signal", False)
@@ -268,7 +292,9 @@ class WorkflowOrchestrator:
                 exit_signal = bool(exit_signal_value)
 
             if should_transition_phase(current_phase, self.plan_file, exit_signal):
-                next_phase = determine_next_phase(current_phase, self.plan_file)
+                next_phase = determine_next_phase(
+                    current_phase, self.plan_file, comprehensive=self.comprehensive
+                )
 
                 # Special case: About to enter Phase 2 in a new cycle
                 # Check if there's any implementation work to do
@@ -329,17 +355,28 @@ class WorkflowOrchestrator:
                         self.state.no_work_cycles = 0
 
                 if next_phase is None:
-                    # Phase 6 (COMMIT) complete - cycle finished
-                    # Increment cycle counter and loop back to Phase 1
+                    # Cycle complete - either after COMMIT (standard) or ROADMAP (comprehensive)
+                    # Increment cycle counter and loop back to starting phase
                     self.state.increment_cycle()
                     new_cycle = self.state.cycle_iterations
 
                     # Reset no-work counter since we completed a full cycle with work
                     self.state.no_work_cycles = 0
 
+                    # Determine which phase completed and which to start next cycle
+                    if self.comprehensive:
+                        completed_phase = "Phase 7 (ROADMAP)"
+                        start_phase = Phase.DISCOVER
+                    else:
+                        completed_phase = "Phase 6 (COMMIT)"
+                        start_phase = Phase.PLAN
+
                     # Display cycles as 1-indexed for user-friendliness (internal is 0-indexed)
-                    logger.success(f"Cycle {new_cycle} complete - Phase 6 (COMMIT) finished")
-                    logger.info(f"Starting cycle {new_cycle + 1} - returning to Phase 1 (PLAN)")
+                    logger.success(f"Cycle {new_cycle} complete - {completed_phase} finished")
+                    logger.info(
+                        f"Starting cycle {new_cycle + 1} - returning to "
+                        f"Phase {start_phase.value} ({start_phase.name_str})"
+                    )
 
                     # Archive the old plan.md (use 1-indexed to match plan content)
                     if self.plan_file.exists():
@@ -350,14 +387,19 @@ class WorkflowOrchestrator:
                     # Log cycle completion to decisions file (use 1-indexed for display)
                     self._log_cycle_completion(new_cycle, new_cycle + 1)
 
-                    # Reset to Phase 1
-                    self.state.transition_phase(Phase.PLAN.value, Phase.PLAN.name_str)
+                    # Reset to starting phase
+                    self.state.transition_phase(start_phase.value, start_phase.name_str)
 
-                    # Continue loop (don't break) - will start new cycle at Phase 1
+                    # Continue loop (don't break) - will start new cycle at starting phase
 
                 elif next_phase != current_phase:
                     # Phase transition
                     next_phase_name = next_phase.name_str
+
+                    # Validate plan when transitioning from PLAN to IMPLEMENT
+                    if current_phase == Phase.PLAN and next_phase == Phase.IMPLEMENT:
+                        if self.plan_file.exists():
+                            log_validation_warnings(self.plan_file)
 
                     logger.success(
                         f"Phase {current_phase.value} ({phase_name}) complete "
@@ -455,7 +497,8 @@ class WorkflowOrchestrator:
             AIResponse from provider
         """
         # Select model based on phase
-        if current_phase == Phase.PLAN:
+        # DISCOVER, PLAN, and ROADMAP phases use the plan model
+        if current_phase in (Phase.DISCOVER, Phase.PLAN, Phase.ROADMAP):
             model = self.config.plan_model
         elif current_phase in (Phase.REVIEW, Phase.FINAL_REVIEW):
             model = self.config.review_model
@@ -687,6 +730,80 @@ class WorkflowOrchestrator:
         for key, value in status_block.items():
             logger.info(f"  {key}: {value}")
         logger.info("")
+
+    def _write_progress_checkpoint(
+        self,
+        original_task: str,
+        current_phase: Phase,
+        status_block: dict[str, Any],
+    ) -> None:
+        """Write a progress checkpoint for context compaction.
+
+        This creates a condensed summary of progress that can be used to
+        restore context efficiently after compaction or when resuming work.
+
+        Args:
+            original_task: The original user task
+            current_phase: Current workflow phase
+            status_block: Status block from last iteration
+        """
+        # Count tasks completed and remaining from plan
+        tasks_completed = 0
+        tasks_remaining = 0
+        if self.plan_file.exists():
+            plan_content = self.plan_file.read_text()
+            tasks_completed = plan_content.count("- [x]")
+            tasks_remaining = plan_content.count("- [ ]")
+
+        # Determine current state from status block
+        status = status_block.get("status", "IN_PROGRESS")
+        recommendation = status_block.get("recommendation", "")
+        current_state = f"Status: {status}. {recommendation}"
+
+        # Extract recent work from decisions log
+        recent_work = extract_recent_work(self.decisions_file, max_items=5)
+
+        # Check for blockers
+        blockers: list[str] = []
+        blocked_reason = status_block.get("blocked_reason", "")
+        if blocked_reason:
+            blockers.append(blocked_reason)
+
+        # Determine approach based on phase
+        approach = f"Executing Phase {current_phase.value} ({current_phase.name_str})"
+        if current_phase == Phase.PLAN:
+            approach = "Analyzing task and creating implementation plan"
+        elif current_phase == Phase.IMPLEMENT:
+            approach = "Implementing plan tasks one by one with atomic commits"
+        elif current_phase == Phase.REVIEW:
+            approach = "Reviewing changes for bugs, patterns, and quality"
+        elif current_phase == Phase.TEST:
+            approach = "Running tests and fixing any failures"
+        elif current_phase == Phase.FINAL_REVIEW:
+            approach = "Final review of all changes before commit"
+        elif current_phase == Phase.COMMIT:
+            approach = "Committing remaining changes"
+        elif current_phase == Phase.DISCOVER:
+            approach = "Researching codebase to understand patterns and structure"
+        elif current_phase == Phase.ROADMAP:
+            approach = "Documenting future improvements and technical debt"
+
+        # Write the checkpoint
+        write_progress_checkpoint(
+            log_path=self.decisions_file,
+            original_task=original_task,
+            current_phase=current_phase,
+            cycle=self.state.cycle_iterations + 1,  # Display as 1-indexed
+            iteration=self.state.total_iterations,
+            tasks_completed=tasks_completed,
+            tasks_remaining=tasks_remaining,
+            current_state=current_state,
+            approach=approach,
+            recent_work=recent_work,
+            blockers=blockers if blockers else None,
+        )
+
+        logger.info(f"Progress checkpoint written at iteration {self.state.total_iterations}")
 
 
 class WorkflowError(Exception):

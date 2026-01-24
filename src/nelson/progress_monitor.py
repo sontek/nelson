@@ -306,7 +306,8 @@ class ProgressMonitor:
         # Add last activity info if we have it
         if self._last_activity_file:
             activity_ago = now - self._last_activity_time
-            parts.append(f"last activity: {_format_time_ago(activity_ago)} ({self._last_activity_file})")
+            time_ago = _format_time_ago(activity_ago)
+            parts.append(f"last activity: {time_ago} ({self._last_activity_file})")
 
         # Add PID if we have it
         if self._subprocess_pid:

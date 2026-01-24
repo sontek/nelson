@@ -21,7 +21,7 @@ from nelson.decisions_log import (
     should_compact,
     write_progress_checkpoint,
 )
-from nelson.depth import DepthMode
+from nelson.depth import DepthMode, should_skip_phase
 from nelson.interaction import UserInteraction
 from nelson.logging_config import get_logger
 from nelson.phases import Phase
@@ -31,7 +31,9 @@ from nelson.prompts import (
     build_full_prompt,
     build_loop_context,
     get_phase_prompt,
+    get_phase_prompt_for_depth,
     get_system_prompt,
+    get_system_prompt_for_depth,
 )
 from nelson.providers.base import AIProvider, ProviderError
 from nelson.state import NelsonState
@@ -48,6 +50,7 @@ class CircuitBreakerResult(Enum):
     TRIGGERED = "triggered"  # Circuit breaker activated
     BLOCKED = "blocked"  # Task blocked on external dependency
     COMPLETE = "complete"  # All tasks complete, no more work to do
+    RETRY_NO_INCREMENT = "retry_no_increment"  # Retry without incrementing iteration
 
 
 class WorkflowOrchestrator:
@@ -132,7 +135,7 @@ class WorkflowOrchestrator:
         logger.console.print("")
 
         # Display system prompt summary at startup
-        system_prompt = get_system_prompt(self.decisions_file)
+        system_prompt = get_system_prompt_for_depth(self.decisions_file, self.config.depth)
         system_lines = system_prompt.split("\n")[:5]
         system_summary = (
             "\n".join(system_lines) + "\n\n[dim](Full system prompt sent to Claude)[/dim]"
@@ -193,6 +196,25 @@ class WorkflowOrchestrator:
                 )
                 logger.console.print("")
 
+            # Phase 7: Check if phase should be skipped based on depth mode
+            if should_skip_phase(current_phase.name, self.config.depth):
+                logger.info(
+                    f"Skipping Phase {current_phase.value} ({current_phase.name_str}) "
+                    f"(depth mode: {self.config.depth.mode.value})"
+                )
+                # Determine next phase and advance
+                next_phase = determine_next_phase(
+                    current_phase, self.plan_file, comprehensive=self.comprehensive
+                )
+                if next_phase and next_phase != current_phase:
+                    logger.info(f"Advancing to Phase {next_phase.value} ({next_phase.name_str})")
+                    self.state.transition_phase(next_phase.value, next_phase.name_str)
+                    continue
+                else:
+                    # No next phase - this shouldn't happen, but handle it
+                    logger.warning("No next phase determined after skip - ending workflow")
+                    break
+
             # Build full prompt with phase instructions
             full_prompt = build_full_prompt(
                 original_task=prompt,
@@ -200,10 +222,13 @@ class WorkflowOrchestrator:
                 plan_file=self.plan_file,
                 decisions_file=self.decisions_file,
                 loop_context=loop_context,
+                depth=self.config.depth,
             )
 
             # Display phase prompt being used
-            phase_prompt = get_phase_prompt(current_phase, self.plan_file, self.decisions_file)
+            phase_prompt = get_phase_prompt_for_depth(
+                current_phase, self.plan_file, self.decisions_file, self.config.depth
+            )
             prompt_preview = phase_prompt[:300] + "..." if len(phase_prompt) > 300 else phase_prompt
             logger.console.print(
                 Panel(
@@ -239,7 +264,16 @@ class WorkflowOrchestrator:
             # Check circuit breakers
             breaker_result = self._check_circuit_breaker(status_block)
 
-            if breaker_result == CircuitBreakerResult.EXIT_SIGNAL:
+            if breaker_result == CircuitBreakerResult.RETRY_NO_INCREMENT:
+                # Blocker resolved - retry without incrementing iteration
+                # Decrement the iteration counters that were incremented at loop start
+                self.state.total_iterations -= 1
+                self.state.phase_iterations -= 1
+                logger.info("Retrying task after blocker resolution...")
+                # Continue loop to retry
+                continue
+
+            elif breaker_result == CircuitBreakerResult.EXIT_SIGNAL:
                 # EXIT_SIGNAL means current phase is complete
                 logger.success("EXIT_SIGNAL detected - phase complete")
                 self._log_completion_status(status_block)
@@ -401,6 +435,191 @@ class WorkflowOrchestrator:
                         if self.plan_file.exists():
                             log_validation_warnings(self.plan_file)
 
+                        # Phase 2: Extract and save JSON plan if present
+                        from nelson.plan_parser_json import extract_plan_from_response, write_json_plan
+
+                        json_plan = extract_plan_from_response(response.content)
+                        if json_plan:
+                            json_file = self.run_dir / "plan.json"
+                            try:
+                                write_json_plan(json_plan, json_file)
+                                logger.info(f"Saved structured plan to {json_file.name}")
+                            except OSError as e:
+                                logger.warning(f"Could not write JSON plan: {e}")
+                        else:
+                            logger.debug("No JSON plan found in response, using markdown only")
+
+                        # Phase 3: Extract and handle planning questions
+                        if not self.config.interaction.skip_planning_questions:
+                            from nelson.planning_questions import (
+                                extract_questions_from_response,
+                                ask_planning_questions,
+                                log_planning_questions,
+                                format_answers_for_prompt,
+                            )
+
+                            questions = extract_questions_from_response(response.content)
+
+                            if questions:
+                                logger.info(f"Found {len(questions)} planning questions from Claude")
+
+                                # Ask user via UserInteraction
+                                answers = ask_planning_questions(questions, self.interaction)
+
+                                # Log to decisions.md
+                                log_planning_questions(questions, answers, self.decisions_file)
+
+                                # In supervised mode, make second Claude call with answers
+                                from nelson.interaction import InteractionMode
+
+                                if self.config.interaction.mode == InteractionMode.SUPERVISED:
+                                    logger.info("Making second planning call with user answers...")
+
+                                    # Format answers for prompt context
+                                    answer_context = format_answers_for_prompt(questions, answers)
+
+                                    # Append context to existing prompt and re-run PLAN phase
+                                    enhanced_prompt = full_prompt + answer_context
+
+                                    # Re-execute Claude with answers
+                                    try:
+                                        response = self._execute_provider(
+                                            enhanced_prompt, Phase.PLAN
+                                        )
+                                        # Save updated output
+                                        self.last_output_file.write_text(response.content)
+                                        logger.success("Planning refined with user answers")
+                                    except ProviderError as e:
+                                        logger.warning(
+                                            f"Could not refine plan with answers: {e.message}"
+                                        )
+                                        logger.info("Continuing with original plan")
+
+                    # Phase 5: Extract and log deviations after IMPLEMENT phase
+                    if current_phase == Phase.IMPLEMENT:
+                        from nelson.deviations import (
+                            extract_deviations_from_response,
+                            validate_deviations,
+                            log_deviations,
+                        )
+
+                        # Extract deviations from response
+                        deviations = extract_deviations_from_response(response.content)
+
+                        if deviations:
+                            # Get current deviation count from state
+                            # Initialize if not present
+                            if not hasattr(self.state, "deviations_count"):
+                                self.state.deviations_count = 0
+
+                            # Validate deviations against config
+                            allowed, blocked = validate_deviations(
+                                deviations, self.config.deviations, self.state.deviations_count
+                            )
+
+                            if allowed:
+                                logger.info(f"Found {len(allowed)} auto-fix deviations from Claude")
+                                # Log allowed deviations
+                                log_deviations(allowed, self.decisions_file, blocked=False)
+                                # Update count
+                                self.state.deviations_count += len(allowed)
+
+                            if blocked:
+                                logger.warning(f"Blocked {len(blocked)} deviations (rule disabled or limit exceeded)")
+                                # Log blocked deviations
+                                log_deviations(blocked, self.decisions_file, blocked=True)
+
+                            # Check if max deviations exceeded
+                            if self.state.deviations_count >= self.config.deviations.max_deviations_per_task:
+                                logger.warning(
+                                    f"Max deviations ({self.config.deviations.max_deviations_per_task}) "
+                                    "reached for this task"
+                                )
+
+                    # Phase 6: Run verification after FINAL_REVIEW before COMMIT
+                    if (
+                        current_phase == Phase.FINAL_REVIEW
+                        and next_phase == Phase.COMMIT
+                        and not self.config.skip_verification
+                    ):
+                        # Check if we have a JSON plan with verification criteria
+                        json_plan_file = self.run_dir / "plan.json"
+
+                        if json_plan_file.exists():
+                            from nelson.verification import (
+                                GoalVerification,
+                                run_verification,
+                                log_verification_results,
+                            )
+
+                            try:
+                                import json
+
+                                # Load plan.json
+                                with open(json_plan_file) as f:
+                                    plan_data = json.load(f)
+
+                                # Check if plan has verification criteria
+                                if "verification" in plan_data:
+                                    logger.info("Running goal-backward verification...")
+
+                                    # Create GoalVerification from plan data
+                                    verification = GoalVerification.from_dict(plan_data["verification"])
+
+                                    # Run all verification checks
+                                    verification = run_verification(verification, self.run_dir)
+
+                                    # Log results
+                                    log_verification_results(verification, self.decisions_file)
+
+                                    # Check for critical failures
+                                    critical_failures = verification.critical_failures
+
+                                    if critical_failures:
+                                        # Initialize verification_retries if not present
+                                        if not hasattr(self.state, "verification_retries"):
+                                            self.state.verification_retries = 0
+
+                                        self.state.verification_retries += 1
+
+                                        if self.state.verification_retries < 3:
+                                            logger.error(
+                                                f"Verification failed with {len(critical_failures)} "
+                                                "critical failures"
+                                            )
+                                            logger.warning(
+                                                f"Loop back to IMPLEMENT (retry {self.state.verification_retries}/3)"
+                                            )
+
+                                            # Override next_phase to loop back to IMPLEMENT
+                                            next_phase = Phase.IMPLEMENT
+                                            next_phase_name = next_phase.name_str
+
+                                            # Log the loop-back to decisions
+                                            with open(self.decisions_file, "a") as f:
+                                                f.write("\n## Verification Failed - Looping Back\n\n")
+                                                f.write(f"**Retry**: {self.state.verification_retries}/3\n")
+                                                f.write(
+                                                    f"**Critical Failures**: {len(critical_failures)}\n\n"
+                                                )
+                                                for failure in critical_failures:
+                                                    f.write(f"- {failure.target}: {failure.actual_result}\n")
+                                                f.write("\n")
+                                        else:
+                                            logger.error(
+                                                f"Max verification retries (3) reached - "
+                                                f"proceeding with {len(critical_failures)} failures"
+                                            )
+                                    else:
+                                        logger.success("All verification checks passed")
+                                        # Reset retry counter on success
+                                        if hasattr(self.state, "verification_retries"):
+                                            self.state.verification_retries = 0
+
+                            except (json.JSONDecodeError, KeyError, FileNotFoundError) as e:
+                                logger.debug(f"Could not run verification: {e}")
+                                # Not a blocker - proceed without verification
+
                     logger.success(
                         f"Phase {current_phase.value} ({phase_name}) complete "
                         f"→ advancing to Phase {next_phase.value} ({next_phase_name})"
@@ -508,9 +727,9 @@ class WorkflowOrchestrator:
         logger.info(f"Using model: {model}")
 
         # Execute with system prompt (from prompts.py)
-        from nelson.prompts import get_system_prompt
+        from nelson.prompts import get_system_prompt_for_depth
 
-        system_prompt = get_system_prompt(self.decisions_file)
+        system_prompt = get_system_prompt_for_depth(self.decisions_file, self.config.depth)
 
         # Start progress monitor to show activity during long-running calls
         # Monitor the run directory for file changes (decisions.md, plan.md, etc.)
@@ -586,19 +805,58 @@ class WorkflowOrchestrator:
 
         # Track blocked status (task waiting on external dependency)
         status = status_block.get("status", "")
-        if "blocked" in status.lower():
+        status_value = status.upper() if isinstance(status, str) else ""
+
+        # Phase 4: Check for blocked status and prompt for resolution
+        if status_value == "BLOCKED":
             self.state.blocked_iterations += 1
+
+            # Import blocked handling
+            from nelson.blocked_handling import (
+                extract_blocked_info,
+                prompt_blocked_resolution,
+                log_blocked_event,
+                BlockedResolution,
+            )
+
+            # Extract blocked info from response
+            blocked_info = extract_blocked_info(status_block, self.last_output_file.read_text())
+
+            if blocked_info and self.config.interaction.prompt_on_blocked:
+                # Prompt user for resolution
+                resolution, context = prompt_blocked_resolution(blocked_info, self.interaction)
+
+                # Log the event and resolution
+                log_blocked_event(blocked_info, resolution, context, self.decisions_file)
+
+                if resolution == BlockedResolution.RESOLVED:
+                    # User resolved the issue - retry without incrementing iteration
+                    logger.success("Blocker resolved by user - retrying task")
+                    # Reset blocked counter since issue is resolved
+                    self.state.blocked_iterations = 0
+                    return CircuitBreakerResult.RETRY_NO_INCREMENT
+
+                elif resolution == BlockedResolution.SKIP:
+                    # User wants to skip this task and continue
+                    logger.info("User chose to skip blocked task - continuing workflow")
+                    # Reset blocked counter and continue
+                    self.state.blocked_iterations = 0
+                    return CircuitBreakerResult.OK
+
+                else:  # STOP
+                    # User wants to stop execution
+                    logger.warning("User chose to stop execution due to blocker")
+                    return CircuitBreakerResult.BLOCKED
+
+            # If not prompting or no blocked info, check iteration count
+            if self.state.blocked_iterations >= 3:
+                logger.warning(
+                    f"Task blocked on external dependency "
+                    f"({self.state.blocked_iterations} consecutive BLOCKED iterations)"
+                )
+                return CircuitBreakerResult.BLOCKED
         else:
             self.state.blocked_iterations = 0
-
-        # Check for blocked status FIRST (external dependency - not a failure)
-        # This allows graceful exit when task needs user intervention
-        if self.state.blocked_iterations >= 3:
-            logger.warning(
-                f"Task blocked on external dependency "
-                f"({self.state.blocked_iterations} consecutive BLOCKED iterations)"
-            )
-            return CircuitBreakerResult.BLOCKED
 
         # Check for progress this iteration
         # tasks_completed is per-loop count (TASKS_COMPLETED_THIS_LOOP), not cumulative

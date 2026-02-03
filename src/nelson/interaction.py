@@ -95,7 +95,7 @@ class InteractionConfig:
 
     mode: InteractionMode = InteractionMode.INTERACTIVE
     planning_timeout_seconds: int = 60
-    ambiguity_timeout_seconds: int = 30
+    ambiguity_timeout_seconds: int = 120
     prompt_on_blocked: bool = True
     skip_planning_questions: bool = False
     enable_notifications: bool = True
@@ -126,7 +126,7 @@ class InteractionConfig:
             mode = InteractionMode.INTERACTIVE
 
         planning_timeout = int(os.environ.get("NELSON_PLANNING_TIMEOUT", "60"))
-        ambiguity_timeout = int(os.environ.get("NELSON_AMBIGUITY_TIMEOUT", "30"))
+        ambiguity_timeout = int(os.environ.get("NELSON_AMBIGUITY_TIMEOUT", "120"))
         prompt_on_blocked = os.environ.get("NELSON_PROMPT_ON_BLOCKED", "true").lower() == "true"
         skip_planning = os.environ.get("NELSON_SKIP_PLANNING_QUESTIONS", "false").lower() == "true"
         enable_notifications = os.environ.get("NELSON_ENABLE_NOTIFICATIONS", "true").lower() == "true"
@@ -421,7 +421,10 @@ class UserInteraction:
 
         # Use select for timeout on Unix systems
         try:
-            self.console.print("> ", end="")
+            # Use raw stdout instead of rich console to avoid interference
+            sys.stdout.write("> ")
+            sys.stdout.flush()
+
             remaining = timeout
 
             while remaining > 0:
@@ -432,6 +435,9 @@ class UserInteraction:
                     # Input available
                     line = sys.stdin.readline()
                     if line:
+                        # Clear any countdown message that might be on the line
+                        sys.stdout.write("\n")
+                        sys.stdout.flush()
                         return line.strip()
                     return None  # EOF
 
@@ -439,11 +445,15 @@ class UserInteraction:
 
                 # Show countdown every 10 seconds
                 if remaining > 0 and remaining % 10 == 0:
-                    countdown_msg = f"\r[dim]⏱ {remaining}s remaining, using [{default}]...[/dim]"
-                    self.console.print(countdown_msg, end="")
+                    # Use raw stdout to avoid rich console interference
+                    countdown_msg = f"\r⏱ {remaining}s remaining, using [{default}]..."
+                    sys.stdout.write(countdown_msg)
+                    sys.stdout.flush()
 
             # Timeout
-            self.console.print(f"\n[yellow]Timeout - using default: {default}[/yellow]")
+            sys.stdout.write("\n")
+            sys.stdout.flush()
+            self.console.print(f"[yellow]Timeout - using default: {default}[/yellow]")
             return None
 
         except (OSError, ValueError):

@@ -413,7 +413,11 @@ class WorkflowOrchestrator:
                     # Determine which phase completed and which to start next cycle
                     if self.comprehensive:
                         completed_phase = "Phase 7 (ROADMAP)"
-                        start_phase = Phase.DISCOVER
+                        # DISCOVER only runs in first cycle (cycle 0, displayed as "Cycle 1")
+                        # After first cycle completes (new_cycle = 1), skip to PLAN for all subsequent cycles
+                        # new_cycle represents the just-completed cycle number (0 = first, 1 = second, etc.)
+                        # So new_cycle >= 1 means we're starting cycle 2 or later, skip DISCOVER
+                        start_phase = Phase.PLAN
                     else:
                         completed_phase = "Phase 6 (COMMIT)"
                         start_phase = Phase.PLAN
@@ -1030,6 +1034,15 @@ class WorkflowOrchestrator:
             completed_cycle: Cycle number that just completed
             new_cycle: Next cycle number
         """
+        # Determine completed phase and next phase based on mode
+        if self.comprehensive:
+            completed_phase_desc = "**Phase 7 (ROADMAP)**: Complete"
+            # Cycle 1 starts with DISCOVER, cycles 2+ skip to PLAN
+            next_phase_desc = f"**Next**: Starting cycle {new_cycle} - Phase 1 (PLAN)"
+        else:
+            completed_phase_desc = "**Phase 6 (COMMIT)**: Complete"
+            next_phase_desc = f"**Next**: Starting cycle {new_cycle} - Phase 1 (PLAN)"
+
         # Append to decisions file
         with open(self.decisions_file, "a") as f:
             f.write("\n")
@@ -1038,8 +1051,8 @@ class WorkflowOrchestrator:
                 f"(Phase Execution {self.state.total_iterations})\n"
             )
             f.write("\n")
-            f.write("**Phase 6 (COMMIT)**: Complete\n")
-            f.write(f"**Next**: Starting cycle {new_cycle} - Phase 1 (PLAN)\n")
+            f.write(f"{completed_phase_desc}\n")
+            f.write(f"{next_phase_desc}\n")
             f.write("**Note**: Previous plan archived. Next cycle will start fresh (stateless).\n")
             f.write("\n")
 

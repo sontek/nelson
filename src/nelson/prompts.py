@@ -605,14 +605,61 @@ def _get_test_prompt(plan_file: Path, decisions_file: Path) -> str:
     return f"""Read {decisions_file}, {plan_file}. Find FIRST unchecked Phase 4 task.
 
 IF task is "run tests":
-  - EXECUTE tests/linter/type-checker (use justfile or package.json)
-  - If failures: Add fix tasks + re-run test task to Phase 4, mark [x]
-  - If passing: Mark [x], STOP
+  1. EXECUTE tests/linter/type-checker (use justfile, package.json, or direct commands)
+
+  2. ANALYZE TEST FAILURES:
+     If tests fail, investigate the root cause:
+
+     **Infrastructure/Environment Issues** (Docker, services, databases, etc.):
+     - Check if services are running: docker ps, docker-compose ps
+     - Check service logs: docker-compose logs <service>
+     - Check port availability: lsof -i :<port> or netstat
+     - Check database connections: Can services reach the database?
+     - Check network: Are containers on same network? docker network inspect
+     - Check environment variables: Are required vars set? Check .env files
+     - Check service health: docker-compose exec <service> <health-check-command>
+     - Check startup order: Do services have proper depends_on and health checks?
+
+     **Code/Logic Issues** (bugs, broken imports, etc.):
+     - Check error messages and stack traces
+     - Identify which test failed and why
+     - Review recent code changes that might have broken tests
+
+  3. CREATE FIX TASKS:
+     Based on the root cause analysis, add specific fix tasks to Phase 4:
+
+     For infrastructure issues:
+     - '- [ ] Fix: Start missing service X'
+     - '- [ ] Fix: Configure database connection in docker-compose.yml'
+     - '- [ ] Fix: Add health check for service X'
+     - '- [ ] Fix: Set missing environment variable Y'
+     - '- [ ] Fix: Update service startup order to wait for database'
+
+     For code issues:
+     - '- [ ] Fix: <specific bug description with file:line>'
+
+     Always add a re-run task:
+     - '- [ ] Re-run tests after fixes'
+
+  4. Mark the original "run tests" task [x], log findings to {decisions_file}, STOP
+
+  IMPORTANT:
+  - ALL test failures must be investigated and fixed (infrastructure OR code)
+  - Do NOT dismiss failures as "infrastructure issues" - fix them
+  - Tests must pass before workflow can advance to Phase 5
 
 IF task is "Fix: X":
-  - Fix ONE issue
-  - Stage and commit the fix
-  - Mark [x], STOP
+  - Investigate and fix the ONE specific issue described
+  - For infrastructure fixes: modify docker-compose.yml, .env, scripts, etc.
+  - For code fixes: modify source/test files
+  - Verify the fix worked (run relevant command/test)
+  - Stage and commit the fix: git add <files>; git commit -m "fix: <description>"
+  - Mark [x], log to {decisions_file}, STOP
+
+IF task is "Re-run tests after fixes":
+  - Execute the same test command(s) from the original "run tests" task
+  - If passing: Mark [x], STOP
+  - If still failing: Investigate further, add more fix tasks, mark [x], STOP
 
 When all Phase 4 tasks [x]: Nelson advances to Phase 5
 """
@@ -876,10 +923,20 @@ def _get_lean_test_prompt(plan_file: Path, decisions_file: Path) -> str:
     return f"""Read {decisions_file}, {plan_file}. Find FIRST unchecked Phase 3 task.
 
 Run tests/linter/type-checker:
-- Failures: Add fix tasks to Phase 3, mark current [x]
-- Passing: Mark [x], STOP
+- Investigate failures (infrastructure OR code):
+  * Check services: docker ps, docker-compose logs
+  * Check database connections, environment variables
+  * Check error messages and stack traces
+- Add specific fix tasks (infrastructure or code) to Phase 3
+- Add '- [ ] Re-run tests' task
+- Mark current [x], STOP
 
-Fix tasks: Fix one issue, stage, commit, mark [x], STOP.
+Fix tasks:
+- For infrastructure: Fix docker-compose, services, env vars, etc.
+- For code: Fix bugs, imports, logic errors
+- Verify fix works, stage, commit, mark [x], STOP
+
+IMPORTANT: Do NOT dismiss test failures as "infrastructure issues" - investigate and fix them.
 """
 
 
@@ -986,9 +1043,9 @@ def build_loop_context(
     """Build loop context string for iterations after the first.
 
     Args:
-        cycle_iterations: Number of complete 6-phase cycles
-        total_iterations: Total number of phase executions so far
-        phase_iterations: Number of iterations in current phase
+        cycle_iterations: Current cycle number (1-indexed, e.g., 1 for first cycle)
+        total_iterations: Total number of API calls/iterations so far (across all phases)
+        phase_iterations: Number of API calls within the current phase
         tasks_completed: Number of tasks completed so far
         current_phase: Current phase
         recent_decisions: Optional excerpt of recent decision log entries
@@ -997,10 +1054,10 @@ def build_loop_context(
         Formatted loop context string
     """
     lines = [
-        f"LOOP CONTEXT (Cycle {cycle_iterations}, Phase Execution {total_iterations}):",
-        f"- Complete cycles so far: {cycle_iterations}",
-        f"- Phase executions so far: {total_iterations}",
-        f"- Phase iterations in current phase: {phase_iterations}",
+        f"LOOP CONTEXT (Cycle {cycle_iterations}, API Call #{total_iterations}):",
+        f"- Completed cycles: {cycle_iterations - 1}",  # cycle_iterations is 1-indexed current cycle
+        f"- Total API calls so far: {total_iterations}",
+        f"- API calls in current phase: {phase_iterations}",
         f"- Tasks completed in current plan: {tasks_completed}",
     ]
 

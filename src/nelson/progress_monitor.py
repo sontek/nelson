@@ -177,6 +177,21 @@ class ProgressMonitor:
             self._thread.join(timeout=2.0)
             self._thread = None
 
+    def reset(self) -> None:
+        """Reset the activity timer without stopping/restarting the thread.
+
+        Call this before retry attempts to reset the stall detection timer.
+        """
+        now = time.time()
+        self._start_time = now
+        self._last_heartbeat = now
+        self._last_activity_time = now
+        self._last_activity_file = ""
+        self._stall_event.clear()
+
+        # Take a fresh snapshot of files
+        self._take_snapshot()
+
     def _take_snapshot(self) -> None:
         """Take a snapshot of all files in the watch directory."""
         self._file_snapshots.clear()

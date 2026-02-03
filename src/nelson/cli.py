@@ -115,6 +115,16 @@ logger = get_logger()
     help="Skip planning phase questions entirely (env: NELSON_SKIP_PLANNING_QUESTIONS)",
 )
 @click.option(
+    "--no-notifications",
+    is_flag=True,
+    help="Disable desktop notifications when input needed (env: NELSON_ENABLE_NOTIFICATIONS=false)",
+)
+@click.option(
+    "--no-sound",
+    is_flag=True,
+    help="Disable terminal bell sound when input needed (env: NELSON_ENABLE_SOUND_ALERT=false)",
+)
+@click.option(
     "--quick",
     "depth_mode",
     flag_value="quick",
@@ -171,6 +181,8 @@ def main(
     interaction_mode: str | None,
     planning_timeout: int | None,
     no_planning_questions: bool,
+    no_notifications: bool,
+    no_sound: bool,
     depth_mode: str | None,
     no_auto_fix: bool,
     no_auto_install: bool,
@@ -290,6 +302,8 @@ def main(
         interaction_mode=interaction_mode,
         planning_timeout=planning_timeout,
         skip_planning_questions=no_planning_questions,
+        disable_notifications=no_notifications,
+        disable_sound_alert=no_sound,
         depth_mode=depth_mode,
         no_auto_fix=no_auto_fix,
         no_auto_install=no_auto_install,
@@ -438,6 +452,8 @@ def _build_config(
     interaction_mode: str | None = None,
     planning_timeout: int | None = None,
     skip_planning_questions: bool = False,
+    disable_notifications: bool = False,
+    disable_sound_alert: bool = False,
     depth_mode: str | None = None,
     no_auto_fix: bool = False,
     no_auto_install: bool = False,
@@ -484,7 +500,13 @@ def _build_config(
 
     # Build interaction config with CLI overrides
     base_interaction = config.interaction
-    if interaction_mode is not None or planning_timeout is not None or skip_planning_questions:
+    if (
+        interaction_mode is not None
+        or planning_timeout is not None
+        or skip_planning_questions
+        or disable_notifications
+        or disable_sound_alert
+    ):
         # Override with CLI values
         final_mode = (
             InteractionMode(interaction_mode)
@@ -497,12 +519,17 @@ def _build_config(
             else base_interaction.planning_timeout_seconds
         )
         final_skip_questions = skip_planning_questions or base_interaction.skip_planning_questions
+        final_enable_notifications = not disable_notifications and base_interaction.enable_notifications
+        final_enable_sound = not disable_sound_alert and base_interaction.enable_sound_alert
+
         interaction_config = InteractionConfig(
             mode=final_mode,
             planning_timeout_seconds=final_planning_timeout,
             ambiguity_timeout_seconds=base_interaction.ambiguity_timeout_seconds,
             prompt_on_blocked=base_interaction.prompt_on_blocked,
             skip_planning_questions=final_skip_questions,
+            enable_notifications=final_enable_notifications,
+            enable_sound_alert=final_enable_sound,
         )
     else:
         interaction_config = base_interaction

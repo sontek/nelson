@@ -711,7 +711,7 @@ class WorkflowOrchestrator:
         current_phase = Phase(self.state.current_phase)
 
         return build_loop_context(
-            cycle_iterations=self.state.cycle_iterations,
+            cycle_iterations=self.state.cycle_iterations + 1,  # Display as 1-indexed
             total_iterations=self.state.total_iterations,
             phase_iterations=self.state.phase_iterations,
             tasks_completed=tasks_completed,
@@ -788,13 +788,16 @@ class WorkflowOrchestrator:
         Returns:
             CircuitBreakerResult indicating what action to take
         """
-        # Check for EXIT_SIGNAL first
+        # Check for EXIT_SIGNAL FIRST - takes precedence over all other checks
         # Handle both boolean and string values (Claude may return "true"/"false" strings)
         exit_signal_value = status_block.get("exit_signal", False)
         if isinstance(exit_signal_value, str):
             exit_signal = exit_signal_value.lower() in ("true", "1", "yes")
         else:
             exit_signal = bool(exit_signal_value)
+
+        if exit_signal:
+            return CircuitBreakerResult.EXIT_SIGNAL
 
         # Track same-phase looping (for looping phases only)
         current_phase = Phase(self.state.current_phase)
@@ -805,17 +808,23 @@ class WorkflowOrchestrator:
             self.state.same_phase_loop_count = 0
             self.state.last_phase_tracked = self.state.current_phase
 
-        # Check for excessive same-phase looping (10+ consecutive iterations in same looping phase)
-        # This catches cases where EXIT_SIGNAL=true but plan tasks aren't being checked off
-        if current_phase.can_loop and self.state.same_phase_loop_count >= 10:
-            logger.error(
-                f"Same-phase loop detected: {self.state.same_phase_loop_count} iterations "
-                f"in Phase {current_phase.value} ({current_phase.name})"
-            )
-            return CircuitBreakerResult.TRIGGERED
+        # Check for excessive same-phase looping with a reasonable per-phase limit
+        # The limit is proportional to work remaining: base of 15 + 2x unchecked tasks
+        # This allows complex phases with many tasks to take more iterations
+        if current_phase.can_loop:
+            unchecked_count = self._count_unchecked_tasks_in_phase(current_phase)
+            # Base limit: 15 iterations (reasonable for most phases)
+            # Task multiplier: 2 iterations per unchecked task
+            # Minimum: 15, Maximum: 50 (prevents runaway)
+            phase_limit = min(15 + (unchecked_count * 2), 50)
 
-        if exit_signal:
-            return CircuitBreakerResult.EXIT_SIGNAL
+            if self.state.same_phase_loop_count >= phase_limit:
+                logger.error(
+                    f"Same-phase loop detected: {self.state.same_phase_loop_count} iterations "
+                    f"in Phase {current_phase.value} ({current_phase.name}) "
+                    f"(limit: {phase_limit} based on {unchecked_count} unchecked tasks)"
+                )
+                return CircuitBreakerResult.TRIGGERED
 
         # Extract progress metrics
         # Convert to int, handling both string and int values
@@ -965,6 +974,54 @@ class WorkflowOrchestrator:
                 return True
 
         return False
+
+    def _count_unchecked_tasks_in_phase(self, phase: Phase) -> int:
+        """Count the number of unchecked tasks in a specific phase.
+
+        Args:
+            phase: The phase to check
+
+        Returns:
+            Number of unchecked tasks ([ ]) in the phase section
+        """
+        if not self.plan_file.exists():
+            return 0
+
+        try:
+            content = self.plan_file.read_text()
+            lines = content.split("\n")
+
+            # Find the phase section
+            phase_patterns = [
+                f"## Phase {phase.value}:",
+                f"##Phase {phase.value}:",  # No space variant
+                f"## Phase {phase.value} ",  # Space after number
+            ]
+
+            in_phase = False
+            unchecked_count = 0
+
+            for line in lines:
+                # Check if we're entering the target phase
+                if any(pattern in line for pattern in phase_patterns):
+                    in_phase = True
+                    continue
+
+                # Check if we've moved to a different phase
+                if in_phase and line.startswith("## Phase "):
+                    break
+
+                # Count unchecked tasks in this phase
+                if in_phase:
+                    stripped = line.strip()
+                    if stripped.startswith("- [ ]"):
+                        unchecked_count += 1
+
+            return unchecked_count
+
+        except Exception:
+            # If we can't parse the plan, return 0 (conservative)
+            return 0
 
     def _log_cycle_completion(self, completed_cycle: int, new_cycle: int) -> None:
         """Log cycle completion to decisions file.

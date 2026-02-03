@@ -30,6 +30,47 @@ if TYPE_CHECKING:
 console = Console()
 
 
+def alert_user(title: str, message: str, enable_notifications: bool = True, enable_sound: bool = True) -> None:
+    """Alert user with terminal bell and/or desktop notification.
+
+    Args:
+        title: Notification title
+        message: Notification message
+        enable_notifications: Whether to send desktop notification
+        enable_sound: Whether to play terminal bell
+
+    Note:
+        Desktop notifications fail gracefully if unavailable.
+        Terminal bell works on all platforms.
+    """
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    # Terminal bell (ASCII 07) - works everywhere
+    if enable_sound:
+        try:
+            sys.stdout.write("\a")
+            sys.stdout.flush()
+        except Exception as e:
+            logger.debug(f"Terminal bell failed: {e}")
+
+    # Desktop notification (cross-platform via notify-py)
+    if enable_notifications:
+        try:
+            from notifypy import Notify
+
+            notification = Notify()
+            notification.title = title
+            notification.message = message
+            notification.application_name = "Nelson"
+            notification.send()
+        except ImportError:
+            logger.debug("notify-py not available, skipping desktop notification")
+        except Exception as e:
+            logger.debug(f"Desktop notification failed: {e}")
+
+
 class InteractionMode(Enum):
     """User interaction mode."""
 
@@ -48,6 +89,8 @@ class InteractionConfig:
         ambiguity_timeout_seconds: Timeout for mid-execution questions (default: 30)
         prompt_on_blocked: Whether to prompt when tasks are blocked (default: True)
         skip_planning_questions: Skip planning questions entirely (default: False)
+        enable_notifications: Enable desktop notifications when input needed (default: True)
+        enable_sound_alert: Enable terminal bell sound when input needed (default: True)
     """
 
     mode: InteractionMode = InteractionMode.INTERACTIVE
@@ -55,6 +98,8 @@ class InteractionConfig:
     ambiguity_timeout_seconds: int = 30
     prompt_on_blocked: bool = True
     skip_planning_questions: bool = False
+    enable_notifications: bool = True
+    enable_sound_alert: bool = True
 
     @classmethod
     def from_env(cls) -> InteractionConfig:
@@ -66,6 +111,8 @@ class InteractionConfig:
             NELSON_AMBIGUITY_TIMEOUT: Seconds for ambiguity questions
             NELSON_PROMPT_ON_BLOCKED: true|false
             NELSON_SKIP_PLANNING_QUESTIONS: true|false
+            NELSON_ENABLE_NOTIFICATIONS: true|false
+            NELSON_ENABLE_SOUND_ALERT: true|false
 
         Returns:
             InteractionConfig with values from environment
@@ -82,6 +129,8 @@ class InteractionConfig:
         ambiguity_timeout = int(os.environ.get("NELSON_AMBIGUITY_TIMEOUT", "30"))
         prompt_on_blocked = os.environ.get("NELSON_PROMPT_ON_BLOCKED", "true").lower() == "true"
         skip_planning = os.environ.get("NELSON_SKIP_PLANNING_QUESTIONS", "false").lower() == "true"
+        enable_notifications = os.environ.get("NELSON_ENABLE_NOTIFICATIONS", "true").lower() == "true"
+        enable_sound_alert = os.environ.get("NELSON_ENABLE_SOUND_ALERT", "true").lower() == "true"
 
         return cls(
             mode=mode,
@@ -89,6 +138,8 @@ class InteractionConfig:
             ambiguity_timeout_seconds=ambiguity_timeout,
             prompt_on_blocked=prompt_on_blocked,
             skip_planning_questions=skip_planning,
+            enable_notifications=enable_notifications,
+            enable_sound_alert=enable_sound_alert,
         )
 
 
@@ -308,6 +359,14 @@ class UserInteraction:
             question: The question to display
             timeout: Timeout in seconds (None for no timeout)
         """
+        # Alert user before displaying question
+        alert_user(
+            title="Nelson Needs Input",
+            message=question.question[:100],  # Truncate long questions
+            enable_notifications=self.config.enable_notifications,
+            enable_sound=self.config.enable_sound_alert,
+        )
+
         # Build question content
         content_parts = [f"\n{question.question}\n"]
 

@@ -141,6 +141,11 @@ Before retrying the task, diagnose and fix the root cause of this error.
                     )
                     logger.info(f"Retrying in {retry_delay} seconds...")
                     time.sleep(retry_delay)
+
+                    # Reset progress monitor timer for the retry attempt
+                    if progress_monitor:
+                        progress_monitor.reset()
+                        logger.debug("Progress monitor timer reset for retry attempt")
                 else:
                     # Max retries reached
                     raise ProviderError(

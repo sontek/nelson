@@ -35,6 +35,8 @@ def mock_config(tmp_path: Path) -> NelsonConfig:
         review_model="claude-sonnet-4-20250514",
         auto_approve_push=False,
         stall_timeout_minutes=15.0,
+        error_aware_retries=True,
+        max_error_context_chars=2000,
     )
 
 

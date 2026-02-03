@@ -19,6 +19,7 @@ from nelson.logging_config import get_logger
 from nelson.providers.base import AIProvider, AIResponse, ProviderError
 
 if TYPE_CHECKING:
+    from nelson.config import NelsonConfig
     from nelson.progress_monitor import ProgressMonitor
 
 logger = get_logger()
@@ -47,16 +48,23 @@ class ClaudeProvider(AIProvider):
     }
     """
 
-    def __init__(self, claude_command: str | None = None, target_path: Path | None = None) -> None:
+    def __init__(
+        self,
+        claude_command: str | None = None,
+        target_path: Path | None = None,
+        config: NelsonConfig | None = None,
+    ) -> None:
         """Initialize Claude provider.
 
         Args:
             claude_command: Path to claude command (None = system 'claude', or custom path)
             target_path: Optional target repository path for command execution
+            config: Optional NelsonConfig for error handling configuration
         """
         self.claude_command = claude_command or "claude"
         self._uses_jail_mode = "claude-jail" in str(self.claude_command)
         self.target_path = target_path
+        self.config = config
 
     def execute(
         self,
@@ -84,16 +92,48 @@ class ClaudeProvider(AIProvider):
             ProviderError: If call fails after all retries
         """
         retry_count = 0
+        last_error: ProviderError | None = None
 
         while retry_count < max_retries:
             try:
-                return self._execute_once(system_prompt, user_prompt, model, progress_monitor)
+                # Build augmented prompt with error context from previous attempt
+                augmented_prompt = user_prompt
+                # Only add error context if enabled in config (default: True)
+                error_aware_enabled = self.config.error_aware_retries if self.config else True
+                if error_aware_enabled and last_error and retry_count > 0:
+                    # Truncate error message if too long to avoid excessive token usage
+                    error_msg = last_error.message
+                    max_error_length = (
+                        self.config.max_error_context_chars if self.config else 2000
+                    )
+                    if len(error_msg) > max_error_length:
+                        error_msg = error_msg[:max_error_length] + "\n... (truncated)"
+
+                    augmented_prompt = f"""{user_prompt}
+
+<previous_attempt_error>
+IMPORTANT: The previous attempt (#{retry_count}) failed with the following error:
+
+{error_msg}
+
+Please analyze this error and adjust your approach before proceeding. Common issues to check:
+- Commands or recipe names that don't exist (e.g., 'just run' when only 'just dev' exists)
+- File paths that are incorrect or don't exist
+- Processes that timeout due to waiting for non-existent resources
+- Missing dependencies or incorrect configuration
+
+Before retrying the task, diagnose and fix the root cause of this error.
+</previous_attempt_error>"""
+                    logger.info(f"[RETRY] Including error context from previous attempt in prompt")
+
+                return self._execute_once(system_prompt, augmented_prompt, model, progress_monitor)
             except ProviderError as e:
                 if not e.is_retryable:
                     # Non-retryable error - fail immediately
                     raise
 
-                # Transient error - retry
+                # Transient error - save for next retry and retry
+                last_error = e
                 retry_count += 1
                 if retry_count < max_retries:
                     logger.warning(
@@ -306,15 +346,53 @@ class ClaudeProvider(AIProvider):
                 if progress_monitor.is_stalled:
                     idle_seconds = progress_monitor.get_idle_seconds()
                     idle_minutes = idle_seconds / 60.0
+
+                    # Capture any output before killing to help with debugging
+                    try:
+                        # Read what we have so far (non-blocking)
+                        if process.stdout:
+                            import select
+                            ready, _, _ = select.select([process.stdout], [], [], 0)
+                            if ready:
+                                partial_stdout = process.stdout.read()
+                                if partial_stdout:
+                                    stdout_data += partial_stdout
+                        if process.stderr:
+                            ready, _, _ = select.select([process.stderr], [], [], 0)
+                            if ready:
+                                partial_stderr = process.stderr.read()
+                                if partial_stderr:
+                                    stderr_data += partial_stderr
+                    except Exception:
+                        # Ignore errors reading output - not critical
+                        pass
+
                     logger.warning(
                         f"Killing stalled Claude process (PID: {process.pid}) "
                         f"after {idle_minutes:.1f} minutes of inactivity"
                     )
                     process.kill()
                     process.wait()  # Clean up zombie
-                    raise ProviderError(
-                        f"Claude process stalled (no activity for {idle_minutes:.1f} minutes). "
+
+                    # Build error message with captured output
+                    error_parts = [
+                        f"Claude process stalled (no activity for {idle_minutes:.1f} minutes).",
                         "Process was killed and will be retried.",
+                    ]
+
+                    # Include last output if available
+                    if stdout_data or stderr_data:
+                        error_parts.append("\nLast output before stall:")
+                        if stdout_data:
+                            # Get last 1000 chars to avoid huge error messages
+                            last_stdout = stdout_data[-1000:]
+                            error_parts.append(f"\nSTDOUT (last 1000 chars):\n{last_stdout}")
+                        if stderr_data:
+                            last_stderr = stderr_data[-1000:]
+                            error_parts.append(f"\nSTDERR (last 1000 chars):\n{last_stderr}")
+
+                    raise ProviderError(
+                        "".join(error_parts),
                         is_retryable=True,
                     )
 
@@ -391,15 +469,53 @@ class ClaudeProvider(AIProvider):
                     if progress_monitor.is_stalled:
                         idle_seconds = progress_monitor.get_idle_seconds()
                         idle_minutes = idle_seconds / 60.0
+
+                        # Capture any output before killing to help with debugging
+                        stdout_data = ""
+                        try:
+                            # Read what we have so far from stderr (non-blocking)
+                            if process.stderr:
+                                import select
+                                ready, _, _ = select.select([process.stderr], [], [], 0)
+                                if ready:
+                                    partial_stderr = process.stderr.read()
+                                    if partial_stderr:
+                                        stderr_data += partial_stderr
+
+                            # Try to read partial stdout from the output file
+                            if Path(output_file).exists():
+                                with open(output_file) as f:
+                                    stdout_data = f.read()
+                        except Exception:
+                            # Ignore errors reading output - not critical
+                            pass
+
                         logger.warning(
                             f"Killing stalled Claude process (PID: {process.pid}) "
                             f"after {idle_minutes:.1f} minutes of inactivity"
                         )
                         process.kill()
                         process.wait()  # Clean up zombie
-                        raise ProviderError(
-                            f"Claude process stalled (no activity for {idle_minutes:.1f} minutes). "
+
+                        # Build error message with captured output
+                        error_parts = [
+                            f"Claude process stalled (no activity for {idle_minutes:.1f} minutes).",
                             "Process was killed and will be retried.",
+                        ]
+
+                        # Include last output if available
+                        if stdout_data or stderr_data:
+                            error_parts.append("\nLast output before stall:")
+                            if stdout_data:
+                                # Get last 1000 chars to avoid huge error messages
+                                last_stdout = stdout_data[-1000:]
+                                error_parts.append(f"\nSTDOUT (last 1000 chars):\n{last_stdout}")
+                            if stderr_data:
+                                last_stderr = stderr_data[-1000:]
+                                error_parts.append(f"\nSTDERR (last 1000 chars):\n{last_stderr}")
+
+                        raise ProviderError(
+                            "".join(error_parts),
                             is_retryable=True,
                         )
 

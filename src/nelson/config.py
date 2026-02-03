@@ -51,6 +51,7 @@ class NelsonConfig:
     # Git/Push configuration
     auto_approve_push: bool
 
+    # Fields with defaults must come after fields without defaults
     # Interaction configuration (lazy loaded to avoid circular imports)
     _interaction: InteractionConfig | None = None
 
@@ -65,6 +66,10 @@ class NelsonConfig:
 
     # Verification settings
     skip_verification: bool = False
+
+    # Error handling configuration
+    error_aware_retries: bool = True  # Include error context in retry prompts
+    max_error_context_chars: int = 2000  # Max chars of error context to include in retries
 
     @property
     def interaction(self) -> InteractionConfig:
@@ -139,6 +144,14 @@ class NelsonConfig:
         # Stall timeout in minutes (default 15 minutes)
         stall_timeout_minutes = float(os.getenv("NELSON_STALL_TIMEOUT_MINUTES", "15.0"))
 
+        # Error handling configuration
+        error_aware_retries = os.getenv("NELSON_ERROR_AWARE_RETRIES", "true").lower() in (
+            "true",
+            "1",
+            "yes",
+        )
+        max_error_context_chars = int(os.getenv("NELSON_MAX_ERROR_CONTEXT_CHARS", "2000"))
+
         # Directory configuration
         # If target_path is provided, make directories relative to it
         # Otherwise, they're relative to current working directory
@@ -177,6 +190,8 @@ class NelsonConfig:
             max_iterations_explicit=max_iterations_explicit,
             cost_limit=cost_limit,
             stall_timeout_minutes=stall_timeout_minutes,
+            error_aware_retries=error_aware_retries,
+            max_error_context_chars=max_error_context_chars,
             nelson_dir=nelson_dir,
             audit_dir=audit_dir,
             runs_dir=runs_dir,
@@ -229,6 +244,11 @@ class NelsonConfig:
         if self.stall_timeout_minutes <= 0:
             raise ValueError(
                 f"stall_timeout_minutes must be > 0, got {self.stall_timeout_minutes}"
+            )
+
+        if self.max_error_context_chars <= 0:
+            raise ValueError(
+                f"max_error_context_chars must be > 0, got {self.max_error_context_chars}"
             )
 
         if self.claude_command_path and not self.claude_command_path.exists():

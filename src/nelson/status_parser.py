@@ -62,6 +62,9 @@ class StatusBlock:
         exit_signal: Whether workflow should exit (all work complete)
         recommendation: One-line recommendation for next steps
         raw_block: Original text of the status block
+        blocked_reason: Detailed reason for blockage (only if STATUS: BLOCKED)
+        blocked_resources: List of required resources (only if STATUS: BLOCKED)
+        blocked_resolution: Suggested fix (only if STATUS: BLOCKED)
     """
 
     status: ExecutionStatus
@@ -72,6 +75,9 @@ class StatusBlock:
     exit_signal: bool
     recommendation: str
     raw_block: str
+    blocked_reason: str | None = None
+    blocked_resources: list[str] | None = None
+    blocked_resolution: str | None = None
 
 
 class StatusBlockError(Exception):
@@ -182,6 +188,14 @@ def parse_status_block(content: str) -> StatusBlock:
 
     recommendation = status_dict["recommendation"]
 
+    # Parse optional blocked fields (only present when STATUS: BLOCKED)
+    blocked_reason = status_dict.get("blocked_reason")
+    blocked_resources_str = status_dict.get("blocked_resources")
+    blocked_resources = None
+    if blocked_resources_str:
+        blocked_resources = [r.strip() for r in blocked_resources_str.split(",") if r.strip()]
+    blocked_resolution = status_dict.get("blocked_resolution")
+
     return StatusBlock(
         status=status,
         tasks_completed_this_loop=tasks_completed,
@@ -191,6 +205,9 @@ def parse_status_block(content: str) -> StatusBlock:
         exit_signal=exit_signal,
         recommendation=recommendation,
         raw_block=raw_block,
+        blocked_reason=blocked_reason,
+        blocked_resources=blocked_resources,
+        blocked_resolution=blocked_resolution,
     )
 
 
@@ -206,7 +223,7 @@ def status_block_to_dict(status_block: StatusBlock) -> dict[str, Any]:
     Returns:
         Dictionary with status block fields
     """
-    return {
+    result = {
         "status": status_block.status.value,
         "tasks_completed": status_block.tasks_completed_this_loop,
         "files_modified": status_block.files_modified,
@@ -215,3 +232,13 @@ def status_block_to_dict(status_block: StatusBlock) -> dict[str, Any]:
         "exit_signal": status_block.exit_signal,
         "recommendation": status_block.recommendation,
     }
+
+    # Add blocked fields if present
+    if status_block.blocked_reason:
+        result["blocked_reason"] = status_block.blocked_reason
+    if status_block.blocked_resources:
+        result["blocked_resources"] = ",".join(status_block.blocked_resources)
+    if status_block.blocked_resolution:
+        result["blocked_resolution"] = status_block.blocked_resolution
+
+    return result

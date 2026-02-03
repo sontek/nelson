@@ -35,6 +35,8 @@ def mock_config(tmp_path: Path) -> NelsonConfig:
         review_model="claude-sonnet-4-20250514",
         auto_approve_push=False,
         stall_timeout_minutes=15.0,
+        error_aware_retries=True,
+        max_error_context_chars=2000,
     )
 
 
@@ -140,6 +142,7 @@ class TestWorkflowIntegration:
             max_iterations=1,
             max_iterations_explicit=True,
             cost_limit=mock_config.cost_limit,
+            stall_timeout_minutes=mock_config.stall_timeout_minutes,
             nelson_dir=mock_config.nelson_dir,
             audit_dir=mock_config.audit_dir,
             runs_dir=mock_config.runs_dir,
@@ -203,6 +206,7 @@ class TestWorkflowIntegration:
             max_iterations=1,
             max_iterations_explicit=True,
             cost_limit=mock_config.cost_limit,
+            stall_timeout_minutes=mock_config.stall_timeout_minutes,
             nelson_dir=mock_config.nelson_dir,
             audit_dir=mock_config.audit_dir,
             runs_dir=mock_config.runs_dir,
@@ -265,6 +269,7 @@ class TestWorkflowIntegration:
             max_iterations=1,
             max_iterations_explicit=True,
             cost_limit=mock_config.cost_limit,
+            stall_timeout_minutes=mock_config.stall_timeout_minutes,
             nelson_dir=mock_config.nelson_dir,
             audit_dir=mock_config.audit_dir,
             runs_dir=mock_config.runs_dir,
@@ -307,6 +312,7 @@ class TestWorkflowIntegration:
             max_iterations=1,
             max_iterations_explicit=True,
             cost_limit=mock_config.cost_limit,
+            stall_timeout_minutes=mock_config.stall_timeout_minutes,
             nelson_dir=mock_config.nelson_dir,
             audit_dir=mock_config.audit_dir,
             runs_dir=mock_config.runs_dir,

@@ -320,3 +320,77 @@ class TestTransitionIntegration:
         # Should stay in REVIEW due to incomplete tasks
         next_phase = determine_next_phase(Phase.REVIEW, sample_plan_file)
         assert next_phase == Phase.REVIEW
+
+
+class TestComprehensiveMode:
+    """Tests for comprehensive mode (8 phases) transitions."""
+
+    def test_discover_to_plan(self, sample_plan_file: Path) -> None:
+        """DISCOVER phase always advances to PLAN."""
+        next_phase = determine_next_phase(Phase.DISCOVER, sample_plan_file)
+        assert next_phase == Phase.PLAN
+
+    def test_discover_to_plan_comprehensive(self, sample_plan_file: Path) -> None:
+        """DISCOVER phase advances to PLAN in comprehensive mode."""
+        next_phase = determine_next_phase(Phase.DISCOVER, sample_plan_file, comprehensive=True)
+        assert next_phase == Phase.PLAN
+
+    def test_commit_returns_none_standard(self, sample_plan_file: Path) -> None:
+        """COMMIT returns None in standard mode."""
+        next_phase = determine_next_phase(Phase.COMMIT, sample_plan_file, comprehensive=False)
+        assert next_phase is None
+
+    def test_commit_to_roadmap_comprehensive(self, sample_plan_file: Path) -> None:
+        """COMMIT advances to ROADMAP in comprehensive mode."""
+        next_phase = determine_next_phase(Phase.COMMIT, sample_plan_file, comprehensive=True)
+        assert next_phase == Phase.ROADMAP
+
+    def test_roadmap_returns_none(self, sample_plan_file: Path) -> None:
+        """ROADMAP returns None (workflow complete)."""
+        next_phase = determine_next_phase(Phase.ROADMAP, sample_plan_file)
+        assert next_phase is None
+
+    def test_roadmap_returns_none_comprehensive(self, sample_plan_file: Path) -> None:
+        """ROADMAP returns None even in comprehensive mode."""
+        next_phase = determine_next_phase(Phase.ROADMAP, sample_plan_file, comprehensive=True)
+        assert next_phase is None
+
+    def test_complete_comprehensive_workflow(self, all_complete_plan_file: Path) -> None:
+        """Test complete 8-phase workflow in comprehensive mode."""
+        phases = [
+            (Phase.DISCOVER, Phase.PLAN),
+            (Phase.PLAN, Phase.IMPLEMENT),
+            (Phase.IMPLEMENT, Phase.REVIEW),
+            (Phase.REVIEW, Phase.TEST),
+            (Phase.TEST, Phase.FINAL_REVIEW),
+            (Phase.FINAL_REVIEW, Phase.COMMIT),
+            (Phase.COMMIT, Phase.ROADMAP),
+            (Phase.ROADMAP, None),
+        ]
+
+        for current, expected_next in phases:
+            next_phase = determine_next_phase(
+                current, all_complete_plan_file, comprehensive=True
+            )
+            assert next_phase == expected_next
+
+    def test_middle_phases_same_in_both_modes(self, all_complete_plan_file: Path) -> None:
+        """Middle phases (IMPLEMENT through FINAL_REVIEW) work same in both modes."""
+        middle_phases = [
+            (Phase.IMPLEMENT, Phase.REVIEW),
+            (Phase.REVIEW, Phase.TEST),
+            (Phase.TEST, Phase.FINAL_REVIEW),
+            (Phase.FINAL_REVIEW, Phase.COMMIT),
+        ]
+
+        for current, expected_next in middle_phases:
+            # Standard mode
+            standard_next = determine_next_phase(
+                current, all_complete_plan_file, comprehensive=False
+            )
+            # Comprehensive mode
+            comprehensive_next = determine_next_phase(
+                current, all_complete_plan_file, comprehensive=True
+            )
+            assert standard_next == expected_next
+            assert comprehensive_next == expected_next

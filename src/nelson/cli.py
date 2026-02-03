@@ -83,6 +83,88 @@ logger = get_logger()
     envvar="NELSON_STALL_TIMEOUT_MINUTES",
     help="Minutes of inactivity before killing stalled process (env: NELSON_STALL_TIMEOUT_MINUTES)",
 )
+@click.option(
+    "--autonomous",
+    "interaction_mode",
+    flag_value="autonomous",
+    help="Disable all user interaction, use defaults (env: NELSON_INTERACTION_MODE=autonomous)",
+)
+@click.option(
+    "--interactive",
+    "interaction_mode",
+    flag_value="interactive",
+    default=True,
+    help="Enable interaction with timeouts (default) (env: NELSON_INTERACTION_MODE=interactive)",
+)
+@click.option(
+    "--supervised",
+    "interaction_mode",
+    flag_value="supervised",
+    help="Enable interaction without timeouts (env: NELSON_INTERACTION_MODE=supervised)",
+)
+@click.option(
+    "--planning-timeout",
+    type=int,
+    envvar="NELSON_PLANNING_TIMEOUT",
+    help="Seconds before using default for planning questions (env: NELSON_PLANNING_TIMEOUT)",
+)
+@click.option(
+    "--no-planning-questions",
+    is_flag=True,
+    envvar="NELSON_SKIP_PLANNING_QUESTIONS",
+    help="Skip planning phase questions entirely (env: NELSON_SKIP_PLANNING_QUESTIONS)",
+)
+@click.option(
+    "--no-notifications",
+    is_flag=True,
+    help="Disable desktop notifications when input needed (env: NELSON_ENABLE_NOTIFICATIONS=false)",
+)
+@click.option(
+    "--no-sound",
+    is_flag=True,
+    help="Disable terminal bell sound when input needed (env: NELSON_ENABLE_SOUND_ALERT=false)",
+)
+@click.option(
+    "--quick",
+    "depth_mode",
+    flag_value="quick",
+    help="Quick mode: 4 phases, lean prompts (env: NELSON_DEPTH=quick)",
+)
+@click.option(
+    "--comprehensive",
+    "depth_mode",
+    flag_value="comprehensive",
+    help="Comprehensive mode: 8 phases with roadmap (env: NELSON_DEPTH=comprehensive)",
+)
+@click.option(
+    "--depth",
+    "depth_mode",
+    type=click.Choice(["quick", "standard", "comprehensive"], case_sensitive=False),
+    envvar="NELSON_DEPTH",
+    help="Depth mode for task handling (env: NELSON_DEPTH)",
+)
+@click.option(
+    "--no-auto-fix",
+    is_flag=True,
+    help="Disable all auto-fix deviation rules",
+)
+@click.option(
+    "--no-auto-install",
+    is_flag=True,
+    help="Disable auto-install of missing packages",
+)
+@click.option(
+    "--max-deviations",
+    type=int,
+    envvar="NELSON_MAX_DEVIATIONS_PER_TASK",
+    help="Maximum auto-fix deviations per task (env: NELSON_MAX_DEVIATIONS_PER_TASK)",
+)
+@click.option(
+    "--skip-verification",
+    is_flag=True,
+    envvar="NELSON_SKIP_VERIFICATION",
+    help="Skip goal-backward verification checks (env: NELSON_SKIP_VERIFICATION)",
+)
 @click.version_option(version="0.1.0", prog_name="nelson")
 def main(
     prompt: str | None,
@@ -96,6 +178,16 @@ def main(
     claude_command: str | None,
     auto_approve_push: bool,
     stall_timeout: float | None,
+    interaction_mode: str | None,
+    planning_timeout: int | None,
+    no_planning_questions: bool,
+    no_notifications: bool,
+    no_sound: bool,
+    depth_mode: str | None,
+    no_auto_fix: bool,
+    no_auto_install: bool,
+    max_deviations: int | None,
+    skip_verification: bool,
 ) -> None:
     """Nelson: AI orchestration CLI for autonomous development workflows.
 
@@ -135,6 +227,10 @@ def main(
       NELSON_REVIEW_MODEL          Model for Phase 3 & 5 (default: NELSON_MODEL)
       NELSON_STALL_TIMEOUT_MINUTES Minutes of inactivity before killing stalled process
                                    (default: 15)
+      NELSON_DEPTH                 Depth mode: quick, standard, comprehensive (default: standard)
+                                   quick: 4 phases, lean prompts
+                                   standard: 6 phases, full prompts
+                                   comprehensive: 8 phases with roadmap
     """
     # Validate that we have either a prompt or --resume
     if not prompt and resume_path is None:
@@ -203,6 +299,16 @@ def main(
         claude_command=claude_command,
         auto_approve_push=auto_approve_push,
         stall_timeout=stall_timeout,
+        interaction_mode=interaction_mode,
+        planning_timeout=planning_timeout,
+        skip_planning_questions=no_planning_questions,
+        disable_notifications=no_notifications,
+        disable_sound_alert=no_sound,
+        depth_mode=depth_mode,
+        no_auto_fix=no_auto_fix,
+        no_auto_install=no_auto_install,
+        max_deviations=max_deviations,
+        skip_verification=skip_verification,
     )
 
     # Run the workflow
@@ -215,6 +321,8 @@ def main(
     logger.info(f"Model: {config.model}")
     logger.info(f"Max iterations: {config.max_iterations}")
     logger.info(f"Cost limit: ${config.cost_limit:.2f}")
+    logger.info(f"Interaction mode: {config.interaction.mode.value}")
+    logger.info(f"Depth mode: {config.depth.mode.value}")
 
     try:
         _execute_workflow(prompt, config)
@@ -243,7 +351,9 @@ def _execute_workflow(prompt: str, config: NelsonConfig) -> None:
     claude_command = (
         str(config.claude_command_path) if config.claude_command_path else config.claude_command
     )
-    provider = ClaudeProvider(claude_command=claude_command, target_path=config.target_path)
+    provider = ClaudeProvider(
+        claude_command=claude_command, target_path=config.target_path, config=config
+    )
 
     # Check provider availability
     if not provider.is_available():
@@ -291,6 +401,17 @@ def _execute_workflow(prompt: str, config: NelsonConfig) -> None:
     # Initialize decisions log
     decisions_file.write_text("# Nelson Implementation - Decisions Log\n\n")
 
+    # Determine starting phase based on depth mode
+    from nelson.depth import DepthMode
+
+    if config.depth.mode == DepthMode.COMPREHENSIVE:
+        # Comprehensive mode starts with Phase 0 (DISCOVER)
+        starting_phase = Phase.DISCOVER
+        logger.info("Comprehensive mode enabled - starting with DISCOVER phase")
+    else:
+        # Standard/Quick mode starts with Phase 1 (PLAN)
+        starting_phase = Phase.PLAN
+
     # Create initial state
     state = NelsonState(
         cycle_iterations=0,
@@ -299,8 +420,8 @@ def _execute_workflow(prompt: str, config: NelsonConfig) -> None:
         cost_usd=0.0,
         prompt=prompt,
         starting_commit=starting_commit,
-        current_phase=Phase.PLAN.value,
-        phase_name=Phase.PLAN.name_str,
+        current_phase=starting_phase.value,
+        phase_name=starting_phase.name_str,
     )
 
     # Save initial state
@@ -328,8 +449,22 @@ def _build_config(
     claude_command: str | None = None,
     auto_approve_push: bool = False,
     stall_timeout: float | None = None,
+    interaction_mode: str | None = None,
+    planning_timeout: int | None = None,
+    skip_planning_questions: bool = False,
+    disable_notifications: bool = False,
+    disable_sound_alert: bool = False,
+    depth_mode: str | None = None,
+    no_auto_fix: bool = False,
+    no_auto_install: bool = False,
+    max_deviations: int | None = None,
+    skip_verification: bool = False,
 ) -> NelsonConfig:
     """Build configuration with CLI overrides."""
+    from nelson.depth import DepthConfig, DepthMode
+    from nelson.deviations import DeviationConfig
+    from nelson.interaction import InteractionConfig, InteractionMode
+
     # Load base config from environment
     config = NelsonConfig.from_environment(target_path=target_path)
 
@@ -337,7 +472,9 @@ def _build_config(
     final_max_iterations = max_iterations if max_iterations is not None else config.max_iterations
     final_max_iterations_explicit = max_iterations is not None or config.max_iterations_explicit
     final_cost_limit = cost_limit if cost_limit is not None else config.cost_limit
-    final_stall_timeout = stall_timeout if stall_timeout is not None else config.stall_timeout_minutes
+    final_stall_timeout = (
+        stall_timeout if stall_timeout is not None else config.stall_timeout_minutes
+    )
     final_claude_command = claude_command if claude_command is not None else config.claude_command
     final_model = model if model is not None else config.model
     final_auto_approve_push = auto_approve_push or config.auto_approve_push
@@ -361,6 +498,70 @@ def _build_config(
         else (final_model if model is not None else config.review_model)
     )
 
+    # Build interaction config with CLI overrides
+    base_interaction = config.interaction
+    if (
+        interaction_mode is not None
+        or planning_timeout is not None
+        or skip_planning_questions
+        or disable_notifications
+        or disable_sound_alert
+    ):
+        # Override with CLI values
+        final_mode = (
+            InteractionMode(interaction_mode)
+            if interaction_mode is not None
+            else base_interaction.mode
+        )
+        final_planning_timeout = (
+            planning_timeout
+            if planning_timeout is not None
+            else base_interaction.planning_timeout_seconds
+        )
+        final_skip_questions = skip_planning_questions or base_interaction.skip_planning_questions
+        final_enable_notifications = not disable_notifications and base_interaction.enable_notifications
+        final_enable_sound = not disable_sound_alert and base_interaction.enable_sound_alert
+
+        interaction_config = InteractionConfig(
+            mode=final_mode,
+            planning_timeout_seconds=final_planning_timeout,
+            ambiguity_timeout_seconds=base_interaction.ambiguity_timeout_seconds,
+            prompt_on_blocked=base_interaction.prompt_on_blocked,
+            skip_planning_questions=final_skip_questions,
+            enable_notifications=final_enable_notifications,
+            enable_sound_alert=final_enable_sound,
+        )
+    else:
+        interaction_config = base_interaction
+
+    # Build depth config with CLI overrides
+    if depth_mode is not None:
+        depth_config = DepthConfig.for_mode(DepthMode(depth_mode.lower()))
+    else:
+        depth_config = config.depth
+
+    # Build deviation config with CLI overrides
+    base_deviations = config.deviations
+    if no_auto_fix or no_auto_install or max_deviations is not None:
+        deviation_config = DeviationConfig(
+            auto_fix_bugs=False if no_auto_fix else base_deviations.auto_fix_bugs,
+            auto_add_critical=False if no_auto_fix else base_deviations.auto_add_critical,
+            auto_install_deps=(
+                False if (no_auto_fix or no_auto_install)
+                else base_deviations.auto_install_deps
+            ),
+            auto_handle_auth=False if no_auto_fix else base_deviations.auto_handle_auth,
+            max_deviations_per_task=(
+                max_deviations if max_deviations is not None
+                else base_deviations.max_deviations_per_task
+            ),
+        )
+    else:
+        deviation_config = base_deviations
+
+    # Handle skip_verification with CLI override
+    final_skip_verification = skip_verification or config.skip_verification
+
     return NelsonConfig(
         max_iterations=final_max_iterations,
         max_iterations_explicit=final_max_iterations_explicit,
@@ -376,6 +577,10 @@ def _build_config(
         plan_model=final_plan_model,
         review_model=final_review_model,
         auto_approve_push=final_auto_approve_push,
+        skip_verification=final_skip_verification,
+        _interaction=interaction_config,
+        _depth=depth_config,
+        _deviations=deviation_config,
     )
 
 
@@ -458,6 +663,7 @@ def _resume_from_path(run_dir: Path) -> None:
                 max_iterations=new_limit,
                 max_iterations_explicit=False,
                 cost_limit=config.cost_limit,
+                stall_timeout_minutes=config.stall_timeout_minutes,
                 nelson_dir=config.nelson_dir,
                 audit_dir=config.audit_dir,
                 runs_dir=config.runs_dir,
@@ -492,7 +698,9 @@ def _resume_from_path(run_dir: Path) -> None:
     claude_command = (
         str(config.claude_command_path) if config.claude_command_path else config.claude_command
     )
-    provider = ClaudeProvider(claude_command=claude_command, target_path=config.target_path)
+    provider = ClaudeProvider(
+        claude_command=claude_command, target_path=config.target_path, config=config
+    )
 
     # Check provider availability
     if not provider.is_available():

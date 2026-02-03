@@ -1,6 +1,6 @@
-"""Phase definitions and metadata for Nelson's 6-phase workflow.
+"""Phase definitions and metadata for Nelson's workflow.
 
-Phases:
+Standard Mode (6 phases):
 1. PLAN: Analyze task and create implementation plan
 2. IMPLEMENT: Execute atomic tasks from plan, one commit per task
 3. REVIEW: Comprehensive code review for bugs, patterns, quality, security
@@ -8,13 +8,29 @@ Phases:
 5. FINAL_REVIEW: Final review of all changes, patterns, quality, completeness
 6. COMMIT: Commit any remaining uncommitted changes
 
-Phase Transitions:
+Comprehensive Mode (8 phases):
+0. DISCOVER: Research and explore codebase before planning
+1. PLAN: Analyze task and create implementation plan
+2. IMPLEMENT: Execute atomic tasks from plan, one commit per task
+3. REVIEW: Comprehensive code review for bugs, patterns, quality, security
+4. TEST: Run tests/linter/type-checker, fix failures
+5. FINAL_REVIEW: Final review of all changes, patterns, quality, completeness
+6. COMMIT: Commit any remaining uncommitted changes
+7. ROADMAP: Document future improvements and technical debt
+
+Phase Transitions (Standard):
 - PLAN → IMPLEMENT (when plan.md exists with proper structure)
 - IMPLEMENT → REVIEW (when all Phase 2 tasks are checked)
 - REVIEW → REVIEW (loop if fixes added) OR → TEST (if clean)
 - TEST → TEST (loop if fixes added) OR → FINAL_REVIEW (if passing)
 - FINAL_REVIEW → TEST (if fixes needed) OR → COMMIT (if clean)
 - COMMIT → Done (workflow complete)
+
+Phase Transitions (Comprehensive):
+- DISCOVER → PLAN (after research complete)
+- PLAN → IMPLEMENT → REVIEW → TEST → FINAL_REVIEW → COMMIT (same as standard)
+- COMMIT → ROADMAP (document future work)
+- ROADMAP → Done (workflow complete)
 """
 
 from dataclasses import dataclass
@@ -23,18 +39,28 @@ from typing import Literal
 
 
 class Phase(IntEnum):
-    """6-phase workflow for Nelson orchestration.
+    """Workflow phases for Nelson orchestration.
+
+    Standard mode uses phases 1-6 (PLAN through COMMIT).
+    Comprehensive mode adds DISCOVER (0) at the start and ROADMAP (7) at the end.
 
     Each phase has a specific purpose and completion criteria.
-    Phases can loop (REVIEW, TEST, FINAL_REVIEW) or always advance (PLAN, IMPLEMENT, COMMIT).
+    Phases can loop (REVIEW, TEST, FINAL_REVIEW) or always advance (others).
     """
 
+    # Comprehensive mode only - research phase
+    DISCOVER = 0
+
+    # Standard phases (1-6)
     PLAN = 1
     IMPLEMENT = 2
     REVIEW = 3
     TEST = 4
     FINAL_REVIEW = 5
     COMMIT = 6
+
+    # Comprehensive mode only - future work documentation
+    ROADMAP = 7
 
     @property
     def name_str(self) -> str:
@@ -66,6 +92,17 @@ class PhaseMetadata:
 
 # Phase metadata registry
 PHASE_METADATA: dict[Phase, PhaseMetadata] = {
+    Phase.DISCOVER: PhaseMetadata(
+        number=0,
+        name="DISCOVER",
+        short_description="Research and explore codebase before planning",
+        can_loop=False,
+        model_type="plan",
+        completion_check=(
+            "Codebase exploration complete, key patterns documented, "
+            "dependencies mapped, architecture understood"
+        ),
+    ),
     Phase.PLAN: PhaseMetadata(
         number=1,
         name="PLAN",
@@ -121,32 +158,54 @@ PHASE_METADATA: dict[Phase, PhaseMetadata] = {
         short_description="Commit any remaining uncommitted changes",
         can_loop=False,
         model_type="default",
-        completion_check="All Phase 6 tasks [x]. Workflow complete.",
+        completion_check="All Phase 6 tasks [x]. Workflow complete (standard mode).",
+    ),
+    Phase.ROADMAP: PhaseMetadata(
+        number=7,
+        name="ROADMAP",
+        short_description="Document future improvements and technical debt",
+        can_loop=False,
+        model_type="plan",
+        completion_check=(
+            "Future work documented in roadmap, technical debt cataloged, "
+            "improvement suggestions recorded"
+        ),
     ),
 }
 
 
-def determine_next_phase(current: Phase) -> Phase | Literal["done"]:
+def determine_next_phase(
+    current: Phase, comprehensive: bool = False
+) -> Phase | Literal["done"]:
     """Determine the next phase based on the current phase.
 
-    Phase transitions:
+    Standard Mode Phase Transitions:
     - PLAN → IMPLEMENT (always)
     - IMPLEMENT → REVIEW (always)
     - REVIEW → REVIEW (loop if fixes) OR TEST (if clean)
     - TEST → TEST (loop if fixes) OR FINAL_REVIEW (if passing)
-    - FINAL_REVIEW → TEST (if fixes) OR COMMIT (if clean)
+    - FINAL_REVIEW → TEST (if fixes needed) OR COMMIT (if clean)
     - COMMIT → Done
+
+    Comprehensive Mode Phase Transitions (adds DISCOVER and ROADMAP):
+    - DISCOVER → PLAN
+    - PLAN → IMPLEMENT → REVIEW → TEST → FINAL_REVIEW → COMMIT (same as standard)
+    - COMMIT → ROADMAP
+    - ROADMAP → Done
 
     Note: The actual looping logic (checking for unchecked tasks) is handled
     by the workflow engine. This function just defines the advancement path.
 
     Args:
         current: Current phase
+        comprehensive: If True, use comprehensive mode transitions (8 phases)
 
     Returns:
         Next phase, or "done" if workflow is complete
     """
-    if current == Phase.PLAN:
+    if current == Phase.DISCOVER:
+        return Phase.PLAN
+    elif current == Phase.PLAN:
         return Phase.IMPLEMENT
     elif current == Phase.IMPLEMENT:
         return Phase.REVIEW
@@ -161,9 +220,28 @@ def determine_next_phase(current: Phase) -> Phase | Literal["done"]:
         # The workflow engine decides based on whether fixes were added
         return Phase.COMMIT
     elif current == Phase.COMMIT:
+        # In comprehensive mode, continue to ROADMAP; otherwise done
+        if comprehensive:
+            return Phase.ROADMAP
+        return "done"
+    elif current == Phase.ROADMAP:
         return "done"
     else:
         raise ValueError(f"Unknown phase: {current}")
+
+
+def get_starting_phase(comprehensive: bool = False) -> Phase:
+    """Get the starting phase for a workflow.
+
+    Args:
+        comprehensive: If True, start with DISCOVER phase; otherwise PLAN
+
+    Returns:
+        Starting phase for the workflow
+    """
+    if comprehensive:
+        return Phase.DISCOVER
+    return Phase.PLAN
 
 
 def get_phase_name(phase: Phase) -> str:

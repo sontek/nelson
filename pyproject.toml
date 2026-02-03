@@ -12,6 +12,7 @@ dependencies = [
     "click>=8.1.0",
     "rich>=13.0.0",
     "anthropic>=0.18.0",
+    "notify-py>=0.3.43",
 ]
 
 [project.scripts]

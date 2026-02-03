@@ -4,12 +4,15 @@ from pathlib import Path
 
 import pytest
 
+from nelson.depth import DepthConfig, DepthMode
 from nelson.phases import Phase
 from nelson.prompts import (
     build_full_prompt,
     build_loop_context,
     get_phase_prompt,
+    get_phase_prompt_for_depth,
     get_system_prompt,
+    get_system_prompt_for_depth,
 )
 
 
@@ -78,6 +81,25 @@ class TestSystemPrompt:
 
 class TestPhasePrompts:
     """Tests for phase-specific prompt generation."""
+
+    def test_discover_phase_prompt(self) -> None:
+        """Phase 0 prompt should include research instructions."""
+        prompt = get_phase_prompt(
+            Phase.DISCOVER,
+            Path(".nelson/plan.md"),
+            Path(".nelson/decisions.md"),
+        )
+        assert "DISCOVER PHASE" in prompt
+        assert "Research and document" in prompt
+        assert "CODEBASE STRUCTURE" in prompt
+        assert "ARCHITECTURE PATTERNS" in prompt
+        assert "SIMILAR IMPLEMENTATIONS" in prompt
+        assert "DEPENDENCIES AND INTEGRATION POINTS" in prompt
+        assert "COMPLEXITY OBSERVATIONS" in prompt
+        assert "EXIT_SIGNAL=true" in prompt
+        # Verify documentation-only approach
+        assert "Document what EXISTS, never what SHOULD BE" in prompt
+        assert "file:line references" in prompt
 
     def test_plan_phase_prompt(self) -> None:
         """Phase 1 prompt should include planning instructions."""
@@ -163,6 +185,23 @@ class TestPhasePrompts:
         assert "NO uncommitted changes" in prompt
         assert "HAS uncommitted changes" in prompt
         assert "Most commits happen in Phase 2" in prompt
+
+    def test_roadmap_phase_prompt(self) -> None:
+        """Phase 7 prompt should include roadmap documentation instructions."""
+        prompt = get_phase_prompt(
+            Phase.ROADMAP,
+            Path(".nelson/plan.md"),
+            Path(".nelson/decisions.md"),
+        )
+        assert "ROADMAP PHASE" in prompt
+        assert "Document future improvements" in prompt
+        assert "FUTURE IMPROVEMENTS" in prompt
+        assert "TECHNICAL DEBT" in prompt
+        assert "TESTING GAPS" in prompt
+        assert "DOCUMENTATION NEEDS" in prompt
+        assert "RELATED WORK" in prompt
+        assert "ROADMAP.md" in prompt
+        assert "EXIT_SIGNAL=true" in prompt
 
     def test_phase_prompts_include_file_paths(self) -> None:
         """All phase prompts should reference plan and decisions files."""
@@ -359,3 +398,233 @@ class TestPromptIntegration:
 
         assert str(custom_decisions) in system_prompt
         assert str(custom_plan) in phase_prompt or str(custom_decisions) in phase_prompt
+
+
+class TestDepthAwareSystemPrompt:
+    """Tests for depth-aware system prompt generation."""
+
+    def test_standard_mode_uses_full_prompt(self) -> None:
+        """Standard mode should use full system prompt."""
+        depth = DepthConfig.for_mode(DepthMode.STANDARD)
+        prompt = get_system_prompt_for_depth(Path(".nelson/decisions.md"), depth)
+
+        assert "6-phase autonomous workflow" in prompt
+        assert "STATELESS OPERATION:" in prompt
+        assert "CORE RULES:" in prompt
+
+    def test_comprehensive_mode_uses_full_prompt(self) -> None:
+        """Comprehensive mode should use full system prompt."""
+        depth = DepthConfig.for_mode(DepthMode.COMPREHENSIVE)
+        prompt = get_system_prompt_for_depth(Path(".nelson/decisions.md"), depth)
+
+        assert "6-phase autonomous workflow" in prompt
+        assert "STATELESS OPERATION:" in prompt
+
+    def test_quick_mode_uses_lean_prompt(self) -> None:
+        """Quick mode should use lean system prompt."""
+        depth = DepthConfig.for_mode(DepthMode.QUICK)
+        prompt = get_system_prompt_for_depth(Path(".nelson/decisions.md"), depth)
+
+        assert "4-phase workflow" in prompt
+        assert "PLAN, IMPLEMENT, TEST, COMMIT" in prompt
+        # Lean prompt should not have verbose sections
+        assert "STATELESS OPERATION:" not in prompt
+        assert "CORE RULES:" not in prompt
+
+    def test_quick_mode_lean_prompt_contains_essentials(self) -> None:
+        """Lean prompt should still have essential elements."""
+        depth = DepthConfig.for_mode(DepthMode.QUICK)
+        prompt = get_system_prompt_for_depth(Path(".nelson/decisions.md"), depth)
+
+        # Must have status block
+        assert "---NELSON_STATUS---" in prompt
+        assert "STATUS:" in prompt
+        assert "EXIT_SIGNAL:" in prompt
+        assert "---END_NELSON_STATUS---" in prompt
+
+        # Must have blocked fields
+        assert "BLOCKED_REASON:" in prompt
+        assert "BLOCKED_RESOURCES:" in prompt
+
+    def test_none_depth_defaults_to_standard(self) -> None:
+        """None depth should use standard (full) prompt."""
+        prompt = get_system_prompt_for_depth(Path(".nelson/decisions.md"), None)
+
+        assert "6-phase autonomous workflow" in prompt
+        assert "STATELESS OPERATION:" in prompt
+
+    def test_lean_prompt_is_shorter(self) -> None:
+        """Lean prompt should be significantly shorter than full prompt."""
+        full_prompt = get_system_prompt_for_depth(
+            Path(".nelson/decisions.md"),
+            DepthConfig.for_mode(DepthMode.STANDARD),
+        )
+        lean_prompt = get_system_prompt_for_depth(
+            Path(".nelson/decisions.md"),
+            DepthConfig.for_mode(DepthMode.QUICK),
+        )
+
+        # Lean should be at least 50% shorter
+        assert len(lean_prompt) < len(full_prompt) * 0.5
+
+
+class TestDepthAwarePhasePrompts:
+    """Tests for depth-aware phase prompt generation."""
+
+    def test_standard_mode_uses_full_phase_prompts(self) -> None:
+        """Standard mode should use full phase prompts."""
+        depth = DepthConfig.for_mode(DepthMode.STANDARD)
+
+        plan_prompt = get_phase_prompt_for_depth(
+            Phase.PLAN, Path("plan.md"), Path("decisions.md"), depth
+        )
+
+        assert "6 phases" in plan_prompt
+        assert "CLARIFYING QUESTIONS" in plan_prompt
+
+    def test_quick_mode_plan_prompt_is_lean(self) -> None:
+        """Quick mode PLAN prompt should be lean."""
+        depth = DepthConfig.for_mode(DepthMode.QUICK)
+
+        prompt = get_phase_prompt_for_depth(
+            Phase.PLAN, Path("plan.md"), Path("decisions.md"), depth
+        )
+
+        assert "4 phases" in prompt
+        # Lean prompt should not have clarifying questions
+        assert "CLARIFYING QUESTIONS" not in prompt
+        assert len(prompt) < 500  # Should be very short
+
+    def test_quick_mode_implement_prompt_is_lean(self) -> None:
+        """Quick mode IMPLEMENT prompt should be lean."""
+        depth = DepthConfig.for_mode(DepthMode.QUICK)
+
+        prompt = get_phase_prompt_for_depth(
+            Phase.IMPLEMENT, Path("plan.md"), Path("decisions.md"), depth
+        )
+
+        assert "git add" in prompt
+        assert "git commit" in prompt
+        assert "Mark [x]" in prompt
+        assert len(prompt) < 300
+
+    def test_quick_mode_test_prompt_is_lean(self) -> None:
+        """Quick mode TEST prompt should be lean."""
+        depth = DepthConfig.for_mode(DepthMode.QUICK)
+
+        prompt = get_phase_prompt_for_depth(
+            Phase.TEST, Path("plan.md"), Path("decisions.md"), depth
+        )
+
+        assert "tests" in prompt.lower()
+        assert len(prompt) < 300
+
+    def test_quick_mode_commit_prompt_is_lean(self) -> None:
+        """Quick mode COMMIT prompt should be lean."""
+        depth = DepthConfig.for_mode(DepthMode.QUICK)
+
+        prompt = get_phase_prompt_for_depth(
+            Phase.COMMIT, Path("plan.md"), Path("decisions.md"), depth
+        )
+
+        assert "git status" in prompt
+        assert len(prompt) < 200
+
+    def test_quick_mode_review_returns_standard(self) -> None:
+        """Quick mode should return standard prompt for REVIEW (skipped phase)."""
+        depth = DepthConfig.for_mode(DepthMode.QUICK)
+
+        prompt = get_phase_prompt_for_depth(
+            Phase.REVIEW, Path("plan.md"), Path("decisions.md"), depth
+        )
+
+        # Falls back to standard prompt since REVIEW is skipped in quick mode
+        assert "COMPREHENSIVE CODE REVIEW CHECKLIST" in prompt
+
+    def test_none_depth_defaults_to_standard_prompts(self) -> None:
+        """None depth should use standard phase prompts."""
+        prompt = get_phase_prompt_for_depth(
+            Phase.PLAN, Path("plan.md"), Path("decisions.md"), None
+        )
+
+        assert "6 phases" in prompt
+        assert "CLARIFYING QUESTIONS" in prompt
+
+    def test_lean_prompts_are_shorter(self) -> None:
+        """Lean phase prompts should be shorter than full prompts."""
+        quick = DepthConfig.for_mode(DepthMode.QUICK)
+        standard = DepthConfig.for_mode(DepthMode.STANDARD)
+
+        for phase in [Phase.PLAN, Phase.IMPLEMENT, Phase.TEST, Phase.COMMIT]:
+            lean = get_phase_prompt_for_depth(
+                phase, Path("plan.md"), Path("decisions.md"), quick
+            )
+            full = get_phase_prompt_for_depth(
+                phase, Path("plan.md"), Path("decisions.md"), standard
+            )
+
+            assert len(lean) < len(full), f"{phase.name} lean prompt should be shorter"
+
+
+class TestBuildFullPromptWithDepth:
+    """Tests for build_full_prompt with depth configuration."""
+
+    def test_build_full_prompt_with_quick_mode(self) -> None:
+        """build_full_prompt should use lean prompts in quick mode."""
+        depth = DepthConfig.for_mode(DepthMode.QUICK)
+
+        prompt = build_full_prompt(
+            original_task="Fix typo",
+            phase=Phase.PLAN,
+            plan_file=Path("plan.md"),
+            decisions_file=Path("decisions.md"),
+            loop_context=None,
+            depth=depth,
+        )
+
+        assert "Original task: Fix typo" in prompt
+        assert "4 phases" in prompt
+        assert "CLARIFYING QUESTIONS" not in prompt
+
+    def test_build_full_prompt_with_standard_mode(self) -> None:
+        """build_full_prompt should use full prompts in standard mode."""
+        depth = DepthConfig.for_mode(DepthMode.STANDARD)
+
+        prompt = build_full_prompt(
+            original_task="Add feature",
+            phase=Phase.PLAN,
+            plan_file=Path("plan.md"),
+            decisions_file=Path("decisions.md"),
+            loop_context=None,
+            depth=depth,
+        )
+
+        assert "Original task: Add feature" in prompt
+        assert "6 phases" in prompt
+        assert "CLARIFYING QUESTIONS" in prompt
+
+    def test_build_full_prompt_none_depth_uses_standard(self) -> None:
+        """build_full_prompt with None depth should use standard prompts."""
+        prompt = build_full_prompt(
+            original_task="Add feature",
+            phase=Phase.PLAN,
+            plan_file=Path("plan.md"),
+            decisions_file=Path("decisions.md"),
+            loop_context=None,
+            depth=None,
+        )
+
+        assert "6 phases" in prompt
+
+    def test_build_full_prompt_backwards_compatible(self) -> None:
+        """build_full_prompt should work without depth parameter."""
+        # This tests backwards compatibility - existing code should still work
+        prompt = build_full_prompt(
+            original_task="Add feature",
+            phase=Phase.PLAN,
+            plan_file=Path("plan.md"),
+            decisions_file=Path("decisions.md"),
+        )
+
+        assert "Original task: Add feature" in prompt
+        assert "6 phases" in prompt

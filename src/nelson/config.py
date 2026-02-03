@@ -4,10 +4,17 @@ This module handles environment variables, defaults, and configuration validatio
 All configuration is immutable after creation for predictability.
 """
 
+from __future__ import annotations
+
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    from nelson.depth import DepthConfig
+    from nelson.deviations import DeviationConfig
+    from nelson.interaction import InteractionConfig
 
 # Valid model identifiers
 ModelType = Literal["opus", "sonnet", "haiku"]
@@ -44,13 +51,78 @@ class NelsonConfig:
     # Git/Push configuration
     auto_approve_push: bool
 
+    # Fields with defaults must come after fields without defaults
+    # Interaction configuration (lazy loaded to avoid circular imports)
+    _interaction: InteractionConfig | None = None
+
+    # Depth configuration (lazy loaded to avoid circular imports)
+    _depth: DepthConfig | None = None
+
+    # Deviation configuration (lazy loaded to avoid circular imports)
+    _deviations: DeviationConfig | None = None
+
     # Optional target repository path (None = current directory)
     target_path: Path | None = None
+
+    # Verification settings
+    skip_verification: bool = False
+
+    # Error handling configuration
+    error_aware_retries: bool = True  # Include error context in retry prompts
+    max_error_context_chars: int = 2000  # Max chars of error context to include in retries
+
+    @property
+    def interaction(self) -> InteractionConfig:
+        """Get interaction configuration.
+
+        Lazy loads from environment if not explicitly set.
+
+        Returns:
+            InteractionConfig instance
+        """
+        if self._interaction is not None:
+            return self._interaction
+        # Import here to avoid circular dependency
+        from nelson.interaction import InteractionConfig
+
+        return InteractionConfig.from_env()
+
+    @property
+    def depth(self) -> DepthConfig:
+        """Get depth configuration.
+
+        Lazy loads from environment if not explicitly set.
+
+        Returns:
+            DepthConfig instance
+        """
+        if self._depth is not None:
+            return self._depth
+        # Import here to avoid circular dependency
+        from nelson.depth import DepthConfig
+
+        return DepthConfig.from_env()
+
+    @property
+    def deviations(self) -> DeviationConfig:
+        """Get deviation configuration.
+
+        Lazy loads from environment if not explicitly set.
+
+        Returns:
+            DeviationConfig instance
+        """
+        if self._deviations is not None:
+            return self._deviations
+        # Import here to avoid circular dependency
+        from nelson.deviations import DeviationConfig
+
+        return DeviationConfig.from_env()
 
     @classmethod
     def from_environment(
         cls, script_dir: Path | None = None, target_path: Path | None = None
-    ) -> "NelsonConfig":
+    ) -> NelsonConfig:
         """Load configuration from environment variables with defaults.
 
         Args:
@@ -71,6 +143,14 @@ class NelsonConfig:
 
         # Stall timeout in minutes (default 15 minutes)
         stall_timeout_minutes = float(os.getenv("NELSON_STALL_TIMEOUT_MINUTES", "15.0"))
+
+        # Error handling configuration
+        error_aware_retries = os.getenv("NELSON_ERROR_AWARE_RETRIES", "true").lower() in (
+            "true",
+            "1",
+            "yes",
+        )
+        max_error_context_chars = int(os.getenv("NELSON_MAX_ERROR_CONTEXT_CHARS", "2000"))
 
         # Directory configuration
         # If target_path is provided, make directories relative to it
@@ -95,6 +175,13 @@ class NelsonConfig:
             "yes",
         )
 
+        # Verification configuration
+        skip_verification = os.getenv("NELSON_SKIP_VERIFICATION", "false").lower() in (
+            "true",
+            "1",
+            "yes",
+        )
+
         # Resolve claude command path
         claude_command_path = cls._resolve_claude_path(claude_command, script_dir)
 
@@ -103,6 +190,8 @@ class NelsonConfig:
             max_iterations_explicit=max_iterations_explicit,
             cost_limit=cost_limit,
             stall_timeout_minutes=stall_timeout_minutes,
+            error_aware_retries=error_aware_retries,
+            max_error_context_chars=max_error_context_chars,
             nelson_dir=nelson_dir,
             audit_dir=audit_dir,
             runs_dir=runs_dir,
@@ -113,6 +202,7 @@ class NelsonConfig:
             plan_model=plan_model,
             review_model=review_model,
             auto_approve_push=auto_approve_push,
+            skip_verification=skip_verification,
         )
 
     @staticmethod
@@ -154,6 +244,11 @@ class NelsonConfig:
         if self.stall_timeout_minutes <= 0:
             raise ValueError(
                 f"stall_timeout_minutes must be > 0, got {self.stall_timeout_minutes}"
+            )
+
+        if self.max_error_context_chars <= 0:
+            raise ValueError(
+                f"max_error_context_chars must be > 0, got {self.max_error_context_chars}"
             )
 
         if self.claude_command_path and not self.claude_command_path.exists():

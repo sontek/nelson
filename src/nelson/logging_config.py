@@ -5,10 +5,15 @@ the bash implementation's log_info, log_success, log_warning, log_error.
 """
 
 import logging
+from collections.abc import Generator
+from contextlib import contextmanager
 from typing import Any
 
 from rich.console import Console
 from rich.logging import RichHandler
+from rich.panel import Panel
+from rich.status import Status
+from rich.table import Table
 from rich.theme import Theme
 
 # Custom theme matching bash nelson color scheme
@@ -19,8 +24,48 @@ NELSON_THEME = Theme(
         "warning": "yellow",
         "error": "red bold",
         "debug": "dim",
+        # Phase-specific colors
+        "phase.discover": "magenta",
+        "phase.plan": "cyan",
+        "phase.implement": "blue",
+        "phase.review": "yellow",
+        "phase.test": "green",
+        "phase.final_review": "yellow bold",
+        "phase.commit": "green bold",
+        "phase.roadmap": "magenta bold",
+        # Progress/status colors
+        "progress.active": "cyan",
+        "progress.complete": "green",
+        "progress.pending": "dim",
+        "cost": "yellow",
+        "iteration": "blue",
     }
 )
+
+
+# Phase color mapping
+PHASE_COLORS = {
+    0: "phase.discover",
+    1: "phase.plan",
+    2: "phase.implement",
+    3: "phase.review",
+    4: "phase.test",
+    5: "phase.final_review",
+    6: "phase.commit",
+    7: "phase.roadmap",
+}
+
+
+def get_phase_color(phase_number: int) -> str:
+    """Get the color style for a phase number.
+
+    Args:
+        phase_number: Phase number (0-7)
+
+    Returns:
+        Rich style name for the phase
+    """
+    return PHASE_COLORS.get(phase_number, "info")
 
 
 class NelsonLogger:
@@ -108,6 +153,121 @@ class NelsonLogger:
         """
         if self.logger.level <= logging.DEBUG:
             self.console.print(f"[debug][DEBUG][/debug] {message}", *args, **kwargs)
+
+    def phase(self, phase_number: int, phase_name: str, message: str) -> None:
+        """Log message with phase-specific color.
+
+        Args:
+            phase_number: Phase number (0-7)
+            phase_name: Human-readable phase name
+            message: Message to log
+        """
+        color = get_phase_color(phase_number)
+        self.console.print(f"[{color}][Phase {phase_number}: {phase_name}][/{color}] {message}")
+
+    def status(
+        self,
+        cycle: int,
+        phase: int,
+        phase_name: str,
+        iteration: int,
+        cost: float | None = None,
+    ) -> None:
+        """Log a status line with cycle/phase/iteration info.
+
+        Args:
+            cycle: Current cycle number
+            phase: Current phase number
+            phase_name: Human-readable phase name
+            iteration: Total iteration count
+            cost: Cost in USD (optional)
+        """
+        phase_color = get_phase_color(phase)
+        parts = [
+            f"[iteration]Cycle {cycle}[/iteration]",
+            f"[{phase_color}]Phase {phase}: {phase_name}[/{phase_color}]",
+            f"[iteration]Iteration #{iteration}[/iteration]",
+        ]
+        if cost is not None:
+            parts.append(f"[cost]${cost:.2f}[/cost]")
+        self.console.print(" | ".join(parts))
+
+    @contextmanager
+    def spinner(self, message: str = "Working...") -> Generator[Status, None, None]:
+        """Context manager for showing a spinner during long operations.
+
+        Args:
+            message: Initial message to display
+
+        Yields:
+            Status object that can be updated with status.update()
+
+        Example:
+            with logger.spinner("Calling Claude...") as status:
+                result = api_call()
+                status.update("Processing response...")
+        """
+        with self.console.status(f"[progress.active]{message}[/progress.active]") as status:
+            yield status
+
+    def summary_panel(
+        self,
+        title: str,
+        data: dict[str, Any],
+        style: str = "green",
+    ) -> None:
+        """Display a summary panel with key-value data.
+
+        Args:
+            title: Panel title
+            data: Dictionary of key-value pairs to display
+            style: Border style (default: green)
+        """
+        table = Table(show_header=False, box=None, padding=(0, 2))
+        table.add_column("Key", style="bold")
+        table.add_column("Value")
+
+        for key, value in data.items():
+            table.add_row(key, str(value))
+
+        panel = Panel(
+            table,
+            title=f"[bold]{title}[/bold]",
+            border_style=style,
+            padding=(1, 2),
+        )
+        self.console.print(panel)
+
+    def workflow_complete(
+        self,
+        cycles: int,
+        iterations: int,
+        cost: float | None = None,
+        elapsed: str | None = None,
+        success: bool = True,
+    ) -> None:
+        """Display workflow completion summary.
+
+        Args:
+            cycles: Number of completed cycles
+            iterations: Total iterations
+            cost: Total cost in USD (optional)
+            elapsed: Elapsed time string (optional)
+            success: Whether workflow completed successfully
+        """
+        title = "✓ Workflow Complete" if success else "✗ Workflow Failed"
+        style = "green" if success else "red"
+
+        data = {
+            "Cycles": str(cycles),
+            "Total Iterations": str(iterations),
+        }
+        if cost is not None:
+            data["Total Cost"] = f"${cost:.2f}"
+        if elapsed is not None:
+            data["Elapsed Time"] = elapsed
+
+        self.summary_panel(title, data, style)
 
 
 # Global logger instance (singleton pattern)

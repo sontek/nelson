@@ -167,7 +167,7 @@ class PRDOrchestrator:
 
         # Create Claude provider
         provider = ClaudeProvider(
-            claude_command=config.claude_command, target_path=self.target_path
+            claude_command=config.claude_command, target_path=self.target_path, config=config
         )
 
         # Build focused system prompt for branching

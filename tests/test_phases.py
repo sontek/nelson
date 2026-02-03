@@ -7,6 +7,7 @@ from nelson.phases import (
     Phase,
     determine_next_phase,
     get_phase_name,
+    get_starting_phase,
 )
 
 
@@ -15,28 +16,37 @@ class TestPhaseEnum:
 
     def test_phase_values(self) -> None:
         """Phases should have correct integer values."""
+        # Comprehensive mode only
+        assert Phase.DISCOVER.value == 0
+        # Standard phases
         assert Phase.PLAN.value == 1
         assert Phase.IMPLEMENT.value == 2
         assert Phase.REVIEW.value == 3
         assert Phase.TEST.value == 4
         assert Phase.FINAL_REVIEW.value == 5
         assert Phase.COMMIT.value == 6
+        # Comprehensive mode only
+        assert Phase.ROADMAP.value == 7
 
     def test_phase_name_str(self) -> None:
         """Each phase should return its human-readable name."""
+        assert Phase.DISCOVER.name_str == "DISCOVER"
         assert Phase.PLAN.name_str == "PLAN"
         assert Phase.IMPLEMENT.name_str == "IMPLEMENT"
         assert Phase.REVIEW.name_str == "REVIEW"
         assert Phase.TEST.name_str == "TEST"
         assert Phase.FINAL_REVIEW.name_str == "FINAL-REVIEW"
         assert Phase.COMMIT.name_str == "COMMIT"
+        assert Phase.ROADMAP.name_str == "ROADMAP"
 
     def test_phase_can_loop(self) -> None:
         """Phases that can loop should be correctly identified."""
         # Cannot loop (always advance)
+        assert not Phase.DISCOVER.can_loop
         assert not Phase.PLAN.can_loop
         assert not Phase.IMPLEMENT.can_loop
         assert not Phase.COMMIT.can_loop
+        assert not Phase.ROADMAP.can_loop
 
         # Can loop (may stay in phase or go back)
         assert Phase.REVIEW.can_loop
@@ -45,12 +55,14 @@ class TestPhaseEnum:
 
     def test_phase_model_type(self) -> None:
         """Phases should use correct model types."""
+        assert Phase.DISCOVER.model_type == "plan"
         assert Phase.PLAN.model_type == "plan"
         assert Phase.IMPLEMENT.model_type == "default"
         assert Phase.REVIEW.model_type == "review"
         assert Phase.TEST.model_type == "default"
         assert Phase.FINAL_REVIEW.model_type == "review"
         assert Phase.COMMIT.model_type == "default"
+        assert Phase.ROADMAP.model_type == "plan"
 
 
 class TestPhaseMetadata:
@@ -79,16 +91,22 @@ class TestPhaseMetadata:
 
     def test_phase_metadata_numbers_match(self) -> None:
         """Metadata numbers should match phase enum values."""
+        assert PHASE_METADATA[Phase.DISCOVER].number == 0
         assert PHASE_METADATA[Phase.PLAN].number == 1
         assert PHASE_METADATA[Phase.IMPLEMENT].number == 2
         assert PHASE_METADATA[Phase.REVIEW].number == 3
         assert PHASE_METADATA[Phase.TEST].number == 4
         assert PHASE_METADATA[Phase.FINAL_REVIEW].number == 5
         assert PHASE_METADATA[Phase.COMMIT].number == 6
+        assert PHASE_METADATA[Phase.ROADMAP].number == 7
 
 
 class TestPhaseTransitions:
     """Test phase transition logic."""
+
+    def test_discover_to_plan(self) -> None:
+        """DISCOVER should always advance to PLAN."""
+        assert determine_next_phase(Phase.DISCOVER) == Phase.PLAN
 
     def test_plan_to_implement(self) -> None:
         """PLAN should always advance to IMPLEMENT."""
@@ -110,9 +128,19 @@ class TestPhaseTransitions:
         """FINAL_REVIEW should advance to COMMIT (or back to TEST if fixes)."""
         assert determine_next_phase(Phase.FINAL_REVIEW) == Phase.COMMIT
 
-    def test_commit_to_done(self) -> None:
-        """COMMIT should mark workflow as complete."""
+    def test_commit_to_done_standard(self) -> None:
+        """COMMIT should mark workflow as complete in standard mode."""
         assert determine_next_phase(Phase.COMMIT) == "done"
+        assert determine_next_phase(Phase.COMMIT, comprehensive=False) == "done"
+
+    def test_commit_to_roadmap_comprehensive(self) -> None:
+        """COMMIT should advance to ROADMAP in comprehensive mode."""
+        assert determine_next_phase(Phase.COMMIT, comprehensive=True) == Phase.ROADMAP
+
+    def test_roadmap_to_done(self) -> None:
+        """ROADMAP should always mark workflow as complete."""
+        assert determine_next_phase(Phase.ROADMAP) == "done"
+        assert determine_next_phase(Phase.ROADMAP, comprehensive=True) == "done"
 
     def test_invalid_phase(self) -> None:
         """Invalid phase number should raise ValueError."""
@@ -120,17 +148,32 @@ class TestPhaseTransitions:
             determine_next_phase(999)  # type: ignore[arg-type]
 
 
+class TestGetStartingPhase:
+    """Test get_starting_phase helper function."""
+
+    def test_standard_mode_starts_at_plan(self) -> None:
+        """Standard mode should start at PLAN phase."""
+        assert get_starting_phase() == Phase.PLAN
+        assert get_starting_phase(comprehensive=False) == Phase.PLAN
+
+    def test_comprehensive_mode_starts_at_discover(self) -> None:
+        """Comprehensive mode should start at DISCOVER phase."""
+        assert get_starting_phase(comprehensive=True) == Phase.DISCOVER
+
+
 class TestGetPhaseName:
     """Test get_phase_name helper function."""
 
     def test_get_all_phase_names(self) -> None:
         """Should return correct name for each phase."""
+        assert get_phase_name(Phase.DISCOVER) == "DISCOVER"
         assert get_phase_name(Phase.PLAN) == "PLAN"
         assert get_phase_name(Phase.IMPLEMENT) == "IMPLEMENT"
         assert get_phase_name(Phase.REVIEW) == "REVIEW"
         assert get_phase_name(Phase.TEST) == "TEST"
         assert get_phase_name(Phase.FINAL_REVIEW) == "FINAL-REVIEW"
         assert get_phase_name(Phase.COMMIT) == "COMMIT"
+        assert get_phase_name(Phase.ROADMAP) == "ROADMAP"
 
     def test_phase_name_matches_name_str(self) -> None:
         """get_phase_name should match Phase.name_str property."""
@@ -141,8 +184,8 @@ class TestGetPhaseName:
 class TestPhaseWorkflowIntegration:
     """Test phase workflow patterns and integration."""
 
-    def test_complete_workflow_path(self) -> None:
-        """Test walking through complete workflow path."""
+    def test_complete_standard_workflow_path(self) -> None:
+        """Test walking through complete standard (6-phase) workflow path."""
         current: Phase | str = Phase.PLAN
 
         # PLAN → IMPLEMENT
@@ -169,6 +212,42 @@ class TestPhaseWorkflowIntegration:
         current = determine_next_phase(current)  # type: ignore[arg-type]
         assert current == "done"
 
+    def test_complete_comprehensive_workflow_path(self) -> None:
+        """Test walking through complete comprehensive (8-phase) workflow path."""
+        current: Phase | str = Phase.DISCOVER
+
+        # DISCOVER → PLAN
+        current = determine_next_phase(current, comprehensive=True)  # type: ignore[arg-type]
+        assert current == Phase.PLAN
+
+        # PLAN → IMPLEMENT
+        current = determine_next_phase(current, comprehensive=True)  # type: ignore[arg-type]
+        assert current == Phase.IMPLEMENT
+
+        # IMPLEMENT → REVIEW
+        current = determine_next_phase(current, comprehensive=True)  # type: ignore[arg-type]
+        assert current == Phase.REVIEW
+
+        # REVIEW → TEST
+        current = determine_next_phase(current, comprehensive=True)  # type: ignore[arg-type]
+        assert current == Phase.TEST
+
+        # TEST → FINAL_REVIEW
+        current = determine_next_phase(current, comprehensive=True)  # type: ignore[arg-type]
+        assert current == Phase.FINAL_REVIEW
+
+        # FINAL_REVIEW → COMMIT
+        current = determine_next_phase(current, comprehensive=True)  # type: ignore[arg-type]
+        assert current == Phase.COMMIT
+
+        # COMMIT → ROADMAP (comprehensive mode)
+        current = determine_next_phase(current, comprehensive=True)  # type: ignore[arg-type]
+        assert current == Phase.ROADMAP
+
+        # ROADMAP → done
+        current = determine_next_phase(current, comprehensive=True)  # type: ignore[arg-type]
+        assert current == "done"
+
     def test_looping_phases_identified(self) -> None:
         """Phases that can loop should be identifiable for workflow logic."""
         looping_phases = [p for p in Phase if p.can_loop]
@@ -176,7 +255,8 @@ class TestPhaseWorkflowIntegration:
 
     def test_model_selection_by_phase(self) -> None:
         """Different phases should use appropriate models."""
-        # Plan phase uses specialized plan model
+        # Discovery and Plan phases use specialized plan model
+        assert Phase.DISCOVER.model_type == "plan"
         assert Phase.PLAN.model_type == "plan"
 
         # Review phases use specialized review model
@@ -187,3 +267,15 @@ class TestPhaseWorkflowIntegration:
         assert Phase.IMPLEMENT.model_type == "default"
         assert Phase.TEST.model_type == "default"
         assert Phase.COMMIT.model_type == "default"
+
+        # Roadmap uses plan model for documentation
+        assert Phase.ROADMAP.model_type == "plan"
+
+    def test_standard_vs_comprehensive_mode_count(self) -> None:
+        """Standard mode has 6 phases, comprehensive has 8."""
+        standard_phases = [Phase.PLAN, Phase.IMPLEMENT, Phase.REVIEW,
+                         Phase.TEST, Phase.FINAL_REVIEW, Phase.COMMIT]
+        comprehensive_phases = [Phase.DISCOVER] + standard_phases + [Phase.ROADMAP]
+
+        assert len(standard_phases) == 6
+        assert len(comprehensive_phases) == 8

@@ -16,14 +16,31 @@ from typing import Any
 from rich.panel import Panel
 
 from nelson.config import NelsonConfig
+from nelson.ui import (
+    display_completion_summary,
+    display_deviation_summary,
+    display_phase_header,
+    display_planning_questions,
+    display_verification_results,
+)
+from nelson.decisions_log import (
+    extract_recent_work,
+    should_compact,
+    write_progress_checkpoint,
+)
+from nelson.depth import DepthMode, should_skip_phase
+from nelson.interaction import UserInteraction
 from nelson.logging_config import get_logger
 from nelson.phases import Phase
+from nelson.plan_validation import log_validation_warnings
 from nelson.progress_monitor import ProgressMonitor
 from nelson.prompts import (
     build_full_prompt,
     build_loop_context,
     get_phase_prompt,
+    get_phase_prompt_for_depth,
     get_system_prompt,
+    get_system_prompt_for_depth,
 )
 from nelson.providers.base import AIProvider, ProviderError
 from nelson.state import NelsonState
@@ -40,6 +57,7 @@ class CircuitBreakerResult(Enum):
     TRIGGERED = "triggered"  # Circuit breaker activated
     BLOCKED = "blocked"  # Task blocked on external dependency
     COMPLETE = "complete"  # All tasks complete, no more work to do
+    RETRY_NO_INCREMENT = "retry_no_increment"  # Retry without incrementing iteration
 
 
 class WorkflowOrchestrator:
@@ -82,11 +100,22 @@ class WorkflowOrchestrator:
         self.provider = provider
         self.run_dir = run_dir
 
+        # User interaction handler
+        self.interaction = UserInteraction(config.interaction)
+
         # File paths - all run-specific files live in run_dir
         self.state_file = run_dir / "state.json"
         self.plan_file = run_dir / "plan.md"
         self.decisions_file = run_dir / "decisions.md"
         self.last_output_file = run_dir / "last_output.txt"
+
+        # Check if comprehensive mode is enabled
+        self._comprehensive = config.depth.mode == DepthMode.COMPREHENSIVE
+
+    @property
+    def comprehensive(self) -> bool:
+        """Check if comprehensive mode (8 phases) is enabled."""
+        return self._comprehensive
 
     def run(self, prompt: str) -> None:
         """Run the main workflow loop.
@@ -99,6 +128,10 @@ class WorkflowOrchestrator:
         """
         logger.info("Starting Nelson autonomous workflow...")
         logger.info("")
+
+        # Track start time for summary
+        from datetime import datetime
+        start_time = datetime.now()
 
         # Display prompt with rich Panel
         prompt_preview = prompt[:200] + "..." if len(prompt) > 200 else prompt
@@ -113,7 +146,7 @@ class WorkflowOrchestrator:
         logger.console.print("")
 
         # Display system prompt summary at startup
-        system_prompt = get_system_prompt(self.decisions_file)
+        system_prompt = get_system_prompt_for_depth(self.decisions_file, self.config.depth)
         system_lines = system_prompt.split("\n")[:5]
         system_summary = (
             "\n".join(system_lines) + "\n\n[dim](Full system prompt sent to Claude)[/dim]"
@@ -144,18 +177,18 @@ class WorkflowOrchestrator:
             current_phase = Phase(self.state.current_phase)
             phase_name = current_phase.name_str
 
-            # Show clear cycle/phase/iteration info with rich Rule and timestamp
-            # Cycles are 0-indexed internally, display as 1-indexed (Cycle 0 -> "Cycle 1")
+            # Determine total phases based on depth mode
+            from nelson.depth import get_phases_for_depth
+            total_phases = len(get_phases_for_depth(self.config.depth))
+
+            # Display phase header with progress
             display_cycle = self.state.cycle_iterations + 1
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            logger.console.rule(
-                f"[bold yellow]Cycle {display_cycle} | "
-                f"Phase {current_phase.value}: {phase_name} | "
-                f"API Call #{self.state.total_iterations} | "
-                f"{timestamp}[/bold yellow]",
-                style="yellow",
+            display_phase_header(
+                current_phase,
+                cycle=display_cycle,
+                iteration=self.state.total_iterations,
+                total_phases=total_phases,
             )
-            logger.console.print("")
 
             # Build loop context (recent activity, task count)
             loop_context = self._build_loop_context()
@@ -174,6 +207,25 @@ class WorkflowOrchestrator:
                 )
                 logger.console.print("")
 
+            # Phase 7: Check if phase should be skipped based on depth mode
+            if should_skip_phase(current_phase.name, self.config.depth):
+                logger.info(
+                    f"Skipping Phase {current_phase.value} ({current_phase.name_str}) "
+                    f"(depth mode: {self.config.depth.mode.value})"
+                )
+                # Determine next phase and advance
+                next_phase = determine_next_phase(
+                    current_phase, self.plan_file, comprehensive=self.comprehensive
+                )
+                if next_phase and next_phase != current_phase:
+                    logger.info(f"Advancing to Phase {next_phase.value} ({next_phase.name_str})")
+                    self.state.transition_phase(next_phase.value, next_phase.name_str)
+                    continue
+                else:
+                    # No next phase - this shouldn't happen, but handle it
+                    logger.warning("No next phase determined after skip - ending workflow")
+                    break
+
             # Build full prompt with phase instructions
             full_prompt = build_full_prompt(
                 original_task=prompt,
@@ -181,10 +233,13 @@ class WorkflowOrchestrator:
                 plan_file=self.plan_file,
                 decisions_file=self.decisions_file,
                 loop_context=loop_context,
+                depth=self.config.depth,
             )
 
             # Display phase prompt being used
-            phase_prompt = get_phase_prompt(current_phase, self.plan_file, self.decisions_file)
+            phase_prompt = get_phase_prompt_for_depth(
+                current_phase, self.plan_file, self.decisions_file, self.config.depth
+            )
             prompt_preview = phase_prompt[:300] + "..." if len(phase_prompt) > 300 else phase_prompt
             logger.console.print(
                 Panel(
@@ -220,7 +275,16 @@ class WorkflowOrchestrator:
             # Check circuit breakers
             breaker_result = self._check_circuit_breaker(status_block)
 
-            if breaker_result == CircuitBreakerResult.EXIT_SIGNAL:
+            if breaker_result == CircuitBreakerResult.RETRY_NO_INCREMENT:
+                # Blocker resolved - retry without incrementing iteration
+                # Decrement the iteration counters that were incremented at loop start
+                self.state.total_iterations -= 1
+                self.state.phase_iterations -= 1
+                logger.info("Retrying task after blocker resolution...")
+                # Continue loop to retry
+                continue
+
+            elif breaker_result == CircuitBreakerResult.EXIT_SIGNAL:
                 # EXIT_SIGNAL means current phase is complete
                 logger.success("EXIT_SIGNAL detected - phase complete")
                 self._log_completion_status(status_block)
@@ -230,6 +294,8 @@ class WorkflowOrchestrator:
                 logger.success("All tasks complete - workflow finished successfully")
                 state_file = self.state_file
                 self.state.save(state_file)
+                # Display completion summary
+                display_completion_summary(self.state, start_time, success=True)
                 break  # Exit loop gracefully
 
             elif breaker_result == CircuitBreakerResult.BLOCKED:
@@ -259,6 +325,11 @@ class WorkflowOrchestrator:
             state_file = self.state_file
             self.state.save(state_file)
 
+            # Write progress checkpoint periodically for context compaction
+            # This helps restore context efficiently for long-running tasks
+            if should_compact(self.state.total_iterations, compact_interval=10):
+                self._write_progress_checkpoint(prompt, current_phase, status_block)
+
             # Check if phase transition is needed
             # Parse exit_signal from status block (handle both boolean and string values)
             exit_signal_value = status_block.get("exit_signal", False)
@@ -268,7 +339,9 @@ class WorkflowOrchestrator:
                 exit_signal = bool(exit_signal_value)
 
             if should_transition_phase(current_phase, self.plan_file, exit_signal):
-                next_phase = determine_next_phase(current_phase, self.plan_file)
+                next_phase = determine_next_phase(
+                    current_phase, self.plan_file, comprehensive=self.comprehensive
+                )
 
                 # Special case: About to enter Phase 2 in a new cycle
                 # Check if there's any implementation work to do
@@ -329,17 +402,28 @@ class WorkflowOrchestrator:
                         self.state.no_work_cycles = 0
 
                 if next_phase is None:
-                    # Phase 6 (COMMIT) complete - cycle finished
-                    # Increment cycle counter and loop back to Phase 1
+                    # Cycle complete - either after COMMIT (standard) or ROADMAP (comprehensive)
+                    # Increment cycle counter and loop back to starting phase
                     self.state.increment_cycle()
                     new_cycle = self.state.cycle_iterations
 
                     # Reset no-work counter since we completed a full cycle with work
                     self.state.no_work_cycles = 0
 
+                    # Determine which phase completed and which to start next cycle
+                    if self.comprehensive:
+                        completed_phase = "Phase 7 (ROADMAP)"
+                        start_phase = Phase.DISCOVER
+                    else:
+                        completed_phase = "Phase 6 (COMMIT)"
+                        start_phase = Phase.PLAN
+
                     # Display cycles as 1-indexed for user-friendliness (internal is 0-indexed)
-                    logger.success(f"Cycle {new_cycle} complete - Phase 6 (COMMIT) finished")
-                    logger.info(f"Starting cycle {new_cycle + 1} - returning to Phase 1 (PLAN)")
+                    logger.success(f"Cycle {new_cycle} complete - {completed_phase} finished")
+                    logger.info(
+                        f"Starting cycle {new_cycle + 1} - returning to "
+                        f"Phase {start_phase.value} ({start_phase.name_str})"
+                    )
 
                     # Archive the old plan.md (use 1-indexed to match plan content)
                     if self.plan_file.exists():
@@ -350,14 +434,214 @@ class WorkflowOrchestrator:
                     # Log cycle completion to decisions file (use 1-indexed for display)
                     self._log_cycle_completion(new_cycle, new_cycle + 1)
 
-                    # Reset to Phase 1
-                    self.state.transition_phase(Phase.PLAN.value, Phase.PLAN.name_str)
+                    # Reset to starting phase
+                    self.state.transition_phase(start_phase.value, start_phase.name_str)
 
-                    # Continue loop (don't break) - will start new cycle at Phase 1
+                    # Continue loop (don't break) - will start new cycle at starting phase
 
                 elif next_phase != current_phase:
                     # Phase transition
                     next_phase_name = next_phase.name_str
+
+                    # Validate plan when transitioning from PLAN to IMPLEMENT
+                    if current_phase == Phase.PLAN and next_phase == Phase.IMPLEMENT:
+                        if self.plan_file.exists():
+                            log_validation_warnings(self.plan_file)
+
+                        # Phase 2: Extract and save JSON plan if present
+                        from nelson.plan_parser_json import extract_plan_from_response, write_json_plan
+
+                        json_plan = extract_plan_from_response(response.content)
+                        if json_plan:
+                            json_file = self.run_dir / "plan.json"
+                            try:
+                                write_json_plan(json_plan, json_file)
+                                logger.info(f"Saved structured plan to {json_file.name}")
+                            except OSError as e:
+                                logger.warning(f"Could not write JSON plan: {e}")
+                        else:
+                            logger.debug("No JSON plan found in response, using markdown only")
+
+                        # Phase 3: Extract and handle planning questions
+                        if not self.config.interaction.skip_planning_questions:
+                            from nelson.planning_questions import (
+                                extract_questions_from_response,
+                                ask_planning_questions,
+                                log_planning_questions,
+                                format_answers_for_prompt,
+                            )
+
+                            questions = extract_questions_from_response(response.content)
+
+                            if questions:
+                                logger.info(f"Found {len(questions)} planning questions from Claude")
+                                display_planning_questions(len(questions))
+
+                                # Ask user via UserInteraction
+                                answers = ask_planning_questions(questions, self.interaction)
+
+                                # Log to decisions.md
+                                log_planning_questions(questions, answers, self.decisions_file)
+
+                                # In supervised mode, make second Claude call with answers
+                                from nelson.interaction import InteractionMode
+
+                                if self.config.interaction.mode == InteractionMode.SUPERVISED:
+                                    logger.info("Making second planning call with user answers...")
+
+                                    # Format answers for prompt context
+                                    answer_context = format_answers_for_prompt(questions, answers)
+
+                                    # Append context to existing prompt and re-run PLAN phase
+                                    enhanced_prompt = full_prompt + answer_context
+
+                                    # Re-execute Claude with answers
+                                    try:
+                                        response = self._execute_provider(
+                                            enhanced_prompt, Phase.PLAN
+                                        )
+                                        # Save updated output
+                                        self.last_output_file.write_text(response.content)
+                                        logger.success("Planning refined with user answers")
+                                    except ProviderError as e:
+                                        logger.warning(
+                                            f"Could not refine plan with answers: {e.message}"
+                                        )
+                                        logger.info("Continuing with original plan")
+
+                    # Phase 5: Extract and log deviations after IMPLEMENT phase
+                    if current_phase == Phase.IMPLEMENT:
+                        from nelson.deviations import (
+                            extract_deviations_from_response,
+                            validate_deviations,
+                            log_deviations,
+                        )
+
+                        # Extract deviations from response
+                        deviations = extract_deviations_from_response(response.content)
+
+                        if deviations:
+                            # Get current deviation count from state
+                            # Initialize if not present
+                            if not hasattr(self.state, "deviations_count"):
+                                self.state.deviations_count = 0
+
+                            # Validate deviations against config
+                            allowed, blocked = validate_deviations(
+                                deviations, self.config.deviations, self.state.deviations_count
+                            )
+
+                            if allowed:
+                                logger.info(f"Found {len(allowed)} auto-fix deviations from Claude")
+                                # Log allowed deviations
+                                log_deviations(allowed, self.decisions_file, blocked=False)
+                                # Update count
+                                self.state.deviations_count += len(allowed)
+
+                            if blocked:
+                                logger.warning(f"Blocked {len(blocked)} deviations (rule disabled or limit exceeded)")
+                                # Log blocked deviations
+                                log_deviations(blocked, self.decisions_file, blocked=True)
+
+                            # Display summary
+                            display_deviation_summary(len(allowed), len(blocked))
+
+                            # Check if max deviations exceeded
+                            if self.state.deviations_count >= self.config.deviations.max_deviations_per_task:
+                                logger.warning(
+                                    f"Max deviations ({self.config.deviations.max_deviations_per_task}) "
+                                    "reached for this task"
+                                )
+
+                    # Phase 6: Run verification after FINAL_REVIEW before COMMIT
+                    if (
+                        current_phase == Phase.FINAL_REVIEW
+                        and next_phase == Phase.COMMIT
+                        and not self.config.skip_verification
+                    ):
+                        # Check if we have a JSON plan with verification criteria
+                        json_plan_file = self.run_dir / "plan.json"
+
+                        if json_plan_file.exists():
+                            from nelson.verification import (
+                                GoalVerification,
+                                run_verification,
+                                log_verification_results,
+                            )
+
+                            try:
+                                import json
+
+                                # Load plan.json
+                                with open(json_plan_file) as f:
+                                    plan_data = json.load(f)
+
+                                # Check if plan has verification criteria
+                                if "verification" in plan_data:
+                                    logger.info("Running goal-backward verification...")
+
+                                    # Create GoalVerification from plan data
+                                    verification = GoalVerification.from_dict(plan_data["verification"])
+
+                                    # Run all verification checks
+                                    verification = run_verification(verification, self.run_dir)
+
+                                    # Log results
+                                    log_verification_results(verification, self.decisions_file)
+
+                                    # Display results summary
+                                    total_checks = len(verification.checks)
+                                    passed_checks = sum(1 for c in verification.checks if c.passed)
+                                    failed_checks = total_checks - passed_checks
+                                    display_verification_results(passed_checks, failed_checks, total_checks)
+
+                                    # Check for critical failures
+                                    critical_failures = verification.critical_failures
+
+                                    if critical_failures:
+                                        # Initialize verification_retries if not present
+                                        if not hasattr(self.state, "verification_retries"):
+                                            self.state.verification_retries = 0
+
+                                        self.state.verification_retries += 1
+
+                                        if self.state.verification_retries < 3:
+                                            logger.error(
+                                                f"Verification failed with {len(critical_failures)} "
+                                                "critical failures"
+                                            )
+                                            logger.warning(
+                                                f"Loop back to IMPLEMENT (retry {self.state.verification_retries}/3)"
+                                            )
+
+                                            # Override next_phase to loop back to IMPLEMENT
+                                            next_phase = Phase.IMPLEMENT
+                                            next_phase_name = next_phase.name_str
+
+                                            # Log the loop-back to decisions
+                                            with open(self.decisions_file, "a") as f:
+                                                f.write("\n## Verification Failed - Looping Back\n\n")
+                                                f.write(f"**Retry**: {self.state.verification_retries}/3\n")
+                                                f.write(
+                                                    f"**Critical Failures**: {len(critical_failures)}\n\n"
+                                                )
+                                                for failure in critical_failures:
+                                                    f.write(f"- {failure.target}: {failure.actual_result}\n")
+                                                f.write("\n")
+                                        else:
+                                            logger.error(
+                                                f"Max verification retries (3) reached - "
+                                                f"proceeding with {len(critical_failures)} failures"
+                                            )
+                                    else:
+                                        logger.success("All verification checks passed")
+                                        # Reset retry counter on success
+                                        if hasattr(self.state, "verification_retries"):
+                                            self.state.verification_retries = 0
+
+                            except (json.JSONDecodeError, KeyError, FileNotFoundError) as e:
+                                logger.debug(f"Could not run verification: {e}")
+                                # Not a blocker - proceed without verification
 
                     logger.success(
                         f"Phase {current_phase.value} ({phase_name}) complete "
@@ -377,6 +661,8 @@ class WorkflowOrchestrator:
         state_file = self.state_file
         self.state.save(state_file)
 
+        # Display final completion summary
+        display_completion_summary(self.state, start_time, success=True)
         logger.success("All done!")
 
     def _check_limits(self) -> bool:
@@ -425,7 +711,7 @@ class WorkflowOrchestrator:
         current_phase = Phase(self.state.current_phase)
 
         return build_loop_context(
-            cycle_iterations=self.state.cycle_iterations,
+            cycle_iterations=self.state.cycle_iterations + 1,  # Display as 1-indexed
             total_iterations=self.state.total_iterations,
             phase_iterations=self.state.phase_iterations,
             tasks_completed=tasks_completed,
@@ -455,7 +741,8 @@ class WorkflowOrchestrator:
             AIResponse from provider
         """
         # Select model based on phase
-        if current_phase == Phase.PLAN:
+        # DISCOVER, PLAN, and ROADMAP phases use the plan model
+        if current_phase in (Phase.DISCOVER, Phase.PLAN, Phase.ROADMAP):
             model = self.config.plan_model
         elif current_phase in (Phase.REVIEW, Phase.FINAL_REVIEW):
             model = self.config.review_model
@@ -465,9 +752,9 @@ class WorkflowOrchestrator:
         logger.info(f"Using model: {model}")
 
         # Execute with system prompt (from prompts.py)
-        from nelson.prompts import get_system_prompt
+        from nelson.prompts import get_system_prompt_for_depth
 
-        system_prompt = get_system_prompt(self.decisions_file)
+        system_prompt = get_system_prompt_for_depth(self.decisions_file, self.config.depth)
 
         # Start progress monitor to show activity during long-running calls
         # Monitor the run directory for file changes (decisions.md, plan.md, etc.)
@@ -501,13 +788,16 @@ class WorkflowOrchestrator:
         Returns:
             CircuitBreakerResult indicating what action to take
         """
-        # Check for EXIT_SIGNAL first
+        # Check for EXIT_SIGNAL FIRST - takes precedence over all other checks
         # Handle both boolean and string values (Claude may return "true"/"false" strings)
         exit_signal_value = status_block.get("exit_signal", False)
         if isinstance(exit_signal_value, str):
             exit_signal = exit_signal_value.lower() in ("true", "1", "yes")
         else:
             exit_signal = bool(exit_signal_value)
+
+        if exit_signal:
+            return CircuitBreakerResult.EXIT_SIGNAL
 
         # Track same-phase looping (for looping phases only)
         current_phase = Phase(self.state.current_phase)
@@ -518,17 +808,23 @@ class WorkflowOrchestrator:
             self.state.same_phase_loop_count = 0
             self.state.last_phase_tracked = self.state.current_phase
 
-        # Check for excessive same-phase looping (10+ consecutive iterations in same looping phase)
-        # This catches cases where EXIT_SIGNAL=true but plan tasks aren't being checked off
-        if current_phase.can_loop and self.state.same_phase_loop_count >= 10:
-            logger.error(
-                f"Same-phase loop detected: {self.state.same_phase_loop_count} iterations "
-                f"in Phase {current_phase.value} ({current_phase.name})"
-            )
-            return CircuitBreakerResult.TRIGGERED
+        # Check for excessive same-phase looping with a reasonable per-phase limit
+        # The limit is proportional to work remaining: base of 15 + 2x unchecked tasks
+        # This allows complex phases with many tasks to take more iterations
+        if current_phase.can_loop:
+            unchecked_count = self._count_unchecked_tasks_in_phase(current_phase)
+            # Base limit: 15 iterations (reasonable for most phases)
+            # Task multiplier: 2 iterations per unchecked task
+            # Minimum: 15, Maximum: 50 (prevents runaway)
+            phase_limit = min(15 + (unchecked_count * 2), 50)
 
-        if exit_signal:
-            return CircuitBreakerResult.EXIT_SIGNAL
+            if self.state.same_phase_loop_count >= phase_limit:
+                logger.error(
+                    f"Same-phase loop detected: {self.state.same_phase_loop_count} iterations "
+                    f"in Phase {current_phase.value} ({current_phase.name}) "
+                    f"(limit: {phase_limit} based on {unchecked_count} unchecked tasks)"
+                )
+                return CircuitBreakerResult.TRIGGERED
 
         # Extract progress metrics
         # Convert to int, handling both string and int values
@@ -543,19 +839,58 @@ class WorkflowOrchestrator:
 
         # Track blocked status (task waiting on external dependency)
         status = status_block.get("status", "")
-        if "blocked" in status.lower():
+        status_value = status.upper() if isinstance(status, str) else ""
+
+        # Phase 4: Check for blocked status and prompt for resolution
+        if status_value == "BLOCKED":
             self.state.blocked_iterations += 1
+
+            # Import blocked handling
+            from nelson.blocked_handling import (
+                extract_blocked_info,
+                prompt_blocked_resolution,
+                log_blocked_event,
+                BlockedResolution,
+            )
+
+            # Extract blocked info from response
+            blocked_info = extract_blocked_info(status_block, self.last_output_file.read_text())
+
+            if blocked_info and self.config.interaction.prompt_on_blocked:
+                # Prompt user for resolution
+                resolution, context = prompt_blocked_resolution(blocked_info, self.interaction)
+
+                # Log the event and resolution
+                log_blocked_event(blocked_info, resolution, context, self.decisions_file)
+
+                if resolution == BlockedResolution.RESOLVED:
+                    # User resolved the issue - retry without incrementing iteration
+                    logger.success("Blocker resolved by user - retrying task")
+                    # Reset blocked counter since issue is resolved
+                    self.state.blocked_iterations = 0
+                    return CircuitBreakerResult.RETRY_NO_INCREMENT
+
+                elif resolution == BlockedResolution.SKIP:
+                    # User wants to skip this task and continue
+                    logger.info("User chose to skip blocked task - continuing workflow")
+                    # Reset blocked counter and continue
+                    self.state.blocked_iterations = 0
+                    return CircuitBreakerResult.OK
+
+                else:  # STOP
+                    # User wants to stop execution
+                    logger.warning("User chose to stop execution due to blocker")
+                    return CircuitBreakerResult.BLOCKED
+
+            # If not prompting or no blocked info, check iteration count
+            if self.state.blocked_iterations >= 3:
+                logger.warning(
+                    f"Task blocked on external dependency "
+                    f"({self.state.blocked_iterations} consecutive BLOCKED iterations)"
+                )
+                return CircuitBreakerResult.BLOCKED
         else:
             self.state.blocked_iterations = 0
-
-        # Check for blocked status FIRST (external dependency - not a failure)
-        # This allows graceful exit when task needs user intervention
-        if self.state.blocked_iterations >= 3:
-            logger.warning(
-                f"Task blocked on external dependency "
-                f"({self.state.blocked_iterations} consecutive BLOCKED iterations)"
-            )
-            return CircuitBreakerResult.BLOCKED
 
         # Check for progress this iteration
         # tasks_completed is per-loop count (TASKS_COMPLETED_THIS_LOOP), not cumulative
@@ -640,6 +975,54 @@ class WorkflowOrchestrator:
 
         return False
 
+    def _count_unchecked_tasks_in_phase(self, phase: Phase) -> int:
+        """Count the number of unchecked tasks in a specific phase.
+
+        Args:
+            phase: The phase to check
+
+        Returns:
+            Number of unchecked tasks ([ ]) in the phase section
+        """
+        if not self.plan_file.exists():
+            return 0
+
+        try:
+            content = self.plan_file.read_text()
+            lines = content.split("\n")
+
+            # Find the phase section
+            phase_patterns = [
+                f"## Phase {phase.value}:",
+                f"##Phase {phase.value}:",  # No space variant
+                f"## Phase {phase.value} ",  # Space after number
+            ]
+
+            in_phase = False
+            unchecked_count = 0
+
+            for line in lines:
+                # Check if we're entering the target phase
+                if any(pattern in line for pattern in phase_patterns):
+                    in_phase = True
+                    continue
+
+                # Check if we've moved to a different phase
+                if in_phase and line.startswith("## Phase "):
+                    break
+
+                # Count unchecked tasks in this phase
+                if in_phase:
+                    stripped = line.strip()
+                    if stripped.startswith("- [ ]"):
+                        unchecked_count += 1
+
+            return unchecked_count
+
+        except Exception:
+            # If we can't parse the plan, return 0 (conservative)
+            return 0
+
     def _log_cycle_completion(self, completed_cycle: int, new_cycle: int) -> None:
         """Log cycle completion to decisions file.
 
@@ -687,6 +1070,80 @@ class WorkflowOrchestrator:
         for key, value in status_block.items():
             logger.info(f"  {key}: {value}")
         logger.info("")
+
+    def _write_progress_checkpoint(
+        self,
+        original_task: str,
+        current_phase: Phase,
+        status_block: dict[str, Any],
+    ) -> None:
+        """Write a progress checkpoint for context compaction.
+
+        This creates a condensed summary of progress that can be used to
+        restore context efficiently after compaction or when resuming work.
+
+        Args:
+            original_task: The original user task
+            current_phase: Current workflow phase
+            status_block: Status block from last iteration
+        """
+        # Count tasks completed and remaining from plan
+        tasks_completed = 0
+        tasks_remaining = 0
+        if self.plan_file.exists():
+            plan_content = self.plan_file.read_text()
+            tasks_completed = plan_content.count("- [x]")
+            tasks_remaining = plan_content.count("- [ ]")
+
+        # Determine current state from status block
+        status = status_block.get("status", "IN_PROGRESS")
+        recommendation = status_block.get("recommendation", "")
+        current_state = f"Status: {status}. {recommendation}"
+
+        # Extract recent work from decisions log
+        recent_work = extract_recent_work(self.decisions_file, max_items=5)
+
+        # Check for blockers
+        blockers: list[str] = []
+        blocked_reason = status_block.get("blocked_reason", "")
+        if blocked_reason:
+            blockers.append(blocked_reason)
+
+        # Determine approach based on phase
+        approach = f"Executing Phase {current_phase.value} ({current_phase.name_str})"
+        if current_phase == Phase.PLAN:
+            approach = "Analyzing task and creating implementation plan"
+        elif current_phase == Phase.IMPLEMENT:
+            approach = "Implementing plan tasks one by one with atomic commits"
+        elif current_phase == Phase.REVIEW:
+            approach = "Reviewing changes for bugs, patterns, and quality"
+        elif current_phase == Phase.TEST:
+            approach = "Running tests and fixing any failures"
+        elif current_phase == Phase.FINAL_REVIEW:
+            approach = "Final review of all changes before commit"
+        elif current_phase == Phase.COMMIT:
+            approach = "Committing remaining changes"
+        elif current_phase == Phase.DISCOVER:
+            approach = "Researching codebase to understand patterns and structure"
+        elif current_phase == Phase.ROADMAP:
+            approach = "Documenting future improvements and technical debt"
+
+        # Write the checkpoint
+        write_progress_checkpoint(
+            log_path=self.decisions_file,
+            original_task=original_task,
+            current_phase=current_phase,
+            cycle=self.state.cycle_iterations + 1,  # Display as 1-indexed
+            iteration=self.state.total_iterations,
+            tasks_completed=tasks_completed,
+            tasks_remaining=tasks_remaining,
+            current_state=current_state,
+            approach=approach,
+            recent_work=recent_work,
+            blockers=blockers if blockers else None,
+        )
+
+        logger.info(f"Progress checkpoint written at iteration {self.state.total_iterations}")
 
 
 class WorkflowError(Exception):

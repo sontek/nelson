@@ -7,6 +7,7 @@ import pytest
 from pytest import MonkeyPatch
 
 from nelson.config import NelsonConfig
+from nelson.depth import DepthConfig, DepthMode
 
 
 class TestNelsonConfig:
@@ -298,3 +299,64 @@ class TestNelsonConfig:
         assert config.audit_dir == cwd / ".nelson" / "audit"
         assert config.runs_dir == cwd / ".nelson" / "runs"
         assert config.target_path is None
+
+
+class TestNelsonConfigDepth:
+    """Tests for NelsonConfig depth property."""
+
+    def test_depth_property_lazy_loads(self, monkeypatch: MonkeyPatch) -> None:
+        """Test that depth property lazy loads from environment."""
+        # Clear environment
+        for key in list(os.environ.keys()):
+            if key.startswith("NELSON_"):
+                monkeypatch.delenv(key, raising=False)
+        monkeypatch.setenv("NELSON_CLAUDE_COMMAND", "claude")
+
+        config = NelsonConfig.from_environment()
+
+        # Should lazy load and return DepthConfig
+        depth = config.depth
+        assert isinstance(depth, DepthConfig)
+        assert depth.mode == DepthMode.STANDARD  # Default
+
+    def test_depth_property_quick_mode(self, monkeypatch: MonkeyPatch) -> None:
+        """Test depth property with NELSON_DEPTH=quick."""
+        monkeypatch.setenv("NELSON_DEPTH", "quick")
+        monkeypatch.setenv("NELSON_CLAUDE_COMMAND", "claude")
+
+        config = NelsonConfig.from_environment()
+
+        assert config.depth.mode == DepthMode.QUICK
+        assert config.depth.lean_prompts is True
+        assert config.depth.skip_final_review is True
+
+    def test_depth_property_comprehensive_mode(self, monkeypatch: MonkeyPatch) -> None:
+        """Test depth property with NELSON_DEPTH=comprehensive."""
+        monkeypatch.setenv("NELSON_DEPTH", "comprehensive")
+        monkeypatch.setenv("NELSON_CLAUDE_COMMAND", "claude")
+
+        config = NelsonConfig.from_environment()
+
+        assert config.depth.mode == DepthMode.COMPREHENSIVE
+        assert config.depth.include_research is True
+        assert config.depth.skip_roadmap is False
+
+    def test_depth_property_case_insensitive(self, monkeypatch: MonkeyPatch) -> None:
+        """Test depth property handles case insensitive values."""
+        monkeypatch.setenv("NELSON_DEPTH", "QUICK")
+        monkeypatch.setenv("NELSON_CLAUDE_COMMAND", "claude")
+
+        config = NelsonConfig.from_environment()
+
+        assert config.depth.mode == DepthMode.QUICK
+
+    def test_depth_property_invalid_defaults_to_standard(
+        self, monkeypatch: MonkeyPatch
+    ) -> None:
+        """Test depth property with invalid value defaults to standard."""
+        monkeypatch.setenv("NELSON_DEPTH", "invalid_mode")
+        monkeypatch.setenv("NELSON_CLAUDE_COMMAND", "claude")
+
+        config = NelsonConfig.from_environment()
+
+        assert config.depth.mode == DepthMode.STANDARD

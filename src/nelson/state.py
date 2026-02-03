@@ -56,6 +56,9 @@ class NelsonState:
     # Exit tracking
     exit_signal_received: bool = False
 
+    # Deviation tracking
+    deviations: list[dict[str, Any]] = field(default_factory=list)
+
     def increment_iteration(self) -> None:
         """Increment both total and phase iteration counters."""
         self.total_iterations += 1
@@ -137,6 +140,36 @@ class NelsonState:
         self.phase_name = phase_name
         self.reset_phase_iterations()
         self.update_timestamp()
+
+    def record_deviation(self, deviation_dict: dict[str, Any]) -> None:
+        """Record a deviation that was applied.
+
+        Args:
+            deviation_dict: Serialized Deviation object
+        """
+        self.deviations.append(deviation_dict)
+        self.update_timestamp()
+
+    def get_task_deviation_count(self, task_id: str | None) -> int:
+        """Get number of deviations for a specific task.
+
+        Args:
+            task_id: Task ID to count deviations for, or None for all
+
+        Returns:
+            Number of deviations for the task
+        """
+        if task_id is None:
+            return len(self.deviations)
+        return sum(1 for d in self.deviations if d.get("task_id") == task_id)
+
+    def get_all_deviations(self) -> list[dict[str, Any]]:
+        """Get all recorded deviations.
+
+        Returns:
+            List of deviation dictionaries
+        """
+        return list(self.deviations)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert state to dictionary for JSON serialization.

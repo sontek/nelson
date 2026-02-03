@@ -2,7 +2,7 @@
 
 import json
 import subprocess
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -31,6 +31,21 @@ def _create_status_block(
         f"RECOMMENDATION: {recommendation}\n"
         f"---END_NELSON_STATUS---"
     )
+
+
+def _create_mock_popen(
+    stdout: str = "",
+    stderr: str = "",
+    returncode: int = 0,
+    pid: int = 12345,
+) -> MagicMock:
+    """Create a mock Popen object."""
+    mock_process = MagicMock()
+    mock_process.pid = pid
+    mock_process.returncode = returncode
+    mock_process.poll.return_value = returncode
+    mock_process.communicate.return_value = (stdout, stderr)
+    return mock_process
 
 
 class TestClaudeProviderInit:
@@ -69,14 +84,12 @@ class TestClaudeProviderExecution:
             "errors": [],
         }
 
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(
-                args=[],
-                returncode=0,
-                stdout=json.dumps(mock_response),
-                stderr="",
-            )
+        mock_process = _create_mock_popen(
+            stdout=json.dumps(mock_response),
+            returncode=0,
+        )
 
+        with patch("subprocess.Popen", return_value=mock_process):
             response = provider.execute(
                 system_prompt="System prompt",
                 user_prompt="User prompt",
@@ -91,7 +104,7 @@ class TestClaudeProviderExecution:
         """Test execution when claude command doesn't exist."""
         provider = ClaudeProvider("/nonexistent/claude")
 
-        with patch("subprocess.run", side_effect=FileNotFoundError()):
+        with patch("subprocess.Popen", side_effect=FileNotFoundError()):
             with pytest.raises(ProviderError) as exc_info:
                 provider.execute("system", "user", "sonnet")
 
@@ -102,16 +115,14 @@ class TestClaudeProviderExecution:
         """Test execution when claude returns non-zero exit code."""
         provider = ClaudeProvider()
 
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(
-                args=[],
-                returncode=1,
-                stdout="Error occurred",
-                stderr="",
-            )
+        mock_process = _create_mock_popen(
+            stdout="Error occurred",
+            returncode=1,
+        )
 
+        with patch("subprocess.Popen", return_value=mock_process), patch("time.sleep"):
             with pytest.raises(ProviderError) as exc_info:
-                provider.execute("system", "user", "sonnet")
+                provider.execute("system", "user", "sonnet", max_retries=1)
 
             # After max retries, error becomes non-retryable
             assert "Max retries reached" in exc_info.value.message
@@ -121,14 +132,12 @@ class TestClaudeProviderExecution:
         """Test execution when output is not valid JSON."""
         provider = ClaudeProvider()
 
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(
-                args=[],
-                returncode=0,
-                stdout="Not valid JSON",
-                stderr="",
-            )
+        mock_process = _create_mock_popen(
+            stdout="Not valid JSON",
+            returncode=0,
+        )
 
+        with patch("subprocess.Popen", return_value=mock_process):
             response = provider.execute("system", "user", "sonnet")
 
             assert response.is_error
@@ -144,14 +153,12 @@ class TestClaudeProviderExecution:
             "errors": ["Connection timeout"],
         }
 
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(
-                args=[],
-                returncode=0,
-                stdout=json.dumps(error_response),
-                stderr="",
-            )
+        mock_process = _create_mock_popen(
+            stdout=json.dumps(error_response),
+            returncode=0,
+        )
 
+        with patch("subprocess.Popen", return_value=mock_process), patch("time.sleep"):
             with pytest.raises(ProviderError) as exc_info:
                 provider.execute("system", "user", "sonnet", max_retries=1)
 
@@ -169,14 +176,12 @@ class TestClaudeProviderExecution:
             "errors": ["Authentication failed"],
         }
 
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(
-                args=[],
-                returncode=0,
-                stdout=json.dumps(error_response),
-                stderr="",
-            )
+        mock_process = _create_mock_popen(
+            stdout=json.dumps(error_response),
+            returncode=0,
+        )
 
+        with patch("subprocess.Popen", return_value=mock_process):
             with pytest.raises(ProviderError) as exc_info:
                 provider.execute("system", "user", "sonnet", max_retries=1)
 
@@ -192,16 +197,14 @@ class TestClaudeProviderExecution:
             "is_error": False,
         }
 
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(
-                args=[],
-                returncode=0,
-                stdout=json.dumps(response_json),
-                stderr="",
-            )
+        mock_process = _create_mock_popen(
+            stdout=json.dumps(response_json),
+            returncode=0,
+        )
 
+        with patch("subprocess.Popen", return_value=mock_process), patch("time.sleep"):
             with pytest.raises(ProviderError) as exc_info:
-                provider.execute("system", "user", "sonnet")
+                provider.execute("system", "user", "sonnet", max_retries=1)
 
             # After max retries, error becomes non-retryable
             assert "Max retries reached" in exc_info.value.message
@@ -225,27 +228,33 @@ class TestClaudeProviderExecution:
             "is_error": False,
         }
 
-        with patch("subprocess.run") as mock_run, patch("time.sleep"):
-            mock_run.side_effect = [
-                subprocess.CompletedProcess(
-                    args=[],
-                    returncode=0,
-                    stdout=json.dumps(error_response),
-                    stderr="",
-                ),
-                subprocess.CompletedProcess(
-                    args=[],
-                    returncode=0,
-                    stdout=json.dumps(success_response),
-                    stderr="",
-                ),
-            ]
+        mock_process_fail = _create_mock_popen(
+            stdout=json.dumps(error_response),
+            returncode=0,
+        )
+        mock_process_success = _create_mock_popen(
+            stdout=json.dumps(success_response),
+            returncode=0,
+        )
 
-            response = provider.execute("system", "user", "sonnet", max_retries=3, retry_delay=0.1)
+        call_count = [0]
+
+        def mock_popen_side_effect(*args, **kwargs):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                return mock_process_fail
+            return mock_process_success
+
+        with patch("subprocess.Popen", side_effect=mock_popen_side_effect), patch(
+            "time.sleep"
+        ):
+            response = provider.execute(
+                "system", "user", "sonnet", max_retries=3, retry_delay=0.1
+            )
 
             assert not response.is_error
             assert "Success" in response.content
-            assert mock_run.call_count == 2
+            assert call_count[0] == 2
 
     def test_execute_max_retries_exceeded(self) -> None:
         """Test retry logic when max retries exceeded."""
@@ -256,20 +265,26 @@ class TestClaudeProviderExecution:
             "errors": ["Persistent error"],
         }
 
-        with patch("subprocess.run") as mock_run, patch("time.sleep"):
-            mock_run.return_value = subprocess.CompletedProcess(
-                args=[],
-                returncode=0,
-                stdout=json.dumps(error_response),
-                stderr="",
-            )
+        mock_process = _create_mock_popen(
+            stdout=json.dumps(error_response),
+            returncode=0,
+        )
 
+        call_count = [0]
+
+        def mock_popen_counting(*args, **kwargs):
+            call_count[0] += 1
+            return mock_process
+
+        with patch("subprocess.Popen", side_effect=mock_popen_counting), patch(
+            "time.sleep"
+        ):
             with pytest.raises(ProviderError) as exc_info:
                 provider.execute("system", "user", "sonnet", max_retries=2)
 
             assert "Max retries reached" in exc_info.value.message
             assert not exc_info.value.is_retryable
-            assert mock_run.call_count == 2
+            assert call_count[0] == 2
 
 
 class TestClaudeProviderJailMode:
@@ -306,7 +321,9 @@ class TestStripAnsiCodes:
         """Test stripping ANSI escape sequences."""
         provider = ClaudeProvider()
 
-        text_with_ansi = "\x1b[31mRed text\x1b[0m Normal text \x1b[1;32mBold green\x1b[0m"
+        text_with_ansi = (
+            "\x1b[31mRed text\x1b[0m Normal text \x1b[1;32mBold green\x1b[0m"
+        )
         clean_text = provider._strip_ansi_codes(text_with_ansi)
 
         assert "\x1b" not in clean_text

@@ -55,7 +55,8 @@ class PRDOrchestrator:
             prd_dir: Path to .nelson/prd directory (default: .nelson/prd)
             target_path: Optional target repository path (default: current directory)
         """
-        self.prd_file = prd_file
+        # Convert to absolute path so Nelson knows where to find it
+        self.prd_file = prd_file.resolve()
         self.target_path = target_path
 
         # PRD directory should be relative to target path, not CWD
@@ -440,9 +441,14 @@ Analyze this task, create the appropriate git branch, and return the JSON."""
                         + "\n".join(subtask_lines)
                     )
                     task_prompt += (
-                        "\n\nNOTE: These subtasks are verification/completion steps. "
-                        "First complete the MAIN TASK described above, then verify these. "
-                        f"When done, edit {self.prd_file} - change '- [ ]' to '- [x]'."
+                        "\n\n"
+                        "IMPORTANT: After completing and verifying each subtask above:\n"
+                        f"1. Use the Edit tool to open: {self.prd_file}\n"
+                        "2. Find the subtask line under this task's section\n"
+                        "3. Change the checkbox from '- [ ]' to '- [x]' for each completed subtask\n"
+                        "4. This marks the subtask as done and prevents re-running the work\n"
+                        "\n"
+                        "The task is NOT complete until ALL subtasks above are marked [x] in the PRD file."
                     )
 
         # Prepend resume context if present
@@ -592,9 +598,14 @@ The following subtasks are still incomplete and MUST be completed:
 Original task context:
 {task_text}
 
-IMPORTANT: Complete ALL the unchecked subtasks above.
-When you complete each subtask, mark it done in {self.prd_file} (change '[ ]' to '[x]').
-The task is not complete until all subtasks are marked [x] in the PRD file.
+CRITICAL: After completing and verifying each subtask:
+1. Use the Edit tool to open: {self.prd_file}
+2. Find the subtask line under task {task_id}
+3. Change '- [ ]' to '- [x]' for each completed subtask
+4. Save the file
+
+The subtasks will be re-checked. If they remain unchecked in the file,
+this work will be repeated. YOU MUST update the checkboxes to mark completion.
 """
 
                 # Build args for retry

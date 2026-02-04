@@ -8,6 +8,7 @@ the Nelson status block from responses.
 from __future__ import annotations
 
 import json
+import random
 import re
 import subprocess
 import tempfile
@@ -71,18 +72,24 @@ class ClaudeProvider(AIProvider):
         system_prompt: str,
         user_prompt: str,
         model: str,
-        max_retries: int = 3,
-        retry_delay: float = 3.0,
+        max_retries: int = 7,
+        initial_retry_delay: float = 3.0,
+        max_retry_delay: float = 900.0,
+        exponential_base: float = 2.0,
+        jitter: bool = True,
         progress_monitor: ProgressMonitor | None = None,
     ) -> AIResponse:
-        """Execute Claude call with retry logic.
+        """Execute Claude call with exponential backoff retry logic.
 
         Args:
             system_prompt: System-level prompt with Nelson instructions
             user_prompt: User/task-specific prompt
             model: Model identifier (sonnet, opus, haiku)
             max_retries: Maximum retry attempts for transient errors
-            retry_delay: Delay between retries in seconds
+            initial_retry_delay: Initial delay in seconds before first retry
+            max_retry_delay: Maximum delay cap in seconds (prevents infinite growth)
+            exponential_base: Multiplier for exponential backoff (typically 2.0)
+            jitter: Add randomness to delays to avoid thundering herd
             progress_monitor: Optional progress monitor to notify with subprocess PID
 
         Returns:
@@ -136,11 +143,21 @@ Before retrying the task, diagnose and fix the root cause of this error.
                 last_error = e
                 retry_count += 1
                 if retry_count < max_retries:
+                    # Calculate exponential backoff delay
+                    delay = min(
+                        initial_retry_delay * (exponential_base ** (retry_count - 1)),
+                        max_retry_delay
+                    )
+
+                    # Add jitter to avoid thundering herd (50-100% of calculated delay)
+                    if jitter:
+                        delay = delay * (0.5 + random.random() * 0.5)
+
                     logger.warning(
                         f"Error detected (attempt {retry_count}/{max_retries}): {e.message}"
                     )
-                    logger.info(f"Retrying in {retry_delay} seconds...")
-                    time.sleep(retry_delay)
+                    logger.info(f"Retrying in {delay:.1f} seconds...")
+                    time.sleep(delay)
 
                     # Reset progress monitor timer for the retry attempt
                     if progress_monitor:

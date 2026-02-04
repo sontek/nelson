@@ -776,8 +776,11 @@ class WorkflowOrchestrator:
                 system_prompt=system_prompt,
                 user_prompt=full_prompt,
                 model=model,
-                max_retries=3,
-                retry_delay=3.0,
+                max_retries=self.config.max_retries,
+                initial_retry_delay=self.config.initial_retry_delay,
+                max_retry_delay=self.config.max_retry_delay,
+                exponential_base=self.config.exponential_base,
+                jitter=self.config.retry_jitter,
                 progress_monitor=progress_monitor,
             )
         finally:

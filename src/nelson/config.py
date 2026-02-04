@@ -71,6 +71,13 @@ class NelsonConfig:
     error_aware_retries: bool = True  # Include error context in retry prompts
     max_error_context_chars: int = 2000  # Max chars of error context to include in retries
 
+    # API retry configuration
+    max_retries: int = 7  # Maximum number of retry attempts
+    initial_retry_delay: float = 3.0  # Initial delay in seconds before first retry
+    max_retry_delay: float = 900.0  # Maximum delay cap in seconds (15 minutes)
+    exponential_base: float = 2.0  # Exponential backoff multiplier
+    retry_jitter: bool = True  # Add jitter to retry delays to avoid thundering herd
+
     @property
     def interaction(self) -> InteractionConfig:
         """Get interaction configuration.
@@ -152,6 +159,17 @@ class NelsonConfig:
         )
         max_error_context_chars = int(os.getenv("NELSON_MAX_ERROR_CONTEXT_CHARS", "2000"))
 
+        # API retry configuration
+        max_retries = int(os.getenv("NELSON_MAX_RETRIES", "7"))
+        initial_retry_delay = float(os.getenv("NELSON_INITIAL_RETRY_DELAY", "3.0"))
+        max_retry_delay = float(os.getenv("NELSON_MAX_RETRY_DELAY", "900.0"))
+        exponential_base = float(os.getenv("NELSON_EXPONENTIAL_BASE", "2.0"))
+        retry_jitter = os.getenv("NELSON_RETRY_JITTER", "true").lower() in (
+            "true",
+            "1",
+            "yes",
+        )
+
         # Directory configuration
         # If target_path is provided, make directories relative to it
         # Otherwise, they're relative to current working directory
@@ -192,6 +210,11 @@ class NelsonConfig:
             stall_timeout_minutes=stall_timeout_minutes,
             error_aware_retries=error_aware_retries,
             max_error_context_chars=max_error_context_chars,
+            max_retries=max_retries,
+            initial_retry_delay=initial_retry_delay,
+            max_retry_delay=max_retry_delay,
+            exponential_base=exponential_base,
+            retry_jitter=retry_jitter,
             nelson_dir=nelson_dir,
             audit_dir=audit_dir,
             runs_dir=runs_dir,

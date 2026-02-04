@@ -249,7 +249,7 @@ class TestClaudeProviderExecution:
             "time.sleep"
         ):
             response = provider.execute(
-                "system", "user", "sonnet", max_retries=3, retry_delay=0.1
+                "system", "user", "sonnet", max_retries=3, initial_retry_delay=0.1
             )
 
             assert not response.is_error
@@ -285,6 +285,131 @@ class TestClaudeProviderExecution:
             assert "Max retries reached" in exc_info.value.message
             assert not exc_info.value.is_retryable
             assert call_count[0] == 2
+
+    def test_exponential_backoff_delays(self) -> None:
+        """Test that exponential backoff calculates delays correctly."""
+        provider = ClaudeProvider()
+        error_response = {
+            "type": "error",
+            "is_error": True,
+            "errors": ["Persistent error"],
+        }
+
+        mock_process = _create_mock_popen(
+            stdout=json.dumps(error_response),
+            returncode=0,
+        )
+
+        sleep_delays = []
+
+        def mock_sleep(delay):
+            sleep_delays.append(delay)
+
+        with patch("subprocess.Popen", return_value=mock_process), patch(
+            "time.sleep", side_effect=mock_sleep
+        ):
+            with pytest.raises(ProviderError):
+                provider.execute(
+                    "system",
+                    "user",
+                    "sonnet",
+                    max_retries=5,
+                    initial_retry_delay=2.0,
+                    exponential_base=2.0,
+                    max_retry_delay=1000.0,
+                    jitter=False,  # Disable jitter for predictable testing
+                )
+
+        # With initial_delay=2.0, base=2.0, we expect: 2, 4, 8, 16
+        assert len(sleep_delays) == 4  # 5 attempts = 4 retries
+        assert sleep_delays[0] == 2.0  # 2.0 * 2^0
+        assert sleep_delays[1] == 4.0  # 2.0 * 2^1
+        assert sleep_delays[2] == 8.0  # 2.0 * 2^2
+        assert sleep_delays[3] == 16.0  # 2.0 * 2^3
+
+    def test_exponential_backoff_with_cap(self) -> None:
+        """Test that exponential backoff respects max_retry_delay cap."""
+        provider = ClaudeProvider()
+        error_response = {
+            "type": "error",
+            "is_error": True,
+            "errors": ["Persistent error"],
+        }
+
+        mock_process = _create_mock_popen(
+            stdout=json.dumps(error_response),
+            returncode=0,
+        )
+
+        sleep_delays = []
+
+        def mock_sleep(delay):
+            sleep_delays.append(delay)
+
+        with patch("subprocess.Popen", return_value=mock_process), patch(
+            "time.sleep", side_effect=mock_sleep
+        ):
+            with pytest.raises(ProviderError):
+                provider.execute(
+                    "system",
+                    "user",
+                    "sonnet",
+                    max_retries=6,
+                    initial_retry_delay=10.0,
+                    exponential_base=2.0,
+                    max_retry_delay=50.0,  # Cap at 50 seconds
+                    jitter=False,
+                )
+
+        # With initial_delay=10.0, base=2.0, cap=50.0
+        # Expected: 10, 20, 40, 50 (capped), 50 (capped)
+        assert len(sleep_delays) == 5
+        assert sleep_delays[0] == 10.0  # 10 * 2^0
+        assert sleep_delays[1] == 20.0  # 10 * 2^1
+        assert sleep_delays[2] == 40.0  # 10 * 2^2
+        assert sleep_delays[3] == 50.0  # 10 * 2^3 = 80, but capped at 50
+        assert sleep_delays[4] == 50.0  # 10 * 2^4 = 160, but capped at 50
+
+    def test_exponential_backoff_with_jitter(self) -> None:
+        """Test that jitter adds randomness to delays."""
+        provider = ClaudeProvider()
+        error_response = {
+            "type": "error",
+            "is_error": True,
+            "errors": ["Persistent error"],
+        }
+
+        mock_process = _create_mock_popen(
+            stdout=json.dumps(error_response),
+            returncode=0,
+        )
+
+        sleep_delays = []
+
+        def mock_sleep(delay):
+            sleep_delays.append(delay)
+
+        with patch("subprocess.Popen", return_value=mock_process), patch(
+            "time.sleep", side_effect=mock_sleep
+        ):
+            with pytest.raises(ProviderError):
+                provider.execute(
+                    "system",
+                    "user",
+                    "sonnet",
+                    max_retries=4,
+                    initial_retry_delay=10.0,
+                    exponential_base=2.0,
+                    max_retry_delay=1000.0,
+                    jitter=True,  # Enable jitter
+                )
+
+        # With jitter, delays should be 50-100% of calculated value
+        # Expected ranges: [5-10], [10-20], [20-40]
+        assert len(sleep_delays) == 3
+        assert 5.0 <= sleep_delays[0] <= 10.0  # 10.0 * 2^0 with jitter
+        assert 10.0 <= sleep_delays[1] <= 20.0  # 10.0 * 2^1 with jitter
+        assert 20.0 <= sleep_delays[2] <= 40.0  # 10.0 * 2^2 with jitter
 
 
 class TestClaudeProviderJailMode:

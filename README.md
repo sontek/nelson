@@ -121,6 +121,13 @@ export NELSON_REVIEW_MODEL=sonnet          # Model for Phase 3 & 5 (default: NEL
 export NELSON_CLAUDE_COMMAND=claude        # Claude command (default: claude-jail)
 export NELSON_AUTO_APPROVE_PUSH=false      # Skip push approval (default: false)
 export NELSON_STALL_TIMEOUT_MINUTES=15     # Minutes before killing stalled process (default: 15)
+
+# API Retry Configuration (for handling temporary API outages)
+export NELSON_MAX_RETRIES=7                # Max retry attempts (default: 7)
+export NELSON_INITIAL_RETRY_DELAY=3.0      # Initial delay in seconds (default: 3.0)
+export NELSON_MAX_RETRY_DELAY=900.0        # Max delay cap in seconds (default: 900.0 = 15 min)
+export NELSON_EXPONENTIAL_BASE=2.0         # Backoff multiplier (default: 2.0)
+export NELSON_RETRY_JITTER=true            # Add randomness to delays (default: true)
 ```
 
 ## How It Works

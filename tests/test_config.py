@@ -35,6 +35,11 @@ class TestNelsonConfig:
         assert config.plan_model == "sonnet"
         assert config.review_model == "sonnet"
         assert config.auto_approve_push is False
+        assert config.max_retries == 7
+        assert config.initial_retry_delay == 3.0
+        assert config.max_retry_delay == 900.0
+        assert config.exponential_base == 2.0
+        assert config.retry_jitter is True
 
     def test_explicit_max_iterations(self, monkeypatch: MonkeyPatch) -> None:
         """Test that max_iterations_explicit is set when user provides value."""

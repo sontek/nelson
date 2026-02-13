@@ -333,7 +333,7 @@ class TestNelsonConfigDepth:
 
         assert config.depth.mode == DepthMode.QUICK
         assert config.depth.lean_prompts is True
-        assert config.depth.skip_final_review is True
+        assert config.depth.skip_review is True
 
     def test_depth_property_comprehensive_mode(self, monkeypatch: MonkeyPatch) -> None:
         """Test depth property with NELSON_DEPTH=comprehensive."""

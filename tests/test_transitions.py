@@ -147,7 +147,7 @@ class TestHasUncheckedTasks:
         """Phase with unchecked parent should be considered incomplete."""
         plan_content = """# Implementation Plan
 
-## Phase 4: TEST
+## Phase 3: TEST
 
 - [ ] Write 70+ integration tests in test_branch_sync_service.py:
   - [ ] Test sync_all_branches creates new Branch records
@@ -158,7 +158,7 @@ class TestHasUncheckedTasks:
         plan_file = tmp_path / "plan.md"
         plan_file.write_text(plan_content)
 
-        # Phase 4 should be incomplete because the parent task is unchecked
+        # Phase 3 should be incomplete because the parent task is unchecked
         assert has_unchecked_tasks(Phase.TEST, plan_file)
 
 
@@ -187,15 +187,16 @@ class TestDetermineNextPhase:
         next_phase = determine_next_phase(Phase.PLAN, sample_plan_file)
         assert next_phase == Phase.IMPLEMENT
 
-    def test_implement_to_review(self, sample_plan_file: Path) -> None:
-        """Phase 2 always advances to Phase 3."""
+    def test_implement_to_test(self, sample_plan_file: Path) -> None:
+        """Phase 2 always advances to Phase 3 (TEST)."""
         next_phase = determine_next_phase(Phase.IMPLEMENT, sample_plan_file)
-        assert next_phase == Phase.REVIEW
+        assert next_phase == Phase.TEST
 
-    def test_review_loops_when_unchecked(self, sample_plan_file: Path) -> None:
-        """Phase 3 loops when it has unchecked tasks."""
+    def test_review_loops_back_to_implement_when_fixes_needed(self, sample_plan_file: Path) -> None:
+        """Phase 4 loops back to IMPLEMENT when there are unchecked IMPLEMENT tasks."""
+        # sample_plan_file has unchecked task in Phase 2 (IMPLEMENT)
         next_phase = determine_next_phase(Phase.REVIEW, sample_plan_file)
-        assert next_phase == Phase.REVIEW
+        assert next_phase == Phase.IMPLEMENT
 
     def test_test_loops_when_unchecked(self, tmp_path: Path) -> None:
         """Phase 3 loops when it has unchecked tasks."""
@@ -273,11 +274,11 @@ class TestShouldTransitionPhase:
 
     def test_looping_phase_with_incomplete_tasks(self, sample_plan_file: Path) -> None:
         """Looping phase does NOT transition when tasks are incomplete."""
-        # Phase 3 (REVIEW) is looping and has unchecked tasks
+        # Phase 4 (REVIEW) has unchecked tasks in Phase 2 (IMPLEMENT)
         assert not should_transition_phase(Phase.REVIEW, sample_plan_file, exit_signal=True)
-        # Phase 4 (TEST) is looping - check with incomplete phase
+        # Phase 3 (TEST) is looping - check with incomplete phase
         plan_content = """
-## Phase 4: TEST
+## Phase 3: TEST
 - [ ] Test not passing
 """
         plan_file = sample_plan_file.parent / "incomplete_test.md"
@@ -285,7 +286,7 @@ class TestShouldTransitionPhase:
         assert not should_transition_phase(Phase.TEST, plan_file, exit_signal=True)
 
     def test_commit_phase_with_complete_tasks(self, all_complete_plan_file: Path) -> None:
-        """Phase 6 (COMMIT) transitions when complete and EXIT_SIGNAL=True."""
+        """Phase 5 (COMMIT) transitions when complete and EXIT_SIGNAL=True."""
         assert should_transition_phase(Phase.COMMIT, all_complete_plan_file, exit_signal=True)
 
 
@@ -306,30 +307,22 @@ class TestTransitionIntegration:
             next_phase = determine_next_phase(current, all_complete_plan_file)
             assert next_phase == expected_next
 
-    def test_review_loop_until_complete(self, tmp_path: Path) -> None:
-        """Test Phase 3 (REVIEW) loops until tasks are complete."""
-        # Start with incomplete review
+    def test_review_advances_to_commit_when_complete(self, tmp_path: Path) -> None:
+        """Test Phase 4 (REVIEW) advances to COMMIT when no issues found."""
+        # Review complete, no Fix tasks in IMPLEMENT
         plan_content = """
-## Phase 3: REVIEW
-- [ ] Review task
+## Phase 2: IMPLEMENT
+- [x] Implemented feature
+
+## Phase 4: REVIEW
+- [x] Review completed
 """
         plan_file = tmp_path / "plan.md"
         plan_file.write_text(plan_content)
 
-        # Should loop
+        # Should advance to COMMIT
         next_phase = determine_next_phase(Phase.REVIEW, plan_file)
-        assert next_phase == Phase.REVIEW
-
-        # Mark complete
-        plan_content = """
-## Phase 3: REVIEW
-- [x] Review task
-"""
-        plan_file.write_text(plan_content)
-
-        # Should advance
-        next_phase = determine_next_phase(Phase.REVIEW, plan_file)
-        assert next_phase == Phase.TEST
+        assert next_phase == Phase.COMMIT
 
     def test_final_review_returns_to_implement(self, tmp_path: Path) -> None:
         """Test Phase 4 returns to Phase 2 when critical issues found."""
@@ -353,11 +346,11 @@ class TestTransitionIntegration:
         next_phase = determine_next_phase(Phase.PLAN, sample_plan_file, should_advance=True)
         assert next_phase == Phase.IMPLEMENT
 
-        # Phase 3 (looping) with EXIT_SIGNAL but incomplete tasks
+        # Phase 4 (REVIEW) with EXIT_SIGNAL but incomplete IMPLEMENT tasks
+        # REVIEW should loop back to IMPLEMENT since there are unchecked tasks in Phase 2
         assert not should_transition_phase(Phase.REVIEW, sample_plan_file, exit_signal=True)
-        # Should stay in REVIEW due to incomplete tasks
         next_phase = determine_next_phase(Phase.REVIEW, sample_plan_file)
-        assert next_phase == Phase.REVIEW
+        assert next_phase == Phase.IMPLEMENT  # Loops back to fix issues
 
 
 class TestComprehensiveMode:

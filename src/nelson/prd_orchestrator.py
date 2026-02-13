@@ -47,7 +47,7 @@ class PRDOrchestrator:
 
     def __init__(
         self, prd_file: Path, prd_dir: Path | None = None, target_path: Path | None = None
-    ):
+    ) -> None:
         """Initialize orchestrator.
 
         Args:
@@ -249,9 +249,7 @@ Analyze this task, create the appropriate git branch, and return the JSON."""
             # Verify with git that we're actually on this branch
             actual_branch = get_current_branch(self.target_path)
             if actual_branch != branch_info["branch"]:
-                logger.warning(
-                    f"Git shows branch '{actual_branch}' but Claude reported '{branch}'"
-                )
+                logger.warning(f"Git shows branch '{actual_branch}' but Claude reported '{branch}'")
                 branch_info["branch"] = actual_branch
 
             return branch_info
@@ -428,6 +426,17 @@ Analyze this task, create the appropriate git branch, and return the JSON."""
             else:
                 task_prompt = task_text
 
+            # Include Implementation Context if present (global guidelines for all PRDs)
+            impl_context = self.parser.get_implementation_context()
+            if impl_context:
+                task_prompt = (
+                    f"{task_prompt}\n\n"
+                    "═══════════════════════════════════════════════════════════\n"
+                    "IMPLEMENTATION CONTEXT (applies to all PRDs):\n\n"
+                    f"{impl_context}\n"
+                    "═══════════════════════════════════════════════════════════\n"
+                )
+
             # Include subtasks in the prompt so Nelson knows about them
             if task and task.subtasks:
                 subtask_lines = []
@@ -445,10 +454,13 @@ Analyze this task, create the appropriate git branch, and return the JSON."""
                         "IMPORTANT: After completing and verifying each subtask above:\n"
                         f"1. Use the Edit tool to open: {self.prd_file}\n"
                         "2. Find the subtask line under this task's section\n"
-                        "3. Change the checkbox from '- [ ]' to '- [x]' for each completed subtask\n"
-                        "4. This marks the subtask as done and prevents re-running the work\n"
+                        "3. Change checkbox '- [ ]' to '- [x]' "
+                        "for each completed subtask\n"
+                        "4. This marks the subtask as done and prevents "
+                        "re-running the work\n"
                         "\n"
-                        "The task is NOT complete until ALL subtasks above are marked [x] in the PRD file."
+                        "The task is NOT complete until ALL subtasks above "
+                        "are marked [x] in the PRD file."
                     )
 
         # Prepend resume context if present

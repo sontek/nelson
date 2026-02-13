@@ -49,6 +49,10 @@ class NelsonState:
     no_work_cycles: int = 0  # Count of consecutive cycles with "no implementation work"
     blocked_iterations: int = 0  # Consecutive iterations with BLOCKED status
 
+    # Phase completion stall detection
+    last_unchecked_task_count: int = 0  # Number of unchecked tasks in phase at last check
+    phase_stall_iterations: int = 0  # Iterations without checking off tasks in this phase
+
     # Phase tracking
     current_phase: int = 1
     phase_name: str = "PLAN"
@@ -139,6 +143,9 @@ class NelsonState:
         self.current_phase = new_phase
         self.phase_name = phase_name
         self.reset_phase_iterations()
+        # Reset phase completion stall detection
+        self.phase_stall_iterations = 0
+        self.last_unchecked_task_count = 0
         self.update_timestamp()
 
     def record_deviation(self, deviation_dict: dict[str, Any]) -> None:

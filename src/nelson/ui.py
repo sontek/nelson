@@ -15,7 +15,6 @@ from typing import TYPE_CHECKING
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from rich.text import Text
 
 if TYPE_CHECKING:
     from nelson.phases import Phase
@@ -79,8 +78,7 @@ def display_task_progress(task_number: int, total_tasks: int, task_name: str) ->
     percent = int((task_number / total_tasks) * 100) if total_tasks > 0 else 0
 
     content = (
-        f"[cyan]Task [{task_number}/{total_tasks}][/cyan] ({percent}%)\n"
-        f"[dim]{task_name}[/dim]"
+        f"[cyan]Task [{task_number}/{total_tasks}][/cyan] ({percent}%)\n[dim]{task_name}[/dim]"
     )
 
     console.print(Panel(content, border_style="cyan", padding=(0, 1)))
@@ -181,12 +179,14 @@ def display_blocked_prompt(reason: str, resources: list[str], suggestion: str | 
         content_parts.append(f"[bold green]Suggestion:[/bold green] {suggestion}")
         content_parts.append("")
 
-    console.print(Panel(
-        "\n".join(content_parts),
-        title="[bold red]Task Blocked[/bold red]",
-        border_style="red",
-        padding=(1, 2),
-    ))
+    console.print(
+        Panel(
+            "\n".join(content_parts),
+            title="[bold red]Task Blocked[/bold red]",
+            border_style="red",
+            padding=(1, 2),
+        )
+    )
 
 
 def display_verification_results(passed: int, failed: int, total: int) -> None:
@@ -206,12 +206,14 @@ def display_verification_results(passed: int, failed: int, total: int) -> None:
         f"[red]Checks Failed:[/red] {failed}/{total}"
     )
 
-    console.print(Panel(
-        content,
-        title="[bold cyan]Verification Results[/bold cyan]",
-        border_style=style,
-        padding=(1, 2),
-    ))
+    console.print(
+        Panel(
+            content,
+            title="[bold cyan]Verification Results[/bold cyan]",
+            border_style=style,
+            padding=(1, 2),
+        )
+    )
 
 
 def display_deviation_summary(auto_fixes: int, blocked: int) -> None:
@@ -227,17 +229,24 @@ def display_deviation_summary(auto_fixes: int, blocked: int) -> None:
     content_parts = []
 
     if auto_fixes > 0:
-        content_parts.append(f"[green]✓ Applied {auto_fixes} auto-fix{'es' if auto_fixes != 1 else ''}[/green]")
+        content_parts.append(
+            f"[green]✓ Applied {auto_fixes} auto-fix{'es' if auto_fixes != 1 else ''}[/green]"
+        )
 
     if blocked > 0:
-        content_parts.append(f"[yellow]⚠ Blocked {blocked} deviation{'s' if blocked != 1 else ''} (rule disabled)[/yellow]")
+        plural = "s" if blocked != 1 else ""
+        content_parts.append(
+            f"[yellow]⚠ Blocked {blocked} deviation{plural} (rule disabled)[/yellow]"
+        )
 
-    console.print(Panel(
-        "\n".join(content_parts),
-        title="[bold cyan]Deviations[/bold cyan]",
-        border_style="cyan",
-        padding=(0, 1),
-    ))
+    console.print(
+        Panel(
+            "\n".join(content_parts),
+            title="[bold cyan]Deviations[/bold cyan]",
+            border_style="cyan",
+            padding=(0, 1),
+        )
+    )
 
 
 def display_planning_questions(num_questions: int) -> None:
@@ -246,7 +255,9 @@ def display_planning_questions(num_questions: int) -> None:
     Args:
         num_questions: Number of questions asked
     """
-    content = f"[cyan]Asked {num_questions} clarifying question{'s' if num_questions != 1 else ''}[/cyan]"
+    content = (
+        f"[cyan]Asked {num_questions} clarifying question{'s' if num_questions != 1 else ''}[/cyan]"
+    )
     console.print(Panel(content, border_style="cyan", padding=(0, 1)))
 
 

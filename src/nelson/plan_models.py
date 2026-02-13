@@ -233,9 +233,7 @@ class Plan:
 
     def is_complete(self) -> bool:
         """Check if all tasks are completed or skipped."""
-        return all(
-            t.status in (TaskStatus.COMPLETED, TaskStatus.SKIPPED) for t in self.tasks
-        )
+        return all(t.status in (TaskStatus.COMPLETED, TaskStatus.SKIPPED) for t in self.tasks)
 
     def completion_percentage(self) -> float:
         """Calculate completion percentage.
@@ -247,9 +245,7 @@ class Plan:
             return 100.0
 
         done_count = sum(
-            1
-            for t in self.tasks
-            if t.status in (TaskStatus.COMPLETED, TaskStatus.SKIPPED)
+            1 for t in self.tasks if t.status in (TaskStatus.COMPLETED, TaskStatus.SKIPPED)
         )
         return (done_count / len(self.tasks)) * 100.0
 
@@ -322,8 +318,6 @@ def compute_waves(tasks: list[Task]) -> dict[int, list[Task]]:
     # Check for circular dependencies
     if processed != len(tasks):
         unprocessed = [t.id for t in tasks if t.id not in task_waves]
-        raise WaveComputationError(
-            f"Circular dependency detected involving tasks: {unprocessed}"
-        )
+        raise WaveComputationError(f"Circular dependency detected involving tasks: {unprocessed}")
 
     return waves

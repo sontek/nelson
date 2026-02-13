@@ -5,7 +5,7 @@ from pathlib import Path
 from nelson.prd_task_state import TaskState, TaskStatus, _utc_timestamp
 
 
-def test_task_state_initialization():
+def test_task_state_initialization() -> None:
     """Test TaskState initialization with defaults."""
     state = TaskState(task_id="PRD-001", task_text="Add authentication", priority="high")
 
@@ -27,7 +27,7 @@ def test_task_state_initialization():
     assert state.updated_at is not None
 
 
-def test_task_state_start():
+def test_task_state_start() -> None:
     """Test starting a task."""
     state = TaskState(task_id="PRD-001", task_text="Test task", priority="high")
 
@@ -39,7 +39,7 @@ def test_task_state_start():
     assert state.started_at is not None
 
 
-def test_task_state_complete():
+def test_task_state_complete() -> None:
     """Test completing a task."""
     state = TaskState(task_id="PRD-001", task_text="Test task", priority="high")
     state.start("run-001", "feature/PRD-001-test")
@@ -50,7 +50,7 @@ def test_task_state_complete():
     assert state.completed_at is not None
 
 
-def test_task_state_fail():
+def test_task_state_fail() -> None:
     """Test failing a task."""
     state = TaskState(task_id="PRD-001", task_text="Test task", priority="high")
     state.start("run-001", "feature/PRD-001-test")
@@ -60,7 +60,7 @@ def test_task_state_fail():
     assert state.status == TaskStatus.FAILED
 
 
-def test_task_state_block():
+def test_task_state_block() -> None:
     """Test blocking a task."""
     state = TaskState(task_id="PRD-001", task_text="Test task", priority="high")
     state.start("run-001", "feature/PRD-001-test")
@@ -72,7 +72,7 @@ def test_task_state_block():
     assert state.blocked_at is not None
 
 
-def test_task_state_unblock():
+def test_task_state_unblock() -> None:
     """Test unblocking a task."""
     state = TaskState(task_id="PRD-001", task_text="Test task", priority="high")
     state.start("run-001", "feature/PRD-001-test")
@@ -86,7 +86,7 @@ def test_task_state_unblock():
     assert state.blocked_at is not None
 
 
-def test_task_state_update_cost():
+def test_task_state_update_cost() -> None:
     """Test updating task cost."""
     state = TaskState(task_id="PRD-001", task_text="Test task", priority="high")
 
@@ -97,7 +97,7 @@ def test_task_state_update_cost():
     assert state.cost_usd == 2.25
 
 
-def test_task_state_update_phase():
+def test_task_state_update_phase() -> None:
     """Test updating phase tracking."""
     state = TaskState(task_id="PRD-001", task_text="Test task", priority="high")
 
@@ -107,7 +107,7 @@ def test_task_state_update_phase():
     assert state.phase_name == "IMPLEMENT"
 
 
-def test_task_state_increment_iterations():
+def test_task_state_increment_iterations() -> None:
     """Test incrementing iteration counter."""
     state = TaskState(task_id="PRD-001", task_text="Test task", priority="high")
 
@@ -118,7 +118,7 @@ def test_task_state_increment_iterations():
     assert state.iterations == 6
 
 
-def test_task_state_to_dict():
+def test_task_state_to_dict() -> None:
     """Test converting TaskState to dictionary."""
     state = TaskState(
         task_id="PRD-001",
@@ -139,7 +139,7 @@ def test_task_state_to_dict():
     assert data["cost_usd"] == 1.5
 
 
-def test_task_state_from_dict():
+def test_task_state_from_dict() -> None:
     """Test creating TaskState from dictionary."""
     data = {
         "task_id": "PRD-001",
@@ -163,7 +163,7 @@ def test_task_state_from_dict():
     assert state.iterations == 5
 
 
-def test_task_state_save_load(tmp_path: Path):
+def test_task_state_save_load(tmp_path: Path) -> None:
     """Test saving and loading TaskState."""
     state_file = tmp_path / "PRD-001" / "state.json"
 
@@ -192,7 +192,7 @@ def test_task_state_save_load(tmp_path: Path):
     assert loaded.cost_usd == state.cost_usd
 
 
-def test_task_state_load_or_create_existing(tmp_path: Path):
+def test_task_state_load_or_create_existing(tmp_path: Path) -> None:
     """Test load_or_create with existing file."""
     state_file = tmp_path / "PRD-001" / "state.json"
 
@@ -209,7 +209,7 @@ def test_task_state_load_or_create_existing(tmp_path: Path):
     assert loaded.cost_usd == 5.0
 
 
-def test_task_state_load_or_create_new(tmp_path: Path):
+def test_task_state_load_or_create_new(tmp_path: Path) -> None:
     """Test load_or_create with non-existent file."""
     state_file = tmp_path / "PRD-001" / "state.json"
 
@@ -222,7 +222,7 @@ def test_task_state_load_or_create_new(tmp_path: Path):
     assert state.status == TaskStatus.PENDING
 
 
-def test_task_state_update_timestamp():
+def test_task_state_update_timestamp() -> None:
     """Test that operations update timestamp."""
     state = TaskState(task_id="PRD-001", task_text="Test task", priority="high")
     original_timestamp = state.updated_at
@@ -236,7 +236,7 @@ def test_task_state_update_timestamp():
     assert state.updated_at != original_timestamp
 
 
-def test_utc_timestamp_format():
+def test_utc_timestamp_format() -> None:
     """Test UTC timestamp format."""
     timestamp = _utc_timestamp()
 

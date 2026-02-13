@@ -355,9 +355,7 @@ class TestNelsonConfigDepth:
 
         assert config.depth.mode == DepthMode.QUICK
 
-    def test_depth_property_invalid_defaults_to_standard(
-        self, monkeypatch: MonkeyPatch
-    ) -> None:
+    def test_depth_property_invalid_defaults_to_standard(self, monkeypatch: MonkeyPatch) -> None:
         """Test depth property with invalid value defaults to standard."""
         monkeypatch.setenv("NELSON_DEPTH", "invalid_mode")
         monkeypatch.setenv("NELSON_CLAUDE_COMMAND", "claude")

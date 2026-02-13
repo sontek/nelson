@@ -183,13 +183,15 @@ def prompt_blocked_resolution(
         )
         content_parts.append("")
 
-    content_parts.extend([
-        "[dim]Options:[/dim]",
-        "  [1] I've resolved this - continue",
-        "  [2] Skip this task and continue",
-        "  [3] Stop execution",
-        "",
-    ])
+    content_parts.extend(
+        [
+            "[dim]Options:[/dim]",
+            "  [1] I've resolved this - continue",
+            "  [2] Skip this task and continue",
+            "  [3] Stop execution",
+            "",
+        ]
+    )
 
     # Display panel
     console.print(
@@ -250,11 +252,13 @@ def format_resolution_context(
     else:
         lines.append("**Status:** User confirmed the issue has been resolved")
 
-    lines.extend([
-        "",
-        "Please retry the blocked task with the issue now resolved.",
-        "",
-    ])
+    lines.extend(
+        [
+            "",
+            "Please retry the blocked task with the issue now resolved.",
+            "",
+        ]
+    )
 
     return "\n".join(lines)
 

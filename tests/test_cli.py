@@ -403,7 +403,6 @@ class TestGitAuthorValidation:
         """Test that workflow logs git author when properly configured."""
         import subprocess
 
-
         # Create a git repo with initial commit
         subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
         subprocess.run(

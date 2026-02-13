@@ -82,10 +82,7 @@ def validate_plan_for_questions(plan_file: Path) -> PlanValidationResult:
         PlanValidationResult with is_valid=True if no issues found
     """
     if not plan_file.exists():
-        return PlanValidationResult(
-            is_valid=False,
-            issues=["Plan file does not exist"]
-        )
+        return PlanValidationResult(is_valid=False, issues=["Plan file does not exist"])
 
     content = plan_file.read_text()
     lines = content.splitlines()
@@ -111,10 +108,7 @@ def validate_plan_for_questions(plan_file: Path) -> PlanValidationResult:
                 issues.append(f"Line {line_num}: {snippet}")
                 break  # Only report once per line
 
-    return PlanValidationResult(
-        is_valid=len(issues) == 0,
-        issues=issues
-    )
+    return PlanValidationResult(is_valid=len(issues) == 0, issues=issues)
 
 
 def validate_plan_has_implementation_tasks(plan_file: Path) -> PlanValidationResult:
@@ -128,10 +122,7 @@ def validate_plan_has_implementation_tasks(plan_file: Path) -> PlanValidationRes
         PlanValidationResult with is_valid=True if Phase 2 has tasks
     """
     if not plan_file.exists():
-        return PlanValidationResult(
-            is_valid=False,
-            issues=["Plan file does not exist"]
-        )
+        return PlanValidationResult(is_valid=False, issues=["Plan file does not exist"])
 
     content = plan_file.read_text()
     lines = content.splitlines()
@@ -157,8 +148,7 @@ def validate_plan_has_implementation_tasks(plan_file: Path) -> PlanValidationRes
 
     if not has_tasks:
         return PlanValidationResult(
-            is_valid=False,
-            issues=["Phase 2 (IMPLEMENT) has no tasks defined"]
+            is_valid=False, issues=["Phase 2 (IMPLEMENT) has no tasks defined"]
         )
 
     return PlanValidationResult(is_valid=True)
@@ -192,15 +182,9 @@ def validate_plan(plan_file: Path, strict: bool = False) -> PlanValidationResult
         for issue in all_issues:
             logger.warning(f"Plan validation: {issue}")
         # Only fail if structural issues (no tasks)
-        return PlanValidationResult(
-            is_valid=tasks_result.is_valid,
-            issues=all_issues
-        )
+        return PlanValidationResult(is_valid=tasks_result.is_valid, issues=all_issues)
 
-    return PlanValidationResult(
-        is_valid=len(all_issues) == 0,
-        issues=all_issues
-    )
+    return PlanValidationResult(is_valid=len(all_issues) == 0, issues=all_issues)
 
 
 def log_validation_warnings(plan_file: Path) -> None:

@@ -40,7 +40,7 @@ MISSING_IDS_PRD = """## High Priority
 NO_PRIORITY_PRD = """- [ ] PRD-001 Task outside priority section"""
 
 
-def test_parse_valid_prd(tmp_path: Path):
+def test_parse_valid_prd(tmp_path: Path) -> None:
     """Test parsing a valid PRD file."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text(VALID_PRD)
@@ -71,7 +71,7 @@ def test_parse_valid_prd(tmp_path: Path):
     assert tasks[3].task_text == "Add email notifications"  # reason removed from text
 
 
-def test_parse_duplicate_ids(tmp_path: Path):
+def test_parse_duplicate_ids(tmp_path: Path) -> None:
     """Test that duplicate IDs raise ValueError."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text(DUPLICATE_IDS_PRD)
@@ -82,7 +82,7 @@ def test_parse_duplicate_ids(tmp_path: Path):
         parser.parse()
 
 
-def test_parse_invalid_format(tmp_path: Path):
+def test_parse_invalid_format(tmp_path: Path) -> None:
     """Test that invalid ID format raises ValueError."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text(INVALID_FORMAT_PRD)
@@ -93,7 +93,7 @@ def test_parse_invalid_format(tmp_path: Path):
         parser.parse()
 
 
-def test_parse_no_priority_section(tmp_path: Path):
+def test_parse_no_priority_section(tmp_path: Path) -> None:
     """Test that tasks outside priority sections raise ValueError."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text(NO_PRIORITY_PRD)
@@ -104,7 +104,7 @@ def test_parse_no_priority_section(tmp_path: Path):
         parser.parse()
 
 
-def test_parse_nonexistent_file():
+def test_parse_nonexistent_file() -> None:
     """Test that missing file raises FileNotFoundError."""
     parser = PRDParser(Path("/nonexistent/file.md"))
 
@@ -112,7 +112,7 @@ def test_parse_nonexistent_file():
         parser.parse()
 
 
-def test_get_tasks_by_priority(tmp_path: Path):
+def test_get_tasks_by_priority(tmp_path: Path) -> None:
     """Test filtering tasks by priority."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text(VALID_PRD)
@@ -131,7 +131,7 @@ def test_get_tasks_by_priority(tmp_path: Path):
     assert len(low_tasks) == 1
 
 
-def test_get_tasks_by_status(tmp_path: Path):
+def test_get_tasks_by_status(tmp_path: Path) -> None:
     """Test filtering tasks by status."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text(VALID_PRD)
@@ -152,7 +152,7 @@ def test_get_tasks_by_status(tmp_path: Path):
     assert len(blocked) == 1
 
 
-def test_get_task_by_id(tmp_path: Path):
+def test_get_task_by_id(tmp_path: Path) -> None:
     """Test getting task by ID."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text(VALID_PRD)
@@ -169,7 +169,7 @@ def test_get_task_by_id(tmp_path: Path):
     assert nonexistent is None
 
 
-def test_update_task_status(tmp_path: Path):
+def test_update_task_status(tmp_path: Path) -> None:
     """Test updating task status in PRD file."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text(VALID_PRD)
@@ -185,7 +185,7 @@ def test_update_task_status(tmp_path: Path):
     assert "[~] PRD-001 Add user authentication" in content
 
 
-def test_update_task_status_to_blocked_with_reason(tmp_path: Path):
+def test_update_task_status_to_blocked_with_reason(tmp_path: Path) -> None:
     """Test updating task to blocked with reason."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text(VALID_PRD)
@@ -201,7 +201,7 @@ def test_update_task_status_to_blocked_with_reason(tmp_path: Path):
     assert "[!] PRD-001 Add user authentication (blocked: Need database schema approved)" in content
 
 
-def test_update_task_status_from_blocked_removes_reason(tmp_path: Path):
+def test_update_task_status_from_blocked_removes_reason(tmp_path: Path) -> None:
     """Test that unblocking removes blocking reason."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text(VALID_PRD)
@@ -218,7 +218,7 @@ def test_update_task_status_from_blocked_removes_reason(tmp_path: Path):
     assert "blocked:" not in content.split("PRD-004")[1].split("\n")[0]
 
 
-def test_update_task_status_nonexistent_task(tmp_path: Path):
+def test_update_task_status_nonexistent_task(tmp_path: Path) -> None:
     """Test that updating nonexistent task raises ValueError."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text(VALID_PRD)
@@ -230,7 +230,7 @@ def test_update_task_status_nonexistent_task(tmp_path: Path):
         parser.update_task_status("PRD-999", PRDTaskStatus.COMPLETED)
 
 
-def test_validate_all_tasks_valid(tmp_path: Path):
+def test_validate_all_tasks_valid(tmp_path: Path) -> None:
     """Test validation passes for valid PRD."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text(VALID_PRD)
@@ -242,7 +242,7 @@ def test_validate_all_tasks_valid(tmp_path: Path):
     assert len(issues) == 0
 
 
-def test_validate_all_tasks_missing_ids(tmp_path: Path):
+def test_validate_all_tasks_missing_ids(tmp_path: Path) -> None:
     """Test validation detects tasks without IDs."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text(MISSING_IDS_PRD)
@@ -255,7 +255,7 @@ def test_validate_all_tasks_missing_ids(tmp_path: Path):
     assert any("missing explicit ID" in issue for issue in issues)
 
 
-def test_parse_prd_file_convenience_function(tmp_path: Path):
+def test_parse_prd_file_convenience_function(tmp_path: Path) -> None:
     """Test convenience function for parsing."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text(VALID_PRD)
@@ -266,7 +266,7 @@ def test_parse_prd_file_convenience_function(tmp_path: Path):
     assert tasks[0].task_id == "PRD-001"
 
 
-def test_task_id_validation():
+def test_task_id_validation() -> None:
     """Test task ID format validation."""
     parser = PRDParser(Path("dummy.md"))
 
@@ -283,7 +283,7 @@ def test_task_id_validation():
     assert not parser._is_valid_task_id("prd-001")  # Wrong case
 
 
-def test_blocking_reason_extraction(tmp_path: Path):
+def test_blocking_reason_extraction(tmp_path: Path) -> None:
     """Test extraction of blocking reasons from task text."""
     content = """## High Priority
 - [!] PRD-001 Task name (blocked: very long reason with special chars @#$)
@@ -302,7 +302,7 @@ def test_blocking_reason_extraction(tmp_path: Path):
     assert tasks[1].task_text == "Another task"
 
 
-def test_priority_case_insensitive(tmp_path: Path):
+def test_priority_case_insensitive(tmp_path: Path) -> None:
     """Test that priority headers are case-insensitive."""
     content = """## high priority
 - [ ] PRD-001 Task 1
@@ -325,7 +325,7 @@ def test_priority_case_insensitive(tmp_path: Path):
     assert tasks[2].priority == "low"
 
 
-def test_line_number_tracking(tmp_path: Path):
+def test_line_number_tracking(tmp_path: Path) -> None:
     """Test that line numbers are tracked correctly."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text(VALID_PRD)
@@ -341,7 +341,7 @@ def test_line_number_tracking(tmp_path: Path):
     assert len(set(line_numbers)) == len(line_numbers)
 
 
-def test_update_preserves_file_structure(tmp_path: Path):
+def test_update_preserves_file_structure(tmp_path: Path) -> None:
     """Test that updating status preserves file structure."""
     original_content = """# My PRD
 
@@ -377,7 +377,7 @@ Some notes here.
     assert "[ ] PRD-003 Third task" in updated_content
 
 
-def test_parse_error_messages_are_helpful(tmp_path: Path):
+def test_parse_error_messages_are_helpful(tmp_path: Path) -> None:
     """Test that validation errors provide helpful, actionable error messages."""
     # Test multiple error types at once
     content = """## High Priority
@@ -419,7 +419,7 @@ def test_parse_error_messages_are_helpful(tmp_path: Path):
     assert "Found:" in error_msg
 
 
-def test_parse_error_task_outside_priority_section(tmp_path: Path):
+def test_parse_error_task_outside_priority_section(tmp_path: Path) -> None:
     """Test error message for task outside priority section."""
     content = """- [ ] PRD-001 Task before any priority section
 
@@ -444,7 +444,7 @@ def test_parse_error_task_outside_priority_section(tmp_path: Path):
     assert "## High Priority" in error_msg  # Should suggest adding priority header
 
 
-def test_suggest_next_id(tmp_path: Path):
+def test_suggest_next_id(tmp_path: Path) -> None:
     """Test that _suggest_next_id provides appropriate suggestions."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text("")
@@ -463,7 +463,7 @@ def test_suggest_next_id(tmp_path: Path):
     assert parser._suggest_next_id() == "PRD-011"
 
 
-def test_file_not_found_error_is_helpful(tmp_path: Path):
+def test_file_not_found_error_is_helpful(tmp_path: Path) -> None:
     """Test that FileNotFoundError includes helpful guidance."""
     prd_file = tmp_path / "nonexistent.md"
     parser = PRDParser(prd_file)
@@ -479,7 +479,7 @@ def test_file_not_found_error_is_helpful(tmp_path: Path):
     assert "- [ ] PRD-001" in error_msg
 
 
-def test_backup_created_on_update(tmp_path: Path):
+def test_backup_created_on_update(tmp_path: Path) -> None:
     """Test that backup is created when updating task status."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text(VALID_PRD)
@@ -501,7 +501,7 @@ def test_backup_created_on_update(tmp_path: Path):
     assert "[ ] PRD-001 Add user authentication" in backup_content
 
 
-def test_backup_cleanup_keeps_max_backups(tmp_path: Path):
+def test_backup_cleanup_keeps_max_backups(tmp_path: Path) -> None:
     """Test that old backups are cleaned up, keeping only MAX_BACKUPS."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text(VALID_PRD)
@@ -524,7 +524,7 @@ def test_backup_cleanup_keeps_max_backups(tmp_path: Path):
     assert len(backups) == PRDParser.MAX_BACKUPS
 
 
-def test_backup_restores_on_failure(tmp_path: Path):
+def test_backup_restores_on_failure(tmp_path: Path) -> None:
     """Test that backup can be used to restore after corruption."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text(VALID_PRD)
@@ -559,7 +559,7 @@ def test_backup_restores_on_failure(tmp_path: Path):
     assert task_001.status == PRDTaskStatus.PENDING
 
 
-def test_backup_with_blocking_reason(tmp_path: Path):
+def test_backup_with_blocking_reason(tmp_path: Path) -> None:
     """Test that backup is created when blocking task with reason."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text(VALID_PRD)
@@ -582,7 +582,7 @@ def test_backup_with_blocking_reason(tmp_path: Path):
     assert "blocked:" not in backup_content or "PRD-004" in backup_content
 
 
-def test_backup_directory_created_automatically(tmp_path: Path):
+def test_backup_directory_created_automatically(tmp_path: Path) -> None:
     """Test that backup directory is created if it doesn't exist."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text(VALID_PRD)
@@ -605,7 +605,7 @@ def test_backup_directory_created_automatically(tmp_path: Path):
     assert len(backups) == 1
 
 
-def test_backup_cleanup_with_exactly_max_backups(tmp_path: Path):
+def test_backup_cleanup_with_exactly_max_backups(tmp_path: Path) -> None:
     """Test cleanup when exactly MAX_BACKUPS files exist (edge case)."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text(VALID_PRD)
@@ -638,7 +638,7 @@ def test_backup_cleanup_with_exactly_max_backups(tmp_path: Path):
     assert len(backups) == PRDParser.MAX_BACKUPS
 
 
-def test_backup_cleanup_with_multiple_prd_files(tmp_path: Path):
+def test_backup_cleanup_with_multiple_prd_files(tmp_path: Path) -> None:
     """Test that cleanup only affects backups for the specific PRD file."""
     prd_file1 = tmp_path / "project1.md"
     prd_file2 = tmp_path / "project2.md"
@@ -672,7 +672,7 @@ def test_backup_cleanup_with_multiple_prd_files(tmp_path: Path):
     assert len(backups2) == PRDParser.MAX_BACKUPS
 
 
-def test_backup_cleanup_preserves_most_recent(tmp_path: Path):
+def test_backup_cleanup_preserves_most_recent(tmp_path: Path) -> None:
     """Test that cleanup keeps the most recent backups, not oldest."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text(VALID_PRD)
@@ -714,7 +714,7 @@ def test_backup_cleanup_preserves_most_recent(tmp_path: Path):
     assert oldest_remaining >= backup_times[4]  # At least as new as the 5th backup
 
 
-def test_backup_no_file_to_backup(tmp_path: Path):
+def test_backup_no_file_to_backup(tmp_path: Path) -> None:
     """Test that _create_backup handles missing source file gracefully."""
     prd_file = tmp_path / "nonexistent.md"
     backup_dir = tmp_path / "backups"
@@ -728,7 +728,7 @@ def test_backup_no_file_to_backup(tmp_path: Path):
     assert not backup_dir.exists()
 
 
-def test_backup_cleanup_handles_deletion_error(tmp_path: Path):
+def test_backup_cleanup_handles_deletion_error(tmp_path: Path) -> None:
     """Test that cleanup continues gracefully even if deletion fails."""
     from unittest.mock import patch
 
@@ -784,7 +784,7 @@ def test_backup_cleanup_handles_deletion_error(tmp_path: Path):
     assert unlink_call_count[0] == 1
 
 
-def test_parse_empty_file_error(tmp_path: Path):
+def test_parse_empty_file_error(tmp_path: Path) -> None:
     """Test that empty PRD files produce helpful error message."""
     prd_file = tmp_path / "empty.md"
     prd_file.write_text("")  # Completely empty file
@@ -809,7 +809,7 @@ def test_parse_empty_file_error(tmp_path: Path):
     assert "examples/sample-prd.md" in error_msg
 
 
-def test_parse_whitespace_only_file_error(tmp_path: Path):
+def test_parse_whitespace_only_file_error(tmp_path: Path) -> None:
     """Test that files with only whitespace are treated as empty."""
     prd_file = tmp_path / "whitespace.md"
     prd_file.write_text("\n\n   \n\t\n  \n")  # Only whitespace and newlines
@@ -829,7 +829,7 @@ def test_parse_whitespace_only_file_error(tmp_path: Path):
     assert "PRD-001" in error_msg
 
 
-def test_parse_file_with_headers_but_no_tasks(tmp_path: Path):
+def test_parse_file_with_headers_but_no_tasks(tmp_path: Path) -> None:
     """Test that files with only priority headers but no tasks are handled."""
     prd_file = tmp_path / "no-tasks.md"
     prd_file.write_text("""# My PRD
@@ -848,7 +848,7 @@ def test_parse_file_with_headers_but_no_tasks(tmp_path: Path):
     assert tasks == []
 
 
-def test_parse_file_with_no_priority_sections_at_all(tmp_path: Path):
+def test_parse_file_with_no_priority_sections_at_all(tmp_path: Path) -> None:
     """Test that files with content but no priority sections and no tasks are handled."""
     prd_file = tmp_path / "no-priorities.md"
     prd_file.write_text("""# My Project Documentation
@@ -874,7 +874,7 @@ More information about the project.
     assert tasks == []
 
 
-def test_invalid_task_id_format_single_digit(tmp_path: Path):
+def test_invalid_task_id_format_single_digit(tmp_path: Path) -> None:
     """Test that task ID with single digit (PRD-1) is rejected with clear error."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text("""## High Priority
@@ -892,7 +892,7 @@ def test_invalid_task_id_format_single_digit(tmp_path: Path):
     assert "PRD-001" in error_msg  # Should suggest correct format
 
 
-def test_invalid_task_id_format_two_digits(tmp_path: Path):
+def test_invalid_task_id_format_two_digits(tmp_path: Path) -> None:
     """Test that task ID with two digits (PRD-12) is rejected with clear error."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text("""## Medium Priority
@@ -910,7 +910,7 @@ def test_invalid_task_id_format_two_digits(tmp_path: Path):
     assert "PRD-001" in error_msg  # Should suggest correct format
 
 
-def test_invalid_task_id_format_four_digits(tmp_path: Path):
+def test_invalid_task_id_format_four_digits(tmp_path: Path) -> None:
     """Test that task ID with four digits (PRD-1234) is rejected with clear error."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text("""## Low Priority
@@ -928,7 +928,7 @@ def test_invalid_task_id_format_four_digits(tmp_path: Path):
     assert "PRD-001" in error_msg  # Should suggest correct format
 
 
-def test_invalid_task_id_formats_multiple_errors(tmp_path: Path):
+def test_invalid_task_id_formats_multiple_errors(tmp_path: Path) -> None:
     """Test that multiple invalid task IDs are all reported together."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text("""## High Priority
@@ -958,7 +958,7 @@ def test_invalid_task_id_formats_multiple_errors(tmp_path: Path):
     assert "4 validation error" in error_msg
 
 
-def test_invalid_task_id_format_with_line_numbers(tmp_path: Path):
+def test_invalid_task_id_format_with_line_numbers(tmp_path: Path) -> None:
     """Test that invalid task ID errors include accurate line numbers."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text("""# PRD File
@@ -984,7 +984,7 @@ def test_invalid_task_id_format_with_line_numbers(tmp_path: Path):
     assert "PRD-12" in error_msg
 
 
-def test_invalid_task_id_format_provides_fix_suggestion(tmp_path: Path):
+def test_invalid_task_id_format_provides_fix_suggestion(tmp_path: Path) -> None:
     """Test that invalid task ID errors provide actionable fix suggestions."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text("""## High Priority
@@ -1002,7 +1002,7 @@ def test_invalid_task_id_format_provides_fix_suggestion(tmp_path: Path):
     assert "Change 'PRD-1' to format like 'PRD-001'" in error_msg
 
 
-def test_invalid_task_id_format_shows_found_vs_expected(tmp_path: Path):
+def test_invalid_task_id_format_shows_found_vs_expected(tmp_path: Path) -> None:
     """Test that error message shows what was found vs what was expected."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text("""## High Priority
@@ -1023,7 +1023,7 @@ def test_invalid_task_id_format_shows_found_vs_expected(tmp_path: Path):
     assert "PRD-001" in error_msg or "PRD-042" in error_msg
 
 
-def test_valid_task_id_boundaries(tmp_path: Path):
+def test_valid_task_id_boundaries(tmp_path: Path) -> None:
     """Test that valid task IDs at boundaries (PRD-000, PRD-999) are accepted."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text("""## High Priority
@@ -1041,7 +1041,7 @@ def test_valid_task_id_boundaries(tmp_path: Path):
     assert tasks[2].task_id == "PRD-042"
 
 
-def test_task_after_priority_sections_end(tmp_path: Path):
+def test_task_after_priority_sections_end(tmp_path: Path) -> None:
     """Test that tasks appearing after priority sections inherit last priority context.
 
     This verifies that non-priority section headers (like '## Notes') don't reset
@@ -1074,7 +1074,7 @@ This is a notes section, not a priority section.
     assert tasks[2].priority == "medium"
 
 
-def test_task_between_priority_sections_with_content(tmp_path: Path):
+def test_task_between_priority_sections_with_content(tmp_path: Path) -> None:
     """Test task appearing between priority sections where context is lost."""
     content = """## High Priority
 - [ ] PRD-001 Valid high priority task
@@ -1105,7 +1105,7 @@ Divider or other content here
     assert tasks[2].priority == "medium"
 
 
-def test_multiple_tasks_without_any_priority_sections(tmp_path: Path):
+def test_multiple_tasks_without_any_priority_sections(tmp_path: Path) -> None:
     """Test multiple tasks with no priority sections at all."""
     content = """# My Project
 
@@ -1132,7 +1132,7 @@ This is a regular markdown document.
     assert "3 validation error(s)" in error_msg
 
 
-def test_task_in_unrecognized_section(tmp_path: Path):
+def test_task_in_unrecognized_section(tmp_path: Path) -> None:
     """Test task in section that looks like priority but isn't recognized."""
     content = """## Very High Priority
 - [ ] PRD-001 Task in non-standard priority section
@@ -1156,7 +1156,7 @@ def test_task_in_unrecognized_section(tmp_path: Path):
     assert "## High Priority" in error_msg
 
 
-def test_task_context_reset_between_files(tmp_path: Path):
+def test_task_context_reset_between_files(tmp_path: Path) -> None:
     """Test that priority context doesn't leak between parser instances."""
     # Create two files
     file1 = tmp_path / "file1.md"
@@ -1189,7 +1189,7 @@ def test_task_context_reset_between_files(tmp_path: Path):
 # ============================================================================
 
 
-def test_parser_reads_only_first_line_not_indented_content(tmp_path: Path):
+def test_parser_reads_only_first_line_not_indented_content(tmp_path: Path) -> None:
     """FAILING TEST: Demonstrates parser only reads first line, ignores indented content."""
     content = """## High Priority
 - [ ] PRD-001 Review and implement fixes for PR #2921
@@ -1222,7 +1222,7 @@ def test_parser_reads_only_first_line_not_indented_content(tmp_path: Path):
     assert desc_len > 100, f"Expected full description, got {desc_len} chars"
 
 
-def test_parser_does_not_support_subtasks(tmp_path: Path):
+def test_parser_does_not_support_subtasks(tmp_path: Path) -> None:
     """FAILING TEST: Demonstrates parser doesn't recognize subtasks."""
     content = """## High Priority
 - [ ] PRD-001 Complete PR review workflow
@@ -1248,7 +1248,7 @@ def test_parser_does_not_support_subtasks(tmp_path: Path):
     assert task.subtasks[0].completed is False
 
 
-def test_task_with_subtasks_not_complete_until_all_checked(tmp_path: Path):
+def test_task_with_subtasks_not_complete_until_all_checked(tmp_path: Path) -> None:
     """FAILING TEST: Task with subtasks should only be completable when all subtasks done."""
     content = """## High Priority
 - [ ] PRD-001 Complete PR workflow
@@ -1283,7 +1283,7 @@ def test_task_with_subtasks_not_complete_until_all_checked(tmp_path: Path):
     assert total == 3
 
 
-def test_subtasks_with_multiline_descriptions(tmp_path: Path):
+def test_subtasks_with_multiline_descriptions(tmp_path: Path) -> None:
     """FAILING TEST: Subtasks should support their own indented descriptions."""
     content = """## High Priority
 - [ ] PRD-001 Main task with detailed subtasks

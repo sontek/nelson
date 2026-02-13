@@ -9,7 +9,7 @@ from nelson.prd_state import PRDState, PRDStateManager
 from nelson.prd_task_state import TaskState, TaskStatus
 
 
-def test_prd_state_initialization():
+def test_prd_state_initialization() -> None:
     """Test PRDState initialization."""
     state = PRDState(prd_file="requirements.md")
 
@@ -27,7 +27,7 @@ def test_prd_state_initialization():
     assert state.updated_at is not None
 
 
-def test_prd_state_add_task():
+def test_prd_state_add_task() -> None:
     """Test adding a task to PRD state."""
     state = PRDState(prd_file="test.md")
 
@@ -44,7 +44,7 @@ def test_prd_state_add_task():
     assert state.pending_count == 1
 
 
-def test_prd_state_update_task_status():
+def test_prd_state_update_task_status() -> None:
     """Test updating task status."""
     state = PRDState(prd_file="test.md")
     state.add_task("PRD-001", "Test task", "high", 1)
@@ -64,7 +64,7 @@ def test_prd_state_update_task_status():
     assert state.completed_count == 1
 
 
-def test_prd_state_update_task_cost():
+def test_prd_state_update_task_cost() -> None:
     """Test updating task cost."""
     state = PRDState(prd_file="test.md")
     state.add_task("PRD-001", "Test task", "high", 1)
@@ -80,7 +80,7 @@ def test_prd_state_update_task_cost():
     assert state.total_cost_usd == 3.0
 
 
-def test_prd_state_set_current_task():
+def test_prd_state_set_current_task() -> None:
     """Test setting current task."""
     state = PRDState(prd_file="test.md")
 
@@ -91,7 +91,7 @@ def test_prd_state_set_current_task():
     assert state.current_task_id is None
 
 
-def test_prd_state_get_task_ids_by_status():
+def test_prd_state_get_task_ids_by_status() -> None:
     """Test getting task IDs by status."""
     state = PRDState(prd_file="test.md")
     state.add_task("PRD-001", "Task 1", "high", 1)
@@ -111,7 +111,7 @@ def test_prd_state_get_task_ids_by_status():
     assert "PRD-002" in completed
 
 
-def test_prd_state_get_task_ids_by_priority():
+def test_prd_state_get_task_ids_by_priority() -> None:
     """Test getting task IDs by priority."""
     state = PRDState(prd_file="test.md")
     state.add_task("PRD-001", "Task 1", "high", 1)
@@ -128,7 +128,7 @@ def test_prd_state_get_task_ids_by_priority():
     assert "PRD-003" in medium_tasks
 
 
-def test_prd_state_get_task_ids_by_priority_and_status():
+def test_prd_state_get_task_ids_by_priority_and_status() -> None:
     """Test getting task IDs by priority and status."""
     state = PRDState(prd_file="test.md")
     state.add_task("PRD-001", "Task 1", "high", 1)
@@ -143,7 +143,7 @@ def test_prd_state_get_task_ids_by_priority_and_status():
     assert "PRD-003" in high_pending
 
 
-def test_prd_state_save_load(tmp_path: Path):
+def test_prd_state_save_load(tmp_path: Path) -> None:
     """Test saving and loading PRD state."""
     state_file = tmp_path / "prd-state.json"
 
@@ -164,7 +164,7 @@ def test_prd_state_save_load(tmp_path: Path):
     assert loaded.pending_count == 2
 
 
-def test_prd_state_load_or_create_existing(tmp_path: Path):
+def test_prd_state_load_or_create_existing(tmp_path: Path) -> None:
     """Test load_or_create with existing file."""
     state_file = tmp_path / "prd-state.json"
 
@@ -180,7 +180,7 @@ def test_prd_state_load_or_create_existing(tmp_path: Path):
     assert len(loaded.task_mapping) == 1
 
 
-def test_prd_state_load_or_create_new(tmp_path: Path):
+def test_prd_state_load_or_create_new(tmp_path: Path) -> None:
     """Test load_or_create with non-existent file."""
     state_file = tmp_path / "prd-state.json"
 
@@ -191,7 +191,7 @@ def test_prd_state_load_or_create_new(tmp_path: Path):
     assert len(state.task_mapping) == 0
 
 
-def test_prd_state_manager_initialization(tmp_path: Path):
+def test_prd_state_manager_initialization(tmp_path: Path) -> None:
     """Test PRDStateManager initialization."""
     prd_dir = tmp_path / "prd"
     manager = PRDStateManager(prd_dir, "test.md")
@@ -201,7 +201,7 @@ def test_prd_state_manager_initialization(tmp_path: Path):
     assert manager.prd_state.prd_file == "test.md"
 
 
-def test_prd_state_manager_get_task_state_path(tmp_path: Path):
+def test_prd_state_manager_get_task_state_path(tmp_path: Path) -> None:
     """Test getting task state path."""
     prd_dir = tmp_path / "prd"
     manager = PRDStateManager(prd_dir, "test.md")
@@ -211,7 +211,7 @@ def test_prd_state_manager_get_task_state_path(tmp_path: Path):
     assert path == prd_dir / "PRD-001" / "state.json"
 
 
-def test_prd_state_manager_load_task_state(tmp_path: Path):
+def test_prd_state_manager_load_task_state(tmp_path: Path) -> None:
     """Test loading task state."""
     prd_dir = tmp_path / "prd"
     manager = PRDStateManager(prd_dir, "test.md")
@@ -231,7 +231,7 @@ def test_prd_state_manager_load_task_state(tmp_path: Path):
     assert loaded.cost_usd == 2.5
 
 
-def test_prd_state_manager_save_task_state(tmp_path: Path):
+def test_prd_state_manager_save_task_state(tmp_path: Path) -> None:
     """Test saving task state updates PRD state."""
     prd_dir = tmp_path / "prd"
     manager = PRDStateManager(prd_dir, "test.md")
@@ -252,7 +252,7 @@ def test_prd_state_manager_save_task_state(tmp_path: Path):
     assert manager.prd_state.in_progress_count == 1
 
 
-def test_prd_state_manager_start_task(tmp_path: Path):
+def test_prd_state_manager_start_task(tmp_path: Path) -> None:
     """Test starting a task."""
     prd_dir = tmp_path / "prd"
     manager = PRDStateManager(prd_dir, "test.md")
@@ -269,7 +269,7 @@ def test_prd_state_manager_start_task(tmp_path: Path):
     assert manager.prd_state.in_progress_count == 1
 
 
-def test_prd_state_manager_complete_task(tmp_path: Path):
+def test_prd_state_manager_complete_task(tmp_path: Path) -> None:
     """Test completing a task."""
     prd_dir = tmp_path / "prd"
     manager = PRDStateManager(prd_dir, "test.md")
@@ -284,7 +284,7 @@ def test_prd_state_manager_complete_task(tmp_path: Path):
     assert manager.prd_state.in_progress_count == 0
 
 
-def test_prd_state_manager_block_task(tmp_path: Path):
+def test_prd_state_manager_block_task(tmp_path: Path) -> None:
     """Test blocking a task."""
     prd_dir = tmp_path / "prd"
     manager = PRDStateManager(prd_dir, "test.md")
@@ -298,7 +298,7 @@ def test_prd_state_manager_block_task(tmp_path: Path):
     assert manager.prd_state.blocked_count == 1
 
 
-def test_prd_state_manager_unblock_task(tmp_path: Path):
+def test_prd_state_manager_unblock_task(tmp_path: Path) -> None:
     """Test unblocking a task."""
     prd_dir = tmp_path / "prd"
     manager = PRDStateManager(prd_dir, "test.md")
@@ -315,7 +315,7 @@ def test_prd_state_manager_unblock_task(tmp_path: Path):
     assert manager.prd_state.blocked_count == 0
 
 
-def test_prd_state_manager_get_next_task(tmp_path: Path):
+def test_prd_state_manager_get_next_task(tmp_path: Path) -> None:
     """Test getting next task by priority."""
     prd_dir = tmp_path / "prd"
     manager = PRDStateManager(prd_dir, "test.md")
@@ -332,7 +332,7 @@ def test_prd_state_manager_get_next_task(tmp_path: Path):
     assert task_state.priority == "high"
 
 
-def test_prd_state_manager_get_all_task_states(tmp_path: Path):
+def test_prd_state_manager_get_all_task_states(tmp_path: Path) -> None:
     """Test getting all task states."""
     prd_dir = tmp_path / "prd"
     manager = PRDStateManager(prd_dir, "test.md")
@@ -352,7 +352,7 @@ def test_prd_state_manager_get_all_task_states(tmp_path: Path):
 # Corruption recovery tests
 
 
-def test_prd_state_load_corrupted_json(tmp_path: Path):
+def test_prd_state_load_corrupted_json(tmp_path: Path) -> None:
     """Test loading corrupted PRD state JSON file raises JSONDecodeError.
 
     When prd-state.json is corrupted with invalid JSON, the load method
@@ -367,7 +367,7 @@ def test_prd_state_load_corrupted_json(tmp_path: Path):
         PRDState.load(state_file)
 
 
-def test_prd_state_load_partially_written_json(tmp_path: Path):
+def test_prd_state_load_partially_written_json(tmp_path: Path) -> None:
     """Test loading partially written PRD state file.
 
     Simulates scenario where write was interrupted (power loss, kill signal).
@@ -382,7 +382,7 @@ def test_prd_state_load_partially_written_json(tmp_path: Path):
         PRDState.load(state_file)
 
 
-def test_prd_state_load_empty_file(tmp_path: Path):
+def test_prd_state_load_empty_file(tmp_path: Path) -> None:
     """Test loading empty PRD state file.
 
     Empty file could result from failed write or filesystem issues.
@@ -394,7 +394,7 @@ def test_prd_state_load_empty_file(tmp_path: Path):
         PRDState.load(state_file)
 
 
-def test_prd_state_load_or_create_handles_corruption(tmp_path: Path):
+def test_prd_state_load_or_create_handles_corruption(tmp_path: Path) -> None:
     """Test load_or_create does NOT handle corruption gracefully.
 
     Important: load_or_create only creates new state if file doesn't exist.
@@ -411,7 +411,7 @@ def test_prd_state_load_or_create_handles_corruption(tmp_path: Path):
         PRDState.load_or_create(state_file, "new.md")
 
 
-def test_prd_state_recovery_by_deleting_corrupted_file(tmp_path: Path):
+def test_prd_state_recovery_by_deleting_corrupted_file(tmp_path: Path) -> None:
     """Test recovery pattern: delete corrupted file and recreate.
 
     This demonstrates the recommended recovery pattern when corruption is detected.
@@ -436,7 +436,7 @@ def test_prd_state_recovery_by_deleting_corrupted_file(tmp_path: Path):
         assert len(recovered_state.task_mapping) == 0
 
 
-def test_task_state_load_corrupted_json(tmp_path: Path):
+def test_task_state_load_corrupted_json(tmp_path: Path) -> None:
     """Test loading corrupted task state JSON file raises JSONDecodeError.
 
     When PRD-NNN/state.json is corrupted, load should raise error.
@@ -451,7 +451,7 @@ def test_task_state_load_corrupted_json(tmp_path: Path):
         TaskState.load(task_state_file)
 
 
-def test_task_state_load_partially_written_json(tmp_path: Path):
+def test_task_state_load_partially_written_json(tmp_path: Path) -> None:
     """Test loading partially written task state file.
 
     Simulates interrupted write during task state persistence.
@@ -466,7 +466,7 @@ def test_task_state_load_partially_written_json(tmp_path: Path):
         TaskState.load(task_state_file)
 
 
-def test_task_state_load_with_missing_required_fields(tmp_path: Path):
+def test_task_state_load_with_missing_required_fields(tmp_path: Path) -> None:
     """Test loading task state with missing required fields.
 
     Valid JSON but missing required dataclass fields should raise error.
@@ -481,7 +481,7 @@ def test_task_state_load_with_missing_required_fields(tmp_path: Path):
         TaskState.load(task_state_file)
 
 
-def test_task_state_load_or_create_handles_corruption(tmp_path: Path):
+def test_task_state_load_or_create_handles_corruption(tmp_path: Path) -> None:
     """Test task state load_or_create does NOT handle corruption.
 
     Like PRD state, if file exists but is corrupted, it raises error.
@@ -497,7 +497,7 @@ def test_task_state_load_or_create_handles_corruption(tmp_path: Path):
         TaskState.load_or_create(task_state_file, "PRD-001", "Test task", "high")
 
 
-def test_task_state_recovery_by_deleting_corrupted_file(tmp_path: Path):
+def test_task_state_recovery_by_deleting_corrupted_file(tmp_path: Path) -> None:
     """Test recovery pattern for corrupted task state.
 
     Demonstrates recommended recovery: detect corruption, delete, recreate.
@@ -524,7 +524,7 @@ def test_task_state_recovery_by_deleting_corrupted_file(tmp_path: Path):
         assert recovered.cost_usd == 0.0
 
 
-def test_prd_state_manager_handles_corrupted_task_state(tmp_path: Path):
+def test_prd_state_manager_handles_corrupted_task_state(tmp_path: Path) -> None:
     """Test PRDStateManager behavior when task state file is corrupted.
 
     Manager's load_task_state should propagate the JSONDecodeError to caller.
@@ -543,7 +543,7 @@ def test_prd_state_manager_handles_corrupted_task_state(tmp_path: Path):
         manager.load_task_state("PRD-001", "Test task", "high")
 
 
-def test_prd_state_with_extra_fields_is_compatible(tmp_path: Path):
+def test_prd_state_with_extra_fields_is_compatible(tmp_path: Path) -> None:
     """Test PRD state gracefully handles extra fields (forward compatibility).
 
     If a newer version adds fields, older version should still load.
@@ -579,7 +579,7 @@ def test_prd_state_with_extra_fields_is_compatible(tmp_path: Path):
     assert state.total_cost_usd == 2.5
 
 
-def test_task_state_with_extra_fields_is_compatible(tmp_path: Path):
+def test_task_state_with_extra_fields_is_compatible(tmp_path: Path) -> None:
     """Test task state gracefully handles extra fields (forward compatibility).
 
     Newer versions may add fields; older versions should still load.
@@ -621,7 +621,7 @@ def test_task_state_with_extra_fields_is_compatible(tmp_path: Path):
     assert state.status == TaskStatus.PENDING
 
 
-def test_state_file_persistence_across_workflow_operations(tmp_path: Path):
+def test_state_file_persistence_across_workflow_operations(tmp_path: Path) -> None:
     """Test state persistence across multiple workflow operations."""
     prd_dir = tmp_path / "prd"
     state_file = prd_dir / "prd-state.json"
@@ -724,7 +724,7 @@ def test_state_file_persistence_across_workflow_operations(tmp_path: Path):
     assert loaded_prd_state["pending_count"] == 1
 
 
-def test_state_file_recovery_after_process_restart(tmp_path: Path):
+def test_state_file_recovery_after_process_restart(tmp_path: Path) -> None:
     """Test that state can be recovered after simulated process restart."""
     prd_dir = tmp_path / "prd"
     prd_file = "test.md"
@@ -785,7 +785,7 @@ def test_state_file_recovery_after_process_restart(tmp_path: Path):
     assert final_task.completed_at is not None
 
 
-def test_multiple_task_state_independence(tmp_path: Path):
+def test_multiple_task_state_independence(tmp_path: Path) -> None:
     """Test that multiple tasks maintain independent state files."""
     prd_dir = tmp_path / "prd"
     manager = PRDStateManager(prd_dir, "test.md")
@@ -837,7 +837,7 @@ def test_multiple_task_state_independence(tmp_path: Path):
     assert manager.prd_state.in_progress_count == 3
 
 
-def test_state_synchronization_between_prd_and_task_states(tmp_path: Path):
+def test_state_synchronization_between_prd_and_task_states(tmp_path: Path) -> None:
     """Test that PRD state and task states stay synchronized."""
     prd_dir = tmp_path / "prd"
     manager = PRDStateManager(prd_dir, "test.md")
@@ -909,7 +909,7 @@ def test_state_synchronization_between_prd_and_task_states(tmp_path: Path):
     assert reloaded_task.cost_usd == 3.5
 
 
-def test_state_recovery_after_execution_interruption(tmp_path: Path):
+def test_state_recovery_after_execution_interruption(tmp_path: Path) -> None:
     """Test state recovery after simulated interruption during execution."""
     prd_dir = tmp_path / "prd"
     prd_file = "test.md"

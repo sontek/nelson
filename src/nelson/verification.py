@@ -481,11 +481,13 @@ def generate_verification_report(goal_verification: GoalVerification) -> str:
     failed = total - passed
 
     status = "PASSED" if failed == 0 else "FAILED"
-    lines.extend([
-        f"**Status**: {status}",
-        f"**Checks**: {passed}/{total} passed",
-        "",
-    ])
+    lines.extend(
+        [
+            f"**Status**: {status}",
+            f"**Checks**: {passed}/{total} passed",
+            "",
+        ]
+    )
 
     # Group by level
     by_level: dict[VerificationLevel, list[VerificationCheck]] = {}
@@ -501,12 +503,14 @@ def generate_verification_report(goal_verification: GoalVerification) -> str:
         level_passed = sum(1 for c in level_checks if c.passed)
         level_name = level.value.upper()
 
-        lines.extend([
-            f"### {level_name} ({level_passed}/{len(level_checks)})",
-            "",
-            "| Target | Result | Details |",
-            "|--------|--------|---------|",
-        ])
+        lines.extend(
+            [
+                f"### {level_name} ({level_passed}/{len(level_checks)})",
+                "",
+                "| Target | Result | Details |",
+                "|--------|--------|---------|",
+            ]
+        )
 
         for check in level_checks:
             icon = "✓" if check.passed else "✗"
@@ -522,12 +526,14 @@ def generate_verification_report(goal_verification: GoalVerification) -> str:
     # Critical failures
     critical = goal_verification.critical_failures
     if critical:
-        lines.extend([
-            "### Critical Failures",
-            "",
-            "The following failures should be addressed:",
-            "",
-        ])
+        lines.extend(
+            [
+                "### Critical Failures",
+                "",
+                "The following failures should be addressed:",
+                "",
+            ]
+        )
         for check in critical:
             lines.append(f"- **{check.target}**: {check.actual_result}")
             for detail in check.details:

@@ -21,16 +21,7 @@ if TYPE_CHECKING:
 
 
 def get_system_prompt(decisions_file: Path) -> str:
-    """Generate the system-level prompt with generic Nelson instructions.
-
-    This prompt is sent to Claude for ALL phases and contains:
-    - Workflow overview
-    - Stateless operation model
-    - Core rules
-    - Status block format
-    - Error handling
-    - EXIT_SIGNAL conditions
-    - Examples
+    """Generate condensed system prompt - essential instructions only.
 
     Args:
         decisions_file: Path to the decisions.md file for logging
@@ -38,29 +29,20 @@ def get_system_prompt(decisions_file: Path) -> str:
     Returns:
         System prompt string for Claude
     """
-    workflow_line = (
-        "Nelson: 6-phase autonomous workflow - PLAN, IMPLEMENT, REVIEW(loops), "
-        "TEST(loops), FINAL-REVIEW(→4 if fixes), COMMIT"
-    )
-    return f"""{workflow_line}
+    return f"""Nelson: 5-phase workflow - PLAN, IMPLEMENT, TEST(loops), REVIEW(→2 if issues), COMMIT
 
-STATELESS OPERATION:
-Complete ONE task per call. Rebuild context from {decisions_file}, git status, and plan.md.
-Mark task [x] in plan, log to {decisions_file}, STOP. Nelson controls phases.
+OPERATION: Complete ONE task per call. Read {decisions_file} and plan.md. Mark [x], log, STOP.
 
-CORE RULES:
-- Execute commands, verify results - don't just document
-- Minimal scope - only what's in the task
-- Commit after each implementation task (Phase 2) - one task = one commit
-- Follow project conventions (justfile, package.json, etc.)
-- Use Task/Explore for codebase questions; Glob/Grep for specific searches
-- NO: unrelated bugs, refactoring, docs (README/SUMMARY), helper scripts, .claude/.nelson commits
-- ONLY stage: source code, tests, config files
+RULES:
+• Execute and verify (not just document)
+• Minimal scope (task only)
+• Commit after Phase 2 tasks
+• Follow project conventions
+• Use Task/Explore for codebase research
+• NO: unrelated changes, docs, .claude/.nelson commits
+• Stage ONLY: source, tests, config
 
-ERROR HANDLING:
-Log error details to {decisions_file} and STOP. Nelson handles recovery.
-
-STATUS BLOCK (REQUIRED):
+STATUS BLOCK (required):
 ---NELSON_STATUS---
 STATUS: IN_PROGRESS|COMPLETE|BLOCKED
 TASKS_COMPLETED_THIS_LOOP: N
@@ -69,81 +51,26 @@ TESTS_STATUS: PASSING|FAILING|NOT_RUN
 WORK_TYPE: IMPLEMENTATION|TESTING|DOCUMENTATION|REFACTORING
 EXIT_SIGNAL: true|false
 RECOMMENDATION: one-line next step
-BLOCKED_REASON: (only if STATUS: BLOCKED) detailed reason for blockage
-BLOCKED_RESOURCES: (only if STATUS: BLOCKED) comma-separated list of required resources
-BLOCKED_RESOLUTION: (only if STATUS: BLOCKED) suggested fix
+BLOCKED_REASON: (if BLOCKED) detailed reason
+BLOCKED_RESOURCES: (if BLOCKED) resources needed
+BLOCKED_RESOLUTION: (if BLOCKED) suggested fix
 ---END_NELSON_STATUS---
 
-EXIT_SIGNAL=true ONLY when ALL conditions met:
-1. All tasks in CURRENT PHASE marked [x] or [~]
-2. Tests passing (or NOT_RUN if before Phase 4)
-3. No errors in last execution
-4. No meaningful work remaining in this phase
+EXIT_SIGNAL=true when: (1) all current phase tasks [x], (2) tests passing, (3) no errors.
 
-NOTE: EXIT_SIGNAL=true means "current phase is complete".
-- In Phases 1-6: Nelson advances to next phase
-- After Phase 6: Nelson completes cycle, loops to Phase 1 for new work
+ERROR HANDLING: Log to {decisions_file}, STOP. Nelson handles recovery.
 
-EXAMPLES:
+IMPLEMENTATION: No TODO/FIXME/XXX. Production-ready code only.
+Explain in {decisions_file} if incomplete.
 
-Example 1 - Making Progress:
----NELSON_STATUS---
-STATUS: IN_PROGRESS
-TASKS_COMPLETED_THIS_LOOP: 1
-FILES_MODIFIED: 3
-TESTS_STATUS: PASSING
-WORK_TYPE: IMPLEMENTATION
-EXIT_SIGNAL: false
-RECOMMENDATION: Continue with next Phase 2 task from plan
----END_NELSON_STATUS---
-
-Example 2 - Phase Complete (will advance to next phase):
----NELSON_STATUS---
-STATUS: COMPLETE
-TASKS_COMPLETED_THIS_LOOP: 1
-FILES_MODIFIED: 1
-TESTS_STATUS: PASSING
-WORK_TYPE: IMPLEMENTATION
-EXIT_SIGNAL: true
-RECOMMENDATION: All Phase 1 tasks complete, advancing to Phase 2
----END_NELSON_STATUS---
-
-Example 3 - Blocked:
----NELSON_STATUS---
-STATUS: BLOCKED
-TASKS_COMPLETED_THIS_LOOP: 0
-FILES_MODIFIED: 2
-TESTS_STATUS: FAILING
-WORK_TYPE: DEBUGGING
-EXIT_SIGNAL: false
-RECOMMENDATION: Same import error 3x, needs investigation
----END_NELSON_STATUS---
-
-IMPLEMENTATION REQUIREMENTS:
-- Complete all work fully - do not leave TODO, FIXME, or XXX comments
-- If you cannot complete something, explain why in {decisions_file}
-- Partial implementations are not acceptable - do it right or defer to future task
-- Write production-ready code, not placeholder stubs
-
-AVOID:
-- Busy work when done
-- Test-only loops
-- Scope creep
-- Missing status block
-
-DECISIONS LOG FORMAT:
-## [Iteration N] Phase X: Task Name
-**Task:** (exact from plan)
-**What I Did:** actions/commands
-**Why:** rationale
-**Result:** success/failure/findings
+LOG FORMAT:
+## [Iteration N] Phase X: Task
+**Task:** from plan | **Did:** actions | **Why:** rationale | **Result:** outcome
 """
 
 
 def _get_lean_system_prompt(decisions_file: Path) -> str:
     """Generate lean system prompt for quick mode.
-
-    Minimal instructions for simple tasks. Focuses on essentials only.
 
     Args:
         decisions_file: Path to the decisions.md file for logging
@@ -153,15 +80,11 @@ def _get_lean_system_prompt(decisions_file: Path) -> str:
     """
     return f"""Nelson: 4-phase workflow - PLAN, IMPLEMENT, TEST, COMMIT
 
-STATELESS: Complete ONE task per call. Read {decisions_file}, git status. Mark [x], log, STOP.
+ONE task per call. Read {decisions_file}, plan.md. Mark [x], log, STOP.
 
-RULES:
-- Execute commands, verify results
-- Minimal scope - only what's requested
-- Commit after each implementation task
-- NO: unrelated changes, docs, .claude/.nelson commits
+RULES: Execute/verify, minimal scope, commit after Phase 2, NO unrelated changes/docs
 
-STATUS BLOCK (REQUIRED):
+STATUS (required):
 ---NELSON_STATUS---
 STATUS: IN_PROGRESS|COMPLETE|BLOCKED
 TASKS_COMPLETED_THIS_LOOP: N
@@ -171,21 +94,15 @@ WORK_TYPE: IMPLEMENTATION|TESTING|DOCUMENTATION|REFACTORING
 EXIT_SIGNAL: true|false
 RECOMMENDATION: next step
 BLOCKED_REASON: (if BLOCKED) reason
-BLOCKED_RESOURCES: (if BLOCKED) resources needed
-BLOCKED_RESOLUTION: (if BLOCKED) suggested fix
 ---END_NELSON_STATUS---
 
-EXIT_SIGNAL=true when: all phase tasks [x], tests passing, no errors.
+EXIT_SIGNAL=true when: all phase tasks [x], tests pass, no errors.
 
-LOG FORMAT:
-## [Iteration N] Phase X: Task
-**Task:** from plan | **Did:** actions | **Result:** outcome
+LOG: ## [Iteration N] Phase X: Task | **Task:** X | **Did:** Y | **Result:** Z
 """
 
 
-def get_system_prompt_for_depth(
-    decisions_file: Path, depth: DepthConfig | None = None
-) -> str:
+def get_system_prompt_for_depth(decisions_file: Path, depth: DepthConfig | None = None) -> str:
     """Generate system prompt appropriate for depth mode.
 
     Args:
@@ -217,12 +134,10 @@ def get_phase_prompt(phase: Phase, plan_file: Path, decisions_file: Path) -> str
         return _get_plan_prompt(plan_file, decisions_file)
     elif phase == Phase.IMPLEMENT:
         return _get_implement_prompt(plan_file, decisions_file)
-    elif phase == Phase.REVIEW:
-        return _get_review_prompt(plan_file, decisions_file)
     elif phase == Phase.TEST:
         return _get_test_prompt(plan_file, decisions_file)
-    elif phase == Phase.FINAL_REVIEW:
-        return _get_final_review_prompt(plan_file, decisions_file)
+    elif phase == Phase.REVIEW:
+        return _get_review_prompt(plan_file, decisions_file)
     elif phase == Phase.COMMIT:
         return _get_commit_prompt(plan_file, decisions_file)
     elif phase == Phase.ROADMAP:
@@ -318,52 +233,17 @@ The PLAN phase will use these findings to make informed implementation decisions
 
 def _get_plan_prompt(plan_file: Path, decisions_file: Path) -> str:
     """Generate Phase 1 (PLAN) prompt."""
-    return f"""FIRST - Detect Task Type by checking for these keywords in the original task:
+    return f"""Analyze task and create plan.
 
-REVIEW KEYWORDS: "review", "audit", "analyze", "check", "inspect", "assess", "evaluate",
-                 "code review", "PR review", "pull request", "quality check", "DRY"
-IMPLEMENT KEYWORDS: "implement", "build", "create", "add", "fix", "update", "write", "develop"
+TASK TYPE: Detect REVIEW (audit/analyze/check), IMPLEMENT (build/add/fix), or BOTH.
 
-Task Type Rules:
-- If task contains REVIEW keywords → REVIEW_TASK (even if it also says "implement fixes")
-- If task says "review AND implement" or "review + implement" → REVIEW_AND_IMPLEMENT_TASK
-- If task contains only IMPLEMENT keywords → IMPLEMENTATION_TASK
-- When in doubt, treat as REVIEW_TASK if any review-like language is present
+REVIEW TASKS:
+- Phase 1: Fetch/read diff, apply review checklist, document findings
+- Phase 2: Add Fix task for EACH issue (with file:line)
 
-═══════════════════════════════════════════════════════════════════════════════
-
-IF REVIEW_TASK or REVIEW_AND_IMPLEMENT_TASK:
-
-  Phase 1 MUST include these analysis tasks:
-  - [ ] Fetch/read the FULL diff or codebase to be reviewed (use git diff, read files, etc.)
-  - [ ] Apply comprehensive review checklist to identify ALL issues
-  - [ ] Document findings in {decisions_file}
-
-  Phase 2 MUST contain:
-  - [ ] Fix: <specific issue with file:line> for EACH issue found during Phase 1 review
-  - If code review finds DRY violations: "Fix: Extract duplicate code in X and Y to shared module"
-  - If code review finds architecture issues: "Fix: Refactor X to follow Y pattern"
-  - If code review finds bugs: "Fix: Handle edge case Z in file.py:123"
-  - NEVER mark Phase 2 as "N/A" or skip it - always produce findings or explicit approval
-
-  If no issues found after thorough review:
-  - Phase 1 must document WHY code passes review (not just "CI is green")
-  - Phase 2 should have: "- [x] No fixes needed - code passes comprehensive review"
-
-═══════════════════════════════════════════════════════════════════════════════
-
-IF IMPLEMENTATION_TASK:
-
-  Phase 1 should have 2-4 analysis tasks to understand the problem
-  Phase 2 should break implementation into ATOMIC tasks (each task = one commit)
-  - Break large features into small, independent tasks
-  - Each Phase 2 task must be committable on its own
-
-═══════════════════════════════════════════════════════════════════════════════
-
-COMMON TO ALL TASK TYPES:
-
-Read {decisions_file}, git status. Analyze the task.
+IMPLEMENT TASKS:
+- Phase 1: 2-4 analysis tasks
+- Phase 2: Atomic implementation tasks (one commit each)
 
 FILE:LINE REFERENCES:
 Use specific file:line references throughout the plan (e.g., src/auth/login.py:45).
@@ -399,12 +279,18 @@ Categories:
 If no questions needed, output empty array: ```questions\n[]\n```
 After questions are answered (or if none needed), create the implementation plan.
 
-Create a plan at {plan_file} with 6 phases:
+Create a plan at {plan_file} with 5 phases:
 - Format: '- [ ] description' for unchecked, '- [x] description' for checked
-- Phase 3 (REVIEW): Add task '- [ ] Review all changes: bugs, patterns, quality, security'
-- Phase 4 (TEST): Add task(s) for running tests/linter/type-checker
-- Phase 5 (FINAL-REVIEW): Add task '- [ ] Final review: all changes, patterns, completeness'
-- Phase 6 (COMMIT): Add task '- [ ] Commit any remaining changes'
+- Phase 3 (TEST): Add task(s) for running tests/linter/type-checker
+- Phase 4 (REVIEW): Add task '- [ ] Review all changes: bugs, patterns, quality, security'
+- Phase 5 (COMMIT): Add task '- [ ] Commit any remaining changes'
+
+IMPORTANT - NO MANUAL SUB-TASKS IN PLAN:
+- Do NOT create indented sub-tasks that require human action (manual testing, UI review, etc.)
+- Do NOT add checklists under tasks like "- [ ] Test X manually" or "- [ ] Verify Y in browser"
+- These block phase transitions since they can never be auto-completed
+- Instead: Create a "POST-IMPLEMENTATION.md" document at the end with manual verification steps
+- The plan should ONLY contain tasks that can be completed autonomously
 
 VERIFICATION SUBTASKS (labeled "FINAL VERIFICATION STEPS" in task):
 - These are verification/completion steps - NOT the main task
@@ -418,13 +304,12 @@ EXIT_SIGNAL in Phase 1:
 - If reviewing previous cycle's work and ALL complete: EXIT_SIGNAL=true with note in plan
 - If rebuilding context: Check if original task is 100% complete before creating empty phases
 
-Mark Phase 1 tasks [x] as you complete them, log to {decisions_file}, then STOP.
 """
 
 
 def _get_implement_prompt(plan_file: Path, decisions_file: Path) -> str:
     """Generate Phase 2 (IMPLEMENT) prompt."""
-    return f"""Read {decisions_file}, {plan_file}. Find FIRST unchecked Phase 2 task.
+    return f"""Find FIRST unchecked Phase 2 task.
 
 TASK TYPE DETECTION:
 - If task starts with "Fix:" → This is a REVIEW FINDING - implement the specific fix
@@ -462,92 +347,54 @@ When you apply any auto-fix, include a DEVIATIONS block in your response:
 ```
 
 COMMON:
-- Mark [x], log to {decisions_file}, STOP
 - NO docs (SUMMARY.md, guides)
-- Testing: 20% effort, new features only, Phase 4 is main testing
+- Testing: 20% effort, new features only, Phase 3 is main testing
 - Each task = one atomic commit
 
-CRITICAL: Implement completely - no TODO/FIXME/XXX comments or placeholder stubs.
-Write production-ready code. If you cannot complete, explain why in {decisions_file}.
+CRITICAL: No TODO/FIXME/XXX. Production-ready code only.
 """
 
 
 def _get_review_prompt(plan_file: Path, decisions_file: Path) -> str:
-    """Generate Phase 3 (REVIEW) prompt."""
-    return f"""Read {decisions_file}, {plan_file}. Find FIRST unchecked Phase 3 task.
+    """Generate Phase 4 (REVIEW) prompt - consolidated review after tests pass."""
+    # Get path to Nelson's review checklist template
+    template_path = Path(__file__).parent / "templates" / "review-checklist.md"
+
+    # Use template if it exists, otherwise fall back to embedded checklist
+    if template_path.exists():
+        checklist_instruction = f"Apply comprehensive checklist from {template_path}"
+    else:
+        # Fallback: embedded checklist
+        checklist_instruction = """Apply comprehensive review checklist:
+1. CORRECTNESS & BUGS: Logic errors, edge cases, error handling
+2. SECURITY: No SQL injection, XSS, hardcoded secrets
+3. COMPLETENESS: No TODO/FIXME/XXX, production-ready
+4. PATTERNS: Follows codebase conventions
+5. CODE QUALITY: Readable, no duplication
+6. UNWANTED: No docs/refactoring outside scope"""
+
+    return f"""Find FIRST unchecked Phase 4 task.
 
 IF task is "Review all changes" or similar review task:
-  Determine what to review using these checks in order:
+  Determine what to review:
+  1. git status - Check for uncommitted changes → Review with git diff HEAD
+  2. git diff main...HEAD - Check committed branch changes
+  3. Choose higher priority (uncommitted > committed)
 
-  1. git status - Check for uncommitted changes (staged or unstaged)
-     IF uncommitted changes exist: Review with git diff HEAD (shows all uncommitted)
+  {checklist_instruction}
+  Flag ANY blocking issues (bugs, security, incomplete code, breaking changes,
+  hardcoded values, missing tests, pattern violations)
 
-  2. git diff main...HEAD (or master) - Check for committed branch changes
-     IF branch has commits vs base: Review the branch diff
-
-  3. git log --oneline -5 - Check recent commits for context
-
-  Review whatever changes exist - uncommitted changes are highest priority (shouldn't
-  exist but if they do, they need review), then committed branch diff.
-
-  COMPREHENSIVE CODE REVIEW CHECKLIST:
-
-  1. CORRECTNESS & BUGS:
-     - Logic errors, off-by-one errors, incorrect algorithms
-     - Edge cases: null/undefined, empty collections, boundary values
-     - Race conditions, concurrency issues
-     - Proper error handling and validation
-     - Return values and side effects are correct
-
-  2. CODEBASE PATTERNS & CONSISTENCY:
-     - Follows existing architectural patterns in the codebase
-     - Uses same libraries/frameworks as similar features
-     - Matches naming conventions (functions, variables, files)
-     - Consistent code style with existing code
-     - Follows established project structure/organization
-
-  3. CODE QUALITY:
-     - Readable and maintainable
-     - No unnecessary complexity or over-engineering
-     - Proper abstractions and separation of concerns
-     - No code duplication that should be refactored
-     - Type safety (if applicable: TypeScript, Python type hints, etc.)
-
-  4. SECURITY:
-     - No SQL injection, XSS, command injection vulnerabilities
-     - Proper input validation and sanitization
-     - No hardcoded secrets or sensitive data
-     - Secure authentication/authorization checks
-
-  5. COMPLETENESS:
-     - No TODO/FIXME/XXX comments or placeholder stubs
-     - All implementations are production-ready, not partial
-     - Adequate test coverage for new functionality
-     - Required edge cases are handled
-
-  6. UNWANTED CHANGES:
-     - No unwanted docs (README, SUMMARY.md, guides)
-     - No .claude/ or .nelson/ files
-     - No unrelated refactoring or scope creep
-
-  REVIEW STANDARD - Flag ANY of these as blocking issues:
-  - BUGS: Logic errors, incorrect behavior, missing edge case handling
-  - SECURITY: Any security vulnerability from checklist above
-  - INCOMPLETE: TODO/FIXME/XXX comments, placeholder code, partial implementations
-  - HARDCODED VALUES: Magic numbers/strings that should be constants or configurable
-  - MISSING TESTS: New logic with complex edge cases that lacks test coverage
-  - BREAKING CHANGES: Changes to public APIs/data structures without migration path
-  - INCONSISTENT: Violates established codebase patterns (check similar code)
-
-  IF you find ANY blocking issues:
-    - Add '- [ ] Fix: <specific issue with file:line>' to Phase 3 for EACH issue
-    - ALWAYS include file:line reference (e.g., src/module.py:123)
-    - Be specific: "Fix: Hardcoded threshold 10 in workflow.py:445 should be config"
+  IF blocking issues found:
+    - Add '- [ ] Fix: <specific issue with file:line>' to Phase 2 (IMPLEMENT)
+    - ALWAYS include file:line reference (e.g., src/auth.py:123)
+    - Be specific: "Fix: Race condition in auth.py:123 when token expires"
     - Mark current review task [x], log to {decisions_file}, STOP
+    - Nelson will loop back to Phase 2 → TEST → REVIEW (full SDLC cycle)
 
   IF no blocking issues found (verified ALL categories):
     - Mark task [x], log to {decisions_file}, STOP
-    - Nelson advances to Phase 4
+    - Nelson advances to Phase 5 (COMMIT)
 
 IF task starts with "Fix:":
   - Fix the ONE specific issue described in the task
@@ -556,26 +403,13 @@ IF task starts with "Fix:":
   - Mark task [x], log to {decisions_file}, STOP
 
 IF task is "Verify goal" or similar verification task:
-  Run GOAL-BACKWARD VERIFICATION - verify the goal is achieved, not just tasks done:
+  Run GOAL-BACKWARD VERIFICATION:
+  1. EXISTS: Verify expected files/directories exist
+  2. SUBSTANTIVE: No placeholder code (TODO, FIXME, XXX, pass, ...)
+  3. WIRED: Components connected (imports/calls exist)
+  4. FUNCTIONAL: Run functional checks, verify output
 
-  1. EXISTS CHECK:
-     - Verify all expected artifacts (files/directories) exist
-     - Check: ls/stat for each artifact in the verification spec
-
-  2. SUBSTANTIVE CHECK:
-     - Verify NO placeholder code: TODO, FIXME, XXX, NotImplementedError
-     - Verify NO empty stubs: functions with only 'pass' or '...'
-     - Read each file and check for stub patterns
-
-  3. WIRED CHECK:
-     - Verify components are connected (imports/requires/calls exist)
-     - For each (source, target) pair: grep source file for import/require of target
-
-  4. FUNCTIONAL CHECK (if specified):
-     - Run functional check commands from verification spec
-     - Verify expected output appears in result
-
-  Output verification results in a VERIFICATION block:
+  Output verification results in ```verification block:
   ```verification
   {{
     "goal": "Feature description",
@@ -590,19 +424,22 @@ IF task is "Verify goal" or similar verification task:
   ```
 
   IF verification fails ANY check:
-    - Add '- [ ] Fix: <verification failure>' tasks to Phase 3
+    - Add '- [ ] Fix: <verification failure>' tasks to Phase 2 (IMPLEMENT)
     - Mark current task [x], log to {decisions_file}, STOP
+    - Nelson loops back for full cycle
 
   IF all verification passes:
     - Mark task [x], log to {decisions_file}, STOP
+    - Nelson advances to Phase 5 (COMMIT)
 
-When all Phase 3 tasks [x]: Nelson advances to Phase 4
+CRITICAL: This is the final quality gate before commit.
+Tests passed (Phase 3), now verify code quality, patterns, and completeness.
 """
 
 
 def _get_test_prompt(plan_file: Path, decisions_file: Path) -> str:
-    """Generate Phase 4 (TEST) prompt."""
-    return f"""Read {decisions_file}, {plan_file}. Find FIRST unchecked Phase 4 task.
+    """Generate Phase 3 (TEST) prompt."""
+    return f"""Find FIRST unchecked Phase 3 task.
 
 IF task is "run tests":
   1. EXECUTE tests/linter/type-checker (use justfile, package.json, or direct commands)
@@ -665,123 +502,9 @@ When all Phase 4 tasks [x]: Nelson advances to Phase 5
 """
 
 
-def _get_final_review_prompt(plan_file: Path, decisions_file: Path) -> str:
-    """Generate Phase 5 (FINAL-REVIEW) prompt."""
-    return f"""Read {decisions_file}, {plan_file}. Find FIRST unchecked Phase 5 task.
-
-COMPREHENSIVE FINAL REVIEW - Tests passed, now verify ALL changes:
-
-Determine what to review using these checks in order:
-1. git status - Check for uncommitted changes (staged or unstaged)
-   IF uncommitted changes exist: Review with git diff HEAD (shows all uncommitted)
-2. git diff main...HEAD (or master) - Check for committed branch changes
-   IF branch has commits vs base: Review the branch diff
-3. git log --oneline -5 - Check recent commits for context
-
-Review whatever changes exist - uncommitted changes need immediate attention.
-
-1. VERIFY TESTS:
-   - Confirm Phase 4 tests/linter/type-checker all passed
-   - No test failures or warnings ignored
-
-2. FULL CODE REVIEW (entire changeset or branch diff):
-   - Review ALL changes (commits from this cycle OR branch diff against base)
-   - Bugs/logic errors: Check edge cases, error handling, return values
-   - Patterns: Follows existing codebase conventions and architecture
-   - Quality: Readable, maintainable, proper abstractions, no duplication
-   - Security: No vulnerabilities (injection, XSS, insecure data handling)
-   - Completeness: No TODO/FIXME/XXX, no placeholder stubs, production-ready
-   - Type safety: Proper types if applicable (TypeScript, Python hints, etc.)
-   - Performance: No obvious performance issues or inefficiencies
-
-3. CODEBASE CONSISTENCY:
-   - Naming matches existing conventions (functions, variables, files)
-   - Uses same libraries/patterns as similar features
-   - File structure follows project organization
-   - Code style consistent with existing code
-
-4. UNWANTED FILES/CHANGES:
-   - git status: No unwanted staged/unstaged files
-   - No docs (README, SUMMARY.md, guides) unless explicitly requested
-   - No .claude/ or .nelson/ files
-   - No sensitive data or credentials
-   - No unrelated refactoring or scope creep
-
-5. TEST COVERAGE:
-   - Adequate tests for new functionality
-   - Edge cases covered
-   - Critical paths tested
-
-REVIEW STANDARD - Flag ANY of these as critical issues:
-- BUGS: Logic errors, incorrect behavior, missing edge case handling
-- SECURITY: Any security vulnerability
-- INCOMPLETE: TODO/FIXME/XXX comments, placeholder code
-- BREAKING CHANGES: API/data structure changes without migration path
-- TEST FAILURES MISSED: Tests should have caught this but didn't
-- CRITICAL QUALITY: Major code quality issues that will cause problems
-
-IF you find ANY critical issues:
-  - Add '- [ ] Fix: <specific issue with file:line>' tasks to Phase 2 (IMPLEMENT)
-  - ALWAYS include file:line reference (e.g., src/auth.py:123)
-  - Be specific: "Fix: Race condition in auth.py:123 when token expires"
-  - Mark current task [x], log to {decisions_file}, STOP
-  - Nelson will loop back to Phase 2 → 3 → 4 → 5 for full SDLC cycle
-
-IF no critical issues found (verified ALL categories):
-  - Mark task [x], log to {decisions_file}, STOP
-  - Nelson advances to Phase 6 (COMMIT)
-
-IF task is "Verify goal" or similar verification task:
-  Run GOAL-BACKWARD VERIFICATION as FINAL check before commit:
-
-  1. EXISTS CHECK:
-     - Verify all expected artifacts (files/directories) exist
-     - Check: ls/stat for each artifact in the verification spec
-
-  2. SUBSTANTIVE CHECK:
-     - Verify NO placeholder code: TODO, FIXME, XXX, NotImplementedError
-     - Verify NO empty stubs: functions with only 'pass' or '...'
-     - Read each file and check for stub patterns
-
-  3. WIRED CHECK:
-     - Verify components are connected (imports/requires/calls exist)
-     - For each (source, target) pair: grep source file for import/require of target
-
-  4. FUNCTIONAL CHECK (if specified):
-     - Run functional check commands from verification spec
-     - Verify expected output appears in result
-
-  Output verification results in a VERIFICATION block:
-  ```verification
-  {{
-    "goal": "Feature description",
-    "checks": [
-      {{"level": "exists", "target": "file.py", "passed": true, "result": "Exists"}},
-      {{"level": "substantive", "target": "file.py", "passed": true, "result": "OK"}},
-      {{"level": "wired", "target": "main->utils", "passed": true, "result": "Found"}},
-      {{"level": "functional", "target": "curl", "passed": true, "result": "200 OK"}}
-    ],
-    "passed": true
-  }}
-  ```
-
-  CRITICAL: This is the final verification before commit.
-  IF verification fails ANY check:
-    - Add '- [ ] Fix: <verification failure>' tasks to Phase 2 (IMPLEMENT)
-    - Mark current task [x], log to {decisions_file}, STOP
-    - Nelson will loop back for full SDLC cycle
-
-  IF all verification passes:
-    - Mark task [x], log to {decisions_file}, STOP
-    - Nelson advances to Phase 6 (COMMIT)
-
-This is the FINAL checkpoint before commit - be thorough.
-"""
-
-
 def _get_commit_prompt(plan_file: Path, decisions_file: Path) -> str:
-    """Generate Phase 6 (COMMIT) prompt."""
-    return f"""Read {decisions_file}, {plan_file}. Find FIRST unchecked Phase 6 task.
+    """Generate Phase 5 (COMMIT) prompt."""
+    return """Find FIRST unchecked Phase 5 task.
 
 Check git status:
 
@@ -794,6 +517,16 @@ HAS uncommitted changes:
   - NO docs, .claude/, .nelson/ files
   - Create commit with descriptive message
   - Mark task [x], STOP
+
+MANUAL VERIFICATION STEPS (if applicable):
+If the implementation requires manual steps (UI testing, browser checks, deployment, etc.):
+  - Create POST-IMPLEMENTATION.md with sections:
+    * Manual Testing Steps - How to verify the changes work
+    * Deployment Notes - Any deployment considerations
+    * User Actions Required - Steps users need to take
+    * Known Limitations - Edge cases or limitations
+  - This document helps humans complete tasks that can't be automated
+  - Do NOT add these as blocking sub-tasks in the plan
 
 Most commits happen in Phase 2. This phase handles any remaining changes.
 """
@@ -902,6 +635,10 @@ Create plan at {plan_file} with 4 phases:
 - Phase 4 (COMMIT): Final commit if needed
 
 Format: '- [ ] task' unchecked, '- [x] task' checked
+
+IMPORTANT: Do NOT add manual sub-tasks (UI checks, manual tests)
+Create POST-IMPLEMENTATION.md instead
+
 Mark tasks [x], log to {decisions_file}, STOP.
 """
 
@@ -947,6 +684,8 @@ def _get_lean_commit_prompt(plan_file: Path, decisions_file: Path) -> str:
 git status:
 - No changes: Mark [x], STOP
 - Has changes: Stage source/tests/config, commit, mark [x], STOP
+
+If manual steps needed: Create POST-IMPLEMENTATION.md with verification steps
 """
 
 
@@ -1055,7 +794,8 @@ def build_loop_context(
     """
     lines = [
         f"LOOP CONTEXT (Cycle {cycle_iterations}, API Call #{total_iterations}):",
-        f"- Completed cycles: {cycle_iterations - 1}",  # cycle_iterations is 1-indexed current cycle
+        # cycle_iterations is 1-indexed current cycle
+        f"- Completed cycles: {cycle_iterations - 1}",
         f"- Total API calls so far: {total_iterations}",
         f"- API calls in current phase: {phase_iterations}",
         f"- Tasks completed in current plan: {tasks_completed}",

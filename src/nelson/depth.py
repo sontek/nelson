@@ -2,8 +2,8 @@
 
 This module provides depth modes that control task complexity handling:
 - QUICK: 4 phases, lean prompts, for simple fixes and typos
-- STANDARD: 6 phases, full prompts, for normal features and bug fixes
-- COMPREHENSIVE: 6+ phases with roadmap, for large projects
+- STANDARD: 5 phases, full prompts, for normal features and bug fixes
+- COMPREHENSIVE: 7 phases with discover and roadmap, for large projects
 """
 
 from __future__ import annotations
@@ -18,28 +18,28 @@ class DepthMode(Enum):
     """Depth mode controlling task complexity handling."""
 
     QUICK = "quick"  # 4 phases, lean prompts
-    STANDARD = "standard"  # 6 phases, full prompts
-    COMPREHENSIVE = "comprehensive"  # 6+ phases with roadmap
+    STANDARD = "standard"  # 5 phases, full prompts
+    COMPREHENSIVE = "comprehensive"  # 7 phases with discover and roadmap
 
 
 # Default configurations per depth mode
 _DEPTH_DEFAULTS: dict[DepthMode, dict[str, Any]] = {
     DepthMode.QUICK: {
-        "skip_final_review": True,
+        "skip_review": True,  # Skip review phase in quick mode
         "skip_roadmap": True,
         "include_research": False,
         "max_planning_questions": 0,
         "lean_prompts": True,
     },
     DepthMode.STANDARD: {
-        "skip_final_review": False,
+        "skip_review": False,
         "skip_roadmap": True,
         "include_research": False,
         "max_planning_questions": 3,
         "lean_prompts": False,
     },
     DepthMode.COMPREHENSIVE: {
-        "skip_final_review": False,
+        "skip_review": False,
         "skip_roadmap": False,
         "include_research": True,
         "max_planning_questions": 5,
@@ -54,7 +54,7 @@ class DepthConfig:
 
     Attributes:
         mode: The depth mode (QUICK, STANDARD, COMPREHENSIVE)
-        skip_final_review: Skip FINAL_REVIEW phase (Phase 5)
+        skip_review: Skip REVIEW phase (Phase 4) - used in QUICK mode
         skip_roadmap: Skip roadmap creation for complex tasks
         include_research: Include research/discovery phase
         max_planning_questions: Maximum clarifying questions to ask
@@ -62,7 +62,7 @@ class DepthConfig:
     """
 
     mode: DepthMode
-    skip_final_review: bool
+    skip_review: bool
     skip_roadmap: bool
     include_research: bool
     max_planning_questions: int
@@ -81,7 +81,7 @@ class DepthConfig:
         defaults = _DEPTH_DEFAULTS[mode]
         return cls(
             mode=mode,
-            skip_final_review=defaults["skip_final_review"],
+            skip_review=defaults["skip_review"],
             skip_roadmap=defaults["skip_roadmap"],
             include_research=defaults["include_research"],
             max_planning_questions=defaults["max_planning_questions"],
@@ -111,7 +111,7 @@ class DepthConfig:
         """Convert to dictionary for serialization."""
         return {
             "mode": self.mode.value,
-            "skip_final_review": self.skip_final_review,
+            "skip_review": self.skip_review,
             "skip_roadmap": self.skip_roadmap,
             "include_research": self.include_research,
             "max_planning_questions": self.max_planning_questions,
@@ -129,20 +129,24 @@ def get_phases_for_depth(depth: DepthConfig) -> list[str]:
         List of phase names in execution order
     """
     if depth.mode == DepthMode.QUICK:
-        # Skip REVIEW and FINAL_REVIEW
+        # Quick mode: 4 phases, skip REVIEW
         return ["PLAN", "IMPLEMENT", "TEST", "COMMIT"]
 
-    # STANDARD and COMPREHENSIVE include all phases
-    phases = ["PLAN", "IMPLEMENT", "REVIEW", "TEST"]
+    # STANDARD mode: 5 phases
+    # COMPREHENSIVE mode: 7 phases (adds DISCOVER and ROADMAP)
+    phases = ["PLAN", "IMPLEMENT", "TEST"]
 
-    if not depth.skip_final_review:
-        phases.append("FINAL_REVIEW")
+    if not depth.skip_review:
+        phases.append("REVIEW")
 
     phases.append("COMMIT")
 
-    # COMPREHENSIVE adds research at the beginning if enabled
-    if depth.include_research and not depth.skip_roadmap:
-        phases = ["DISCOVER", "ROADMAP"] + phases
+    # COMPREHENSIVE adds DISCOVER at the beginning and ROADMAP at the end
+    if depth.include_research:
+        phases = ["DISCOVER"] + phases
+
+    if not depth.skip_roadmap:
+        phases.append("ROADMAP")
 
     return phases
 
@@ -158,14 +162,17 @@ def should_skip_phase(phase_name: str, depth: DepthConfig) -> bool:
         True if phase should be skipped
     """
     if depth.mode == DepthMode.QUICK:
-        # Quick mode skips REVIEW and FINAL_REVIEW
-        if phase_name in ("REVIEW", "FINAL_REVIEW"):
+        # Quick mode skips REVIEW
+        if phase_name == "REVIEW":
             return True
 
-    if depth.skip_final_review and phase_name == "FINAL_REVIEW":
+    if depth.skip_review and phase_name == "REVIEW":
         return True
 
-    if depth.skip_roadmap and phase_name in ("DISCOVER", "ROADMAP"):
+    if depth.skip_roadmap and phase_name == "ROADMAP":
+        return True
+
+    if not depth.include_research and phase_name == "DISCOVER":
         return True
 
     return False

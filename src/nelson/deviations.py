@@ -155,15 +155,11 @@ class DeviationConfig:
             auto_add_critical=parse_bool("NELSON_AUTO_ADD_CRITICAL", True),
             auto_install_deps=parse_bool("NELSON_AUTO_INSTALL_DEPS", True),
             auto_handle_auth=parse_bool("NELSON_AUTO_HANDLE_AUTH", False),
-            max_deviations_per_task=int(
-                os.environ.get("NELSON_MAX_DEVIATIONS_PER_TASK", "5")
-            ),
+            max_deviations_per_task=int(os.environ.get("NELSON_MAX_DEVIATIONS_PER_TASK", "5")),
         )
 
 
-def extract_deviations_from_response(
-    response: str, task_id: str | None = None
-) -> list[Deviation]:
+def extract_deviations_from_response(response: str, task_id: str | None = None) -> list[Deviation]:
     """Extract deviations from Claude's response.
 
     Looks for a ```deviations block containing JSON array of deviation objects.

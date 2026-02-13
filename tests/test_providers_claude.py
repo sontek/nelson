@@ -245,9 +245,7 @@ class TestClaudeProviderExecution:
                 return mock_process_fail
             return mock_process_success
 
-        with patch("subprocess.Popen", side_effect=mock_popen_side_effect), patch(
-            "time.sleep"
-        ):
+        with patch("subprocess.Popen", side_effect=mock_popen_side_effect), patch("time.sleep"):
             response = provider.execute(
                 "system", "user", "sonnet", max_retries=3, initial_retry_delay=0.1
             )
@@ -276,9 +274,7 @@ class TestClaudeProviderExecution:
             call_count[0] += 1
             return mock_process
 
-        with patch("subprocess.Popen", side_effect=mock_popen_counting), patch(
-            "time.sleep"
-        ):
+        with patch("subprocess.Popen", side_effect=mock_popen_counting), patch("time.sleep"):
             with pytest.raises(ProviderError) as exc_info:
                 provider.execute("system", "user", "sonnet", max_retries=2)
 
@@ -302,11 +298,12 @@ class TestClaudeProviderExecution:
 
         sleep_delays = []
 
-        def mock_sleep(delay):
+        def mock_sleep(delay) -> None:
             sleep_delays.append(delay)
 
-        with patch("subprocess.Popen", return_value=mock_process), patch(
-            "time.sleep", side_effect=mock_sleep
+        with (
+            patch("subprocess.Popen", return_value=mock_process),
+            patch("time.sleep", side_effect=mock_sleep),
         ):
             with pytest.raises(ProviderError):
                 provider.execute(
@@ -343,11 +340,12 @@ class TestClaudeProviderExecution:
 
         sleep_delays = []
 
-        def mock_sleep(delay):
+        def mock_sleep(delay) -> None:
             sleep_delays.append(delay)
 
-        with patch("subprocess.Popen", return_value=mock_process), patch(
-            "time.sleep", side_effect=mock_sleep
+        with (
+            patch("subprocess.Popen", return_value=mock_process),
+            patch("time.sleep", side_effect=mock_sleep),
         ):
             with pytest.raises(ProviderError):
                 provider.execute(
@@ -386,11 +384,12 @@ class TestClaudeProviderExecution:
 
         sleep_delays = []
 
-        def mock_sleep(delay):
+        def mock_sleep(delay) -> None:
             sleep_delays.append(delay)
 
-        with patch("subprocess.Popen", return_value=mock_process), patch(
-            "time.sleep", side_effect=mock_sleep
+        with (
+            patch("subprocess.Popen", return_value=mock_process),
+            patch("time.sleep", side_effect=mock_sleep),
         ):
             with pytest.raises(ProviderError):
                 provider.execute(
@@ -446,9 +445,7 @@ class TestStripAnsiCodes:
         """Test stripping ANSI escape sequences."""
         provider = ClaudeProvider()
 
-        text_with_ansi = (
-            "\x1b[31mRed text\x1b[0m Normal text \x1b[1;32mBold green\x1b[0m"
-        )
+        text_with_ansi = "\x1b[31mRed text\x1b[0m Normal text \x1b[1;32mBold green\x1b[0m"
         clean_text = provider._strip_ansi_codes(text_with_ansi)
 
         assert "\x1b" not in clean_text

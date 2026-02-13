@@ -23,7 +23,7 @@ def run_git(args: list[str]) -> str:
     return result.stdout.strip()
 
 
-def main():
+def main() -> int:
     print("=" * 60)
     print("REVIEW SCOPE DIAGNOSTIC")
     print("=" * 60)

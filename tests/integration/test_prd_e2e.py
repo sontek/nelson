@@ -102,7 +102,7 @@ class TestPRDEndToEnd:
 
     def test_full_prd_execution_flow(
         self, prd_file: Path, prd_dir: Path, mock_nelson_success, mock_git_repo
-    ):
+    ) -> None:
         """Test complete PRD execution from start to finish."""
         # Mock git operations (CliRunner already mocked by fixture)
         with patch(
@@ -142,7 +142,9 @@ class TestPRDEndToEnd:
             prd_state = orchestrator.state_manager.prd_state
             assert prd_state.tasks[task_id]["status"] == "completed"
 
-    def test_priority_based_execution_order(self, prd_file: Path, prd_dir: Path, mock_git_repo):
+    def test_priority_based_execution_order(
+        self, prd_file: Path, prd_dir: Path, mock_git_repo
+    ) -> None:
         """Test that tasks execute in priority order: high → medium → low."""
         orchestrator = PRDOrchestrator(prd_file, prd_dir)
 
@@ -171,7 +173,7 @@ class TestPRDEndToEnd:
 
     def test_blocking_workflow_end_to_end(
         self, prd_file: Path, prd_dir: Path, mock_nelson_success, mock_git_repo
-    ):
+    ) -> None:
         """Test complete blocking/unblocking/resume workflow."""
         with patch(
             "nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task",
@@ -228,7 +230,7 @@ class TestPRDEndToEnd:
 
     def test_cost_tracking_across_tasks(
         self, prd_file: Path, prd_dir: Path, mock_nelson_success, mock_git_repo
-    ):
+    ) -> None:
         """Test cost tracking and aggregation across multiple task executions."""
         with patch(
             "nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task",
@@ -274,7 +276,7 @@ class TestPRDEndToEnd:
 
     def test_prd_file_status_updates(
         self, prd_file: Path, prd_dir: Path, mock_nelson_success, mock_git_repo
-    ):
+    ) -> None:
         """Test that PRD file is updated with correct status indicators."""
         with patch(
             "nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task",
@@ -302,7 +304,7 @@ class TestPRDEndToEnd:
 
     def test_resume_context_injection(
         self, prd_file: Path, prd_dir: Path, mock_nelson_success, mock_git_repo
-    ):
+    ) -> None:
         """Test that resume context is properly injected into Nelson prompts."""
         with patch(
             "nelson.prd_orchestrator.PRDOrchestrator._setup_branch_for_task",
@@ -338,7 +340,7 @@ class TestPRDEndToEnd:
 
     def test_branch_creation_during_execution(
         self, prd_file: Path, prd_dir: Path, mock_nelson_success, mock_git_repo
-    ):
+    ) -> None:
         """Test that git branches are created/switched during task execution."""
         mock_branch_func = Mock(
             return_value={
@@ -365,7 +367,9 @@ class TestPRDEndToEnd:
             task_state = orchestrator.state_manager.load_task_state(task_id, task_text, "high")
             assert task_state.branch == "feature/PRD-001-implement-user-auth"
 
-    def test_state_persistence_and_recovery(self, prd_file: Path, prd_dir: Path, mock_git_repo):
+    def test_state_persistence_and_recovery(
+        self, prd_file: Path, prd_dir: Path, mock_git_repo
+    ) -> None:
         """Test that state persists across orchestrator instances."""
         # Create first orchestrator and initialize state
         orchestrator1 = PRDOrchestrator(prd_file, prd_dir)
@@ -393,7 +397,7 @@ class TestPRDEndToEnd:
 
     def test_execute_all_pending_with_stop_on_failure(
         self, prd_file: Path, prd_dir: Path, mock_git_repo
-    ):
+    ) -> None:
         """Test execute_all_pending stops on first failure when flag is set."""
         # Mock nelson_main to succeed first, then fail
         with patch("nelson.prd_orchestrator.nelson_main") as mock_nelson:
@@ -431,7 +435,7 @@ class TestPRDEndToEnd:
                 remaining = orchestrator2.get_next_pending_task()
                 assert remaining is not None  # At least one task still pending
 
-    def test_get_status_summary(self, prd_file: Path, prd_dir: Path, mock_git_repo):
+    def test_get_status_summary(self, prd_file: Path, prd_dir: Path, mock_git_repo) -> None:
         """Test status summary generation with various task states."""
         orchestrator = PRDOrchestrator(prd_file, prd_dir)
 

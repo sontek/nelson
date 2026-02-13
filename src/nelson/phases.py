@@ -1,34 +1,31 @@
 """Phase definitions and metadata for Nelson's workflow.
 
-Standard Mode (6 phases):
+Standard Mode (5 phases):
 1. PLAN: Analyze task and create implementation plan
 2. IMPLEMENT: Execute atomic tasks from plan, one commit per task
-3. REVIEW: Comprehensive code review for bugs, patterns, quality, security
-4. TEST: Run tests/linter/type-checker, fix failures
-5. FINAL_REVIEW: Final review of all changes, patterns, quality, completeness
-6. COMMIT: Commit any remaining uncommitted changes
+3. TEST: Run tests/linter/type-checker, fix failures
+4. REVIEW: Comprehensive code review for bugs, patterns, quality, security
+5. COMMIT: Commit any remaining uncommitted changes
 
-Comprehensive Mode (8 phases):
+Comprehensive Mode (7 phases):
 0. DISCOVER: Research and explore codebase before planning
 1. PLAN: Analyze task and create implementation plan
 2. IMPLEMENT: Execute atomic tasks from plan, one commit per task
-3. REVIEW: Comprehensive code review for bugs, patterns, quality, security
-4. TEST: Run tests/linter/type-checker, fix failures
-5. FINAL_REVIEW: Final review of all changes, patterns, quality, completeness
-6. COMMIT: Commit any remaining uncommitted changes
-7. ROADMAP: Document future improvements and technical debt
+3. TEST: Run tests/linter/type-checker, fix failures
+4. REVIEW: Comprehensive code review for bugs, patterns, quality, security
+5. COMMIT: Commit any remaining uncommitted changes
+6. ROADMAP: Document future improvements and technical debt
 
 Phase Transitions (Standard):
 - PLAN → IMPLEMENT (when plan.md exists with proper structure)
-- IMPLEMENT → REVIEW (when all Phase 2 tasks are checked)
-- REVIEW → REVIEW (loop if fixes added) OR → TEST (if clean)
-- TEST → TEST (loop if fixes added) OR → FINAL_REVIEW (if passing)
-- FINAL_REVIEW → TEST (if fixes needed) OR → COMMIT (if clean)
+- IMPLEMENT → TEST (when all Phase 2 tasks are checked)
+- TEST → TEST (loop if fixes added) OR → REVIEW (if passing)
+- REVIEW → IMPLEMENT (if issues found, loops back) OR → COMMIT (if clean)
 - COMMIT → Done (workflow complete)
 
 Phase Transitions (Comprehensive):
 - DISCOVER → PLAN (after research complete)
-- PLAN → IMPLEMENT → REVIEW → TEST → FINAL_REVIEW → COMMIT (same as standard)
+- PLAN → IMPLEMENT → TEST → REVIEW → COMMIT (same as standard)
 - COMMIT → ROADMAP (document future work)
 - ROADMAP → Done (workflow complete)
 """
@@ -41,26 +38,25 @@ from typing import Literal
 class Phase(IntEnum):
     """Workflow phases for Nelson orchestration.
 
-    Standard mode uses phases 1-6 (PLAN through COMMIT).
-    Comprehensive mode adds DISCOVER (0) at the start and ROADMAP (7) at the end.
+    Standard mode uses phases 1-5 (PLAN through COMMIT).
+    Comprehensive mode adds DISCOVER (0) at the start and ROADMAP (6) at the end.
 
     Each phase has a specific purpose and completion criteria.
-    Phases can loop (REVIEW, TEST, FINAL_REVIEW) or always advance (others).
+    Phases can loop (TEST, REVIEW) or always advance (others).
     """
 
     # Comprehensive mode only - research phase
     DISCOVER = 0
 
-    # Standard phases (1-6)
+    # Standard phases (1-5)
     PLAN = 1
     IMPLEMENT = 2
-    REVIEW = 3
-    TEST = 4
-    FINAL_REVIEW = 5
-    COMMIT = 6
+    TEST = 3
+    REVIEW = 4  # Consolidated review phase (runs after TEST)
+    COMMIT = 5
 
     # Comprehensive mode only - future work documentation
-    ROADMAP = 7
+    ROADMAP = 6
 
     @property
     def name_str(self) -> str:
@@ -110,7 +106,7 @@ PHASE_METADATA: dict[Phase, PhaseMetadata] = {
         can_loop=False,
         model_type="plan",
         completion_check=(
-            "plan.md exists with proper structure (## Phase 1-6) "
+            "plan.md exists with proper structure (## Phase 1-5) "
             "AND all Phase 1 tasks are marked [x]"
         ),
     ),
@@ -122,46 +118,36 @@ PHASE_METADATA: dict[Phase, PhaseMetadata] = {
         model_type="default",
         completion_check="All Phase 2 tasks are marked [x] and committed",
     ),
-    Phase.REVIEW: PhaseMetadata(
-        number=3,
-        name="REVIEW",
-        short_description="Comprehensive code review: bugs, patterns, quality, security",
-        can_loop=True,
-        model_type="review",
-        completion_check=(
-            "All Phase 3 tasks [x]. Loops if review adds fix tasks, advances to TEST if clean"
-        ),
-    ),
     Phase.TEST: PhaseMetadata(
-        number=4,
+        number=3,
         name="TEST",
         short_description="Run tests/linter/type-checker",
         can_loop=True,
         model_type="default",
         completion_check=(
-            "All Phase 4 tasks [x]. Loops if failures found, advances to FINAL_REVIEW if passing"
+            "All Phase 3 tasks [x]. Loops if failures found, advances to REVIEW if passing"
         ),
     ),
-    Phase.FINAL_REVIEW: PhaseMetadata(
-        number=5,
-        name="FINAL-REVIEW",
-        short_description="Final review: all changes, patterns, quality, completeness",
+    Phase.REVIEW: PhaseMetadata(
+        number=4,
+        name="REVIEW",
+        short_description="Comprehensive code review: bugs, patterns, quality, security",
         can_loop=True,
         model_type="review",
         completion_check=(
-            "All Phase 5 tasks [x]. Returns to TEST if fixes needed, advances to COMMIT if clean"
+            "All Phase 4 tasks [x]. Loops to IMPLEMENT if issues found, advances to COMMIT if clean"
         ),
     ),
     Phase.COMMIT: PhaseMetadata(
-        number=6,
+        number=5,
         name="COMMIT",
         short_description="Commit any remaining uncommitted changes",
         can_loop=False,
         model_type="default",
-        completion_check="All Phase 6 tasks [x]. Workflow complete (standard mode).",
+        completion_check="All Phase 5 tasks [x]. Workflow complete (standard mode).",
     ),
     Phase.ROADMAP: PhaseMetadata(
-        number=7,
+        number=6,
         name="ROADMAP",
         short_description="Document future improvements and technical debt",
         can_loop=False,
@@ -174,22 +160,19 @@ PHASE_METADATA: dict[Phase, PhaseMetadata] = {
 }
 
 
-def determine_next_phase(
-    current: Phase, comprehensive: bool = False
-) -> Phase | Literal["done"]:
+def determine_next_phase(current: Phase, comprehensive: bool = False) -> Phase | Literal["done"]:
     """Determine the next phase based on the current phase.
 
     Standard Mode Phase Transitions:
     - PLAN → IMPLEMENT (always)
-    - IMPLEMENT → REVIEW (always)
-    - REVIEW → REVIEW (loop if fixes) OR TEST (if clean)
-    - TEST → TEST (loop if fixes) OR FINAL_REVIEW (if passing)
-    - FINAL_REVIEW → TEST (if fixes needed) OR COMMIT (if clean)
+    - IMPLEMENT → TEST (always)
+    - TEST → TEST (loop if fixes) OR REVIEW (if passing)
+    - REVIEW → IMPLEMENT (if issues found) OR COMMIT (if clean)
     - COMMIT → Done
 
     Comprehensive Mode Phase Transitions (adds DISCOVER and ROADMAP):
     - DISCOVER → PLAN
-    - PLAN → IMPLEMENT → REVIEW → TEST → FINAL_REVIEW → COMMIT (same as standard)
+    - PLAN → IMPLEMENT → TEST → REVIEW → COMMIT (same as standard)
     - COMMIT → ROADMAP
     - ROADMAP → Done
 
@@ -198,7 +181,7 @@ def determine_next_phase(
 
     Args:
         current: Current phase
-        comprehensive: If True, use comprehensive mode transitions (8 phases)
+        comprehensive: If True, use comprehensive mode transitions (7 phases)
 
     Returns:
         Next phase, or "done" if workflow is complete
@@ -208,16 +191,13 @@ def determine_next_phase(
     elif current == Phase.PLAN:
         return Phase.IMPLEMENT
     elif current == Phase.IMPLEMENT:
-        return Phase.REVIEW
-    elif current == Phase.REVIEW:
-        # Review advances to Test (looping happens if unchecked tasks remain)
         return Phase.TEST
     elif current == Phase.TEST:
-        # Test advances to Final-Review (looping happens if unchecked tasks remain)
-        return Phase.FINAL_REVIEW
-    elif current == Phase.FINAL_REVIEW:
-        # Final-Review can go back to Test (if fixes needed) or advance to Commit
-        # The workflow engine decides based on whether fixes were added
+        # Test advances to Review (looping happens if unchecked tasks remain)
+        return Phase.REVIEW
+    elif current == Phase.REVIEW:
+        # Review can go back to Implement (if issues found) or advance to Commit
+        # The workflow engine decides based on whether fixes were added to Phase 2
         return Phase.COMMIT
     elif current == Phase.COMMIT:
         # In comprehensive mode, continue to ROADMAP; otherwise done

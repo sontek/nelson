@@ -371,6 +371,16 @@ class TestCircuitBreaker:
 
     def test_circuit_breaker_blocked_status(self, orchestrator: WorkflowOrchestrator) -> None:
         """Test circuit breaker detects blocked status and returns BLOCKED."""
+        # Set prompt_on_blocked to False to test automatic circuit breaker behavior
+        # Use object.__setattr__ to bypass frozen dataclass constraint
+        from nelson.interaction import InteractionConfig
+
+        new_interaction = InteractionConfig(
+            mode="autonomous",
+            prompt_on_blocked=False,
+        )
+        object.__setattr__(orchestrator.config, "_interaction", new_interaction)
+
         status_block = {
             "exit_signal": False,
             "tasks_completed": 1,

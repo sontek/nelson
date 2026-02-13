@@ -16,6 +16,7 @@ def has_unchecked_tasks(phase: Phase, plan_file: Path) -> bool:
     """Check if a phase section has unchecked tasks.
 
     Scans the plan file for the phase section and counts unchecked tasks.
+    Only checks top-level tasks (not indented sub-tasks).
     Tasks are marked as:
     - [ ] = unchecked
     - [x] = checked (complete)
@@ -26,7 +27,7 @@ def has_unchecked_tasks(phase: Phase, plan_file: Path) -> bool:
         plan_file: Path to plan.md file
 
     Returns:
-        True if phase has at least one unchecked task, False otherwise
+        True if phase has at least one unchecked top-level task, False otherwise
     """
     if not plan_file.exists():
         return False
@@ -47,10 +48,11 @@ def has_unchecked_tasks(phase: Phase, plan_file: Path) -> bool:
 
         # If we're in the target phase, check for unchecked tasks
         if in_target_phase:
-            # Unchecked task pattern: - [ ] or -  [ ] (with varying whitespace)
-            stripped = line.strip()
-            if stripped.startswith("- [ ]") or stripped.startswith("-  [ ]"):
-                # Found an unchecked task
+            # Only check top-level tasks (not indented)
+            # Top-level tasks start with "- [ ]" at column 0
+            # Sub-tasks are indented with spaces/tabs
+            if line.startswith("- [ ]") or line.startswith("-  [ ]"):
+                # Found an unchecked top-level task
                 return True
 
     return False
@@ -66,10 +68,9 @@ def determine_next_phase(
 
     Standard Mode Phase transitions:
     - PLAN → IMPLEMENT (when all Phase 1 tasks checked)
-    - IMPLEMENT → REVIEW (when all Phase 2 tasks checked)
-    - REVIEW → REVIEW (if unchecked tasks remain) OR TEST (if all checked)
-    - TEST → TEST (if unchecked tasks remain) OR FINAL_REVIEW (if all checked)
-    - FINAL_REVIEW → TEST (if unchecked tasks remain) OR COMMIT (if all checked)
+    - IMPLEMENT → TEST (when all Phase 2 tasks checked)
+    - TEST → TEST (if unchecked tasks remain) OR REVIEW (if all checked)
+    - REVIEW → IMPLEMENT (if issues found) OR COMMIT (if all checked)
     - COMMIT → None (workflow complete)
 
     Comprehensive Mode Phase transitions (adds DISCOVER and ROADMAP):
@@ -82,7 +83,7 @@ def determine_next_phase(
         current: Current phase
         plan_file: Path to plan.md file
         should_advance: Whether phase should advance (from EXIT_SIGNAL/completion check)
-        comprehensive: If True, use comprehensive mode (8 phases)
+        comprehensive: If True, use comprehensive mode (7 phases)
 
     Returns:
         Next phase, or None if workflow is complete
@@ -99,39 +100,33 @@ def determine_next_phase(
     if current == Phase.PLAN:
         return Phase.IMPLEMENT
 
-    # Phase 2 (IMPLEMENT) → Phase 3 (REVIEW)
+    # Phase 2 (IMPLEMENT) → Phase 3 (TEST)
     if current == Phase.IMPLEMENT:
-        return Phase.REVIEW
-
-    # Phase 3 (REVIEW) → Phase 3 (loop if unchecked) OR Phase 4 (TEST)
-    if current == Phase.REVIEW:
-        if has_unchecked_tasks(Phase.REVIEW, plan_file):
-            return Phase.REVIEW
         return Phase.TEST
 
-    # Phase 4 (TEST) → Phase 4 (loop if unchecked) OR Phase 5 (FINAL_REVIEW)
+    # Phase 3 (TEST) → Phase 3 (loop if unchecked) OR Phase 4 (REVIEW)
     if current == Phase.TEST:
         if has_unchecked_tasks(Phase.TEST, plan_file):
             return Phase.TEST
-        return Phase.FINAL_REVIEW
+        return Phase.REVIEW
 
-    # Phase 5 (FINAL_REVIEW) → Phase 2 (IMPLEMENT if unchecked) OR Phase 6 (COMMIT)
-    if current == Phase.FINAL_REVIEW:
-        # Check if Phase 2 has unchecked tasks (Phase 5 may have added Fix tasks there)
+    # Phase 4 (REVIEW) → Phase 2 (IMPLEMENT if issues found) OR Phase 5 (COMMIT)
+    if current == Phase.REVIEW:
+        # Check if REVIEW added Fix tasks to Phase 2 (IMPLEMENT)
         if has_unchecked_tasks(Phase.IMPLEMENT, plan_file):
-            # Final review found issues and added Fix tasks to Phase 2
-            # Loop back to IMPLEMENT for full SDLC cycle: 2 → 3 → 4 → 5
-            # This ensures fixes get code reviewed (Phase 3) and tested (Phase 4)
+            # Review found issues and added Fix tasks to Phase 2
+            # Loop back to IMPLEMENT for full SDLC cycle: IMPLEMENT → TEST → REVIEW
+            # This ensures fixes get tested and re-reviewed
             return Phase.IMPLEMENT
         return Phase.COMMIT
 
-    # Phase 6 (COMMIT) → ROADMAP (comprehensive) OR None (standard)
+    # Phase 5 (COMMIT) → ROADMAP (comprehensive) OR None (standard)
     if current == Phase.COMMIT:
         if comprehensive:
             return Phase.ROADMAP
         return None
 
-    # Phase 7 (ROADMAP) → None (workflow complete) [comprehensive mode only]
+    # Phase 6 (ROADMAP) → None (workflow complete) [comprehensive mode only]
     if current == Phase.ROADMAP:
         return None
 

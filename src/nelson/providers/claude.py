@@ -110,9 +110,7 @@ class ClaudeProvider(AIProvider):
                 if error_aware_enabled and last_error and retry_count > 0:
                     # Truncate error message if too long to avoid excessive token usage
                     error_msg = last_error.message
-                    max_error_length = (
-                        self.config.max_error_context_chars if self.config else 2000
-                    )
+                    max_error_length = self.config.max_error_context_chars if self.config else 2000
                     if len(error_msg) > max_error_length:
                         error_msg = error_msg[:max_error_length] + "\n... (truncated)"
 
@@ -131,7 +129,7 @@ Please analyze this error and adjust your approach before proceeding. Common iss
 
 Before retrying the task, diagnose and fix the root cause of this error.
 </previous_attempt_error>"""
-                    logger.info(f"[RETRY] Including error context from previous attempt in prompt")
+                    logger.info("[RETRY] Including error context from previous attempt in prompt")
 
                 return self._execute_once(system_prompt, augmented_prompt, model, progress_monitor)
             except ProviderError as e:
@@ -146,7 +144,7 @@ Before retrying the task, diagnose and fix the root cause of this error.
                     # Calculate exponential backoff delay
                     delay = min(
                         initial_retry_delay * (exponential_base ** (retry_count - 1)),
-                        max_retry_delay
+                        max_retry_delay,
                     )
 
                     # Add jitter to avoid thundering herd (50-100% of calculated delay)
@@ -374,6 +372,7 @@ Before retrying the task, diagnose and fix the root cause of this error.
                         # Read what we have so far (non-blocking)
                         if process.stdout:
                             import select
+
                             ready, _, _ = select.select([process.stdout], [], [], 0)
                             if ready:
                                 partial_stdout = process.stdout.read()
@@ -498,6 +497,7 @@ Before retrying the task, diagnose and fix the root cause of this error.
                             # Read what we have so far from stderr (non-blocking)
                             if process.stderr:
                                 import select
+
                                 ready, _, _ = select.select([process.stderr], [], [], 0)
                                 if ready:
                                     partial_stderr = process.stderr.read()

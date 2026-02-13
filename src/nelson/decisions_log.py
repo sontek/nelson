@@ -377,3 +377,51 @@ def get_checkpoint_summary(decisions_path: Path) -> str | None:
         return checkpoint_section[: end_pos + len(end_marker)]
 
     return checkpoint_section
+
+
+def extract_recent_work_summary(log_path: Path, max_items: int = 3) -> str:
+    """Extract condensed summary of recent decisions.
+
+    Instead of raw lines, extract just:
+    - Iteration number
+    - Phase
+    - Task name
+    - Result (success/failure/blocked)
+
+    Args:
+        log_path: Path to decisions.md
+        max_items: Number of recent items to extract
+
+    Returns:
+        Condensed summary string (~50-100 tokens vs 200-500)
+    """
+    if not log_path.exists():
+        return ""
+
+    content = log_path.read_text()
+    lines = content.splitlines()
+
+    # Find decision headers (## [Iteration N] Phase X: Task)
+    summaries = []
+    current_header = None
+
+    for line in lines:
+        # Match decision headers
+        if line.startswith("## [Iteration"):
+            # Extract: [Iteration N] Phase X: Task
+            header = line.replace("##", "").strip()
+            current_header = header
+
+        # Extract result line
+        elif line.startswith("**Result:**") and current_header:
+            result = line.replace("**Result:**", "").strip()
+            # Condense to single line
+            summary = f"{current_header} - {result[:50]}"
+            summaries.append(summary)
+            current_header = None
+
+    # Return last N summaries
+    if summaries:
+        return "\n".join(summaries[-max_items:])
+
+    return ""

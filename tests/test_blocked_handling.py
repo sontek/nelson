@@ -175,9 +175,7 @@ class TestPromptBlockedResolution:
         assert context is None
 
     @patch("nelson.blocked_handling.console")
-    def test_interactive_resolved_with_context(
-        self, mock_console: MagicMock
-    ) -> None:
+    def test_interactive_resolved_with_context(self, mock_console: MagicMock) -> None:
         """Test interactive mode with resolved choice."""
         config = InteractionConfig(mode=InteractionMode.INTERACTIVE)
         interaction = UserInteraction(config)
@@ -191,9 +189,7 @@ class TestPromptBlockedResolution:
         with patch.object(
             interaction, "ask_multiple_choice", return_value=("Continue (resolved)", False)
         ):
-            with patch.object(
-                interaction, "ask_free_text", return_value=("Added the key", False)
-            ):
+            with patch.object(interaction, "ask_free_text", return_value=("Added the key", False)):
                 resolution, context = prompt_blocked_resolution(blocked, interaction)
 
         assert resolution == BlockedResolution.RESOLVED
@@ -211,9 +207,7 @@ class TestPromptBlockedResolution:
             required_resources=["API_KEY"],
         )
 
-        with patch.object(
-            interaction, "ask_multiple_choice", return_value=("Skip task", False)
-        ):
+        with patch.object(interaction, "ask_multiple_choice", return_value=("Skip task", False)):
             resolution, context = prompt_blocked_resolution(blocked, interaction)
 
         assert resolution == BlockedResolution.SKIP
@@ -286,9 +280,7 @@ class TestLogBlockedEvent:
             required_resources=["OPENAI_API_KEY"],
         )
 
-        log_blocked_event(
-            blocked, BlockedResolution.RESOLVED, "Added the key", decisions_file
-        )
+        log_blocked_event(blocked, BlockedResolution.RESOLVED, "Added the key", decisions_file)
 
         content = decisions_file.read_text()
         assert "## Task Blocked" in content

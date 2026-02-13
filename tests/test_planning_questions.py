@@ -133,7 +133,7 @@ class TestExtractQuestionsFromResponse:
 
     def test_extract_valid_questions(self) -> None:
         """Test extracting questions from valid response."""
-        response = '''
+        response = """
 Here are my clarifying questions:
 
 ```questions
@@ -158,7 +158,7 @@ Here are my clarifying questions:
 ```
 
 Let me know your preferences.
-'''
+"""
 
         questions = extract_questions_from_response(response)
 
@@ -178,13 +178,13 @@ Let me know your preferences.
 
     def test_extract_empty_questions_list(self) -> None:
         """Test extraction with empty questions list."""
-        response = '''
+        response = """
 No clarifications needed.
 
 ```questions
 []
 ```
-'''
+"""
 
         questions = extract_questions_from_response(response)
 
@@ -192,11 +192,11 @@ No clarifications needed.
 
     def test_extract_invalid_json(self) -> None:
         """Test extraction with invalid JSON."""
-        response = '''
+        response = """
 ```questions
 { invalid json }
 ```
-'''
+"""
 
         questions = extract_questions_from_response(response)
 
@@ -204,11 +204,11 @@ No clarifications needed.
 
     def test_extract_not_a_list(self) -> None:
         """Test extraction when JSON is not a list."""
-        response = '''
+        response = """
 ```questions
 {"id": "q1", "question": "Test?"}
 ```
-'''
+"""
 
         questions = extract_questions_from_response(response)
 
@@ -216,7 +216,7 @@ No clarifications needed.
 
     def test_extract_missing_required_fields(self) -> None:
         """Test extraction skips questions with missing fields."""
-        response = '''
+        response = """
 ```questions
 [
   {"id": "q1"},
@@ -224,7 +224,7 @@ No clarifications needed.
   {"id": "q3", "question": "Valid question"}
 ]
 ```
-'''
+"""
 
         questions = extract_questions_from_response(response)
 
@@ -234,7 +234,7 @@ No clarifications needed.
 
     def test_extract_with_extra_whitespace(self) -> None:
         """Test extraction handles whitespace."""
-        response = '''
+        response = """
 ```questions
 
 [
@@ -245,7 +245,7 @@ No clarifications needed.
 ]
 
 ```
-'''
+"""
 
         questions = extract_questions_from_response(response)
 

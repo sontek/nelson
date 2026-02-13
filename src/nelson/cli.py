@@ -519,7 +519,9 @@ def _build_config(
             else base_interaction.planning_timeout_seconds
         )
         final_skip_questions = skip_planning_questions or base_interaction.skip_planning_questions
-        final_enable_notifications = not disable_notifications and base_interaction.enable_notifications
+        final_enable_notifications = (
+            not disable_notifications and base_interaction.enable_notifications
+        )
         final_enable_sound = not disable_sound_alert and base_interaction.enable_sound_alert
 
         interaction_config = InteractionConfig(
@@ -547,12 +549,12 @@ def _build_config(
             auto_fix_bugs=False if no_auto_fix else base_deviations.auto_fix_bugs,
             auto_add_critical=False if no_auto_fix else base_deviations.auto_add_critical,
             auto_install_deps=(
-                False if (no_auto_fix or no_auto_install)
-                else base_deviations.auto_install_deps
+                False if (no_auto_fix or no_auto_install) else base_deviations.auto_install_deps
             ),
             auto_handle_auth=False if no_auto_fix else base_deviations.auto_handle_auth,
             max_deviations_per_task=(
-                max_deviations if max_deviations is not None
+                max_deviations
+                if max_deviations is not None
                 else base_deviations.max_deviations_per_task
             ),
         )

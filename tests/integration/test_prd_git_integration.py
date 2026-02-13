@@ -127,7 +127,7 @@ def mock_nelson_success():
 class TestGitBranchOperations:
     """Test real git branch operations."""
 
-    def test_branch_creation_and_existence_check(self, git_repo: Path):
+    def test_branch_creation_and_existence_check(self, git_repo: Path) -> None:
         """Test creating a branch and checking if it exists."""
         branch_name = "feature/PRD-001-test-branch"
 
@@ -140,7 +140,7 @@ class TestGitBranchOperations:
         # Branch should now exist
         assert branch_exists(branch_name, git_repo)
 
-    def test_branch_creation_fails_if_exists(self, git_repo: Path):
+    def test_branch_creation_fails_if_exists(self, git_repo: Path) -> None:
         """Test that creating an existing branch fails without force."""
         branch_name = "feature/PRD-001-test-branch"
 
@@ -151,7 +151,7 @@ class TestGitBranchOperations:
         with pytest.raises(ValueError, match="Branch already exists"):
             create_branch(branch_name, git_repo, force=False)
 
-    def test_branch_creation_with_force_overwrites(self, git_repo: Path):
+    def test_branch_creation_with_force_overwrites(self, git_repo: Path) -> None:
         """Test that force flag allows overwriting existing branch."""
         branch_name = "feature/PRD-001-test-branch"
 
@@ -162,7 +162,7 @@ class TestGitBranchOperations:
         create_branch(branch_name, git_repo, force=True)
         assert branch_exists(branch_name, git_repo)
 
-    def test_switch_branch(self, git_repo: Path):
+    def test_switch_branch(self, git_repo: Path) -> None:
         """Test switching between branches."""
         branch_name = "feature/PRD-001-test-branch"
 
@@ -181,7 +181,7 @@ class TestGitBranchOperations:
         current_branch = result.stdout.strip()
         assert current_branch == branch_name
 
-    def test_switch_branch_fails_with_uncommitted_changes(self, git_repo: Path):
+    def test_switch_branch_fails_with_uncommitted_changes(self, git_repo: Path) -> None:
         """Test that switching branches fails with uncommitted changes."""
         branch_name = "feature/PRD-001-test-branch"
 
@@ -202,7 +202,7 @@ class TestGitBranchOperations:
         with pytest.raises(GitError, match="uncommitted changes"):
             switch_branch(branch_name, git_repo)
 
-    def test_generate_branch_name_format(self):
+    def test_generate_branch_name_format(self) -> None:
         """Test branch name generation follows correct format."""
         branch_name = generate_branch_name("PRD-001", "Add user authentication")
         assert branch_name == "feature/PRD-001-add-user-authentication"
@@ -217,7 +217,7 @@ class TestGitBranchOperations:
 class TestPRDOrchestratorWithRealGit:
     """Test PRD orchestrator with real git operations."""
 
-    def test_ensure_branch_for_task_with_real_git(self, git_repo: Path):
+    def test_ensure_branch_for_task_with_real_git(self, git_repo: Path) -> None:
         """Test that ensure_branch_for_task works with real git repo."""
         # Change to git repo directory so ensure_branch works
         import os
@@ -248,7 +248,7 @@ class TestPRDOrchestratorWithRealGit:
         finally:
             os.chdir(original_cwd)
 
-    def test_multiple_branches_can_be_created(self, git_repo: Path):
+    def test_multiple_branches_can_be_created(self, git_repo: Path) -> None:
         """Test creating multiple branches for different tasks."""
         import os
 
@@ -276,7 +276,7 @@ class TestPRDOrchestratorWithRealGit:
         finally:
             os.chdir(original_cwd)
 
-    def test_branch_switching_between_tasks(self, git_repo: Path):
+    def test_branch_switching_between_tasks(self, git_repo: Path) -> None:
         """Test switching between task branches."""
         import os
 
@@ -324,7 +324,7 @@ class TestPRDOrchestratorWithRealGit:
 class TestGitBranchAdditionalOperations:
     """Test additional git branch operations with real git."""
 
-    def test_slugify_task_text_basic(self):
+    def test_slugify_task_text_basic(self) -> None:
         """Test basic task text slugification."""
         from nelson.prd_branch import slugify_task_text
 
@@ -340,7 +340,7 @@ class TestGitBranchAdditionalOperations:
         # Leading/trailing spaces and hyphens
         assert slugify_task_text("  -- Fix issue --  ") == "fix-issue"
 
-    def test_slugify_task_text_truncation(self):
+    def test_slugify_task_text_truncation(self) -> None:
         """Test task text truncation to max length."""
         from nelson.prd_branch import slugify_task_text
 
@@ -355,7 +355,7 @@ class TestGitBranchAdditionalOperations:
         assert len(slug) <= 15
         assert not slug.endswith("-")
 
-    def test_slugify_task_text_special_characters(self):
+    def test_slugify_task_text_special_characters(self) -> None:
         """Test slugification handles various special characters."""
         from nelson.prd_branch import slugify_task_text
 
@@ -368,7 +368,7 @@ class TestGitBranchAdditionalOperations:
         # Unicode and accents (removed)
         assert slugify_task_text("Add café feature") == "add-caf-feature"
 
-    def test_create_and_switch_branch_new_branch(self, git_repo: Path):
+    def test_create_and_switch_branch_new_branch(self, git_repo: Path) -> None:
         """Test create_and_switch_branch with a new branch."""
         from nelson.prd_branch import create_and_switch_branch
 
@@ -387,7 +387,7 @@ class TestGitBranchAdditionalOperations:
         )
         assert result.stdout.strip() == branch_name
 
-    def test_create_and_switch_branch_existing_branch_no_force(self, git_repo: Path):
+    def test_create_and_switch_branch_existing_branch_no_force(self, git_repo: Path) -> None:
         """Test create_and_switch_branch with existing branch without force."""
         from nelson.prd_branch import create_and_switch_branch, create_branch
 
@@ -417,7 +417,7 @@ class TestGitBranchAdditionalOperations:
         )
         assert result.stdout.strip() == branch_name
 
-    def test_create_and_switch_branch_existing_branch_with_force(self, git_repo: Path):
+    def test_create_and_switch_branch_existing_branch_with_force(self, git_repo: Path) -> None:
         """Test create_and_switch_branch with force flag recreates branch."""
         from nelson.prd_branch import create_and_switch_branch
 
@@ -484,7 +484,7 @@ class TestGitBranchAdditionalOperations:
         )
         assert result.stdout.strip() == branch_name
 
-    def test_delete_branch_success(self, git_repo: Path):
+    def test_delete_branch_success(self, git_repo: Path) -> None:
         """Test successful branch deletion."""
         from nelson.prd_branch import branch_exists, create_branch, delete_branch
 
@@ -500,7 +500,7 @@ class TestGitBranchAdditionalOperations:
         # Branch should no longer exist
         assert not branch_exists(branch_name, git_repo)
 
-    def test_delete_branch_fails_on_current_branch(self, git_repo: Path):
+    def test_delete_branch_fails_on_current_branch(self, git_repo: Path) -> None:
         """Test that deleting current branch fails."""
         from nelson.prd_branch import create_and_switch_branch, delete_branch
 
@@ -513,7 +513,7 @@ class TestGitBranchAdditionalOperations:
         with pytest.raises(GitError, match="Cannot delete current branch"):
             delete_branch(branch_name, git_repo)
 
-    def test_delete_branch_with_unmerged_commits(self, git_repo: Path):
+    def test_delete_branch_with_unmerged_commits(self, git_repo: Path) -> None:
         """Test deleting branch with unmerged commits requires force."""
         from nelson.prd_branch import branch_exists, create_and_switch_branch, delete_branch
 
@@ -555,7 +555,7 @@ class TestGitBranchAdditionalOperations:
         delete_branch(branch_name, git_repo, force=True)
         assert not branch_exists(branch_name, git_repo)
 
-    def test_ensure_branch_for_task_existing_branch(self, git_repo: Path):
+    def test_ensure_branch_for_task_existing_branch(self, git_repo: Path) -> None:
         """Test ensure_branch_for_task with existing branch just switches."""
         import os
 
@@ -589,7 +589,7 @@ class TestGitBranchAdditionalOperations:
 class TestGitErrorHandling:
     """Test error handling for git operations."""
 
-    def test_operations_fail_outside_git_repo(self, tmp_path: Path):
+    def test_operations_fail_outside_git_repo(self, tmp_path: Path) -> None:
         """Test that git operations fail gracefully outside a git repo."""
         from nelson.prd_branch import (
             branch_exists,
@@ -623,14 +623,14 @@ class TestGitErrorHandling:
         finally:
             os.chdir(original_cwd)
 
-    def test_switch_to_nonexistent_branch_fails(self, git_repo: Path):
+    def test_switch_to_nonexistent_branch_fails(self, git_repo: Path) -> None:
         """Test switching to a non-existent branch fails."""
         from nelson.prd_branch import switch_branch
 
         with pytest.raises(GitError, match="Failed to switch to branch"):
             switch_branch("nonexistent-branch", git_repo)
 
-    def test_branch_name_generation_with_empty_text(self):
+    def test_branch_name_generation_with_empty_text(self) -> None:
         """Test branch name generation handles edge cases."""
         from nelson.prd_branch import generate_branch_name
 

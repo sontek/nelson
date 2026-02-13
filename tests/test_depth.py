@@ -1,6 +1,5 @@
 """Tests for depth mode configuration."""
 
-
 import pytest
 from pytest import MonkeyPatch
 
@@ -41,7 +40,7 @@ class TestDepthConfig:
         config = DepthConfig.for_mode(DepthMode.QUICK)
 
         assert config.mode == DepthMode.QUICK
-        assert config.skip_final_review is True
+        assert config.skip_review is True
         assert config.skip_roadmap is True
         assert config.include_research is False
         assert config.max_planning_questions == 0
@@ -52,7 +51,7 @@ class TestDepthConfig:
         config = DepthConfig.for_mode(DepthMode.STANDARD)
 
         assert config.mode == DepthMode.STANDARD
-        assert config.skip_final_review is False
+        assert config.skip_review is False
         assert config.skip_roadmap is True
         assert config.include_research is False
         assert config.max_planning_questions == 3
@@ -63,7 +62,7 @@ class TestDepthConfig:
         config = DepthConfig.for_mode(DepthMode.COMPREHENSIVE)
 
         assert config.mode == DepthMode.COMPREHENSIVE
-        assert config.skip_final_review is False
+        assert config.skip_review is False
         assert config.skip_roadmap is False
         assert config.include_research is True
         assert config.max_planning_questions == 5
@@ -76,7 +75,7 @@ class TestDepthConfig:
         config = DepthConfig.from_env()
 
         assert config.mode == DepthMode.QUICK
-        assert config.skip_final_review is True
+        assert config.skip_review is True
 
     def test_from_env_standard(self, monkeypatch: MonkeyPatch) -> None:
         """Test loading STANDARD mode from environment."""
@@ -102,9 +101,7 @@ class TestDepthConfig:
 
         assert config.mode == DepthMode.QUICK
 
-    def test_from_env_invalid_defaults_to_standard(
-        self, monkeypatch: MonkeyPatch
-    ) -> None:
+    def test_from_env_invalid_defaults_to_standard(self, monkeypatch: MonkeyPatch) -> None:
         """Test invalid mode defaults to STANDARD."""
         monkeypatch.setenv("NELSON_DEPTH", "invalid_mode")
 
@@ -127,7 +124,7 @@ class TestDepthConfig:
         data = config.to_dict()
 
         assert data["mode"] == "quick"
-        assert data["skip_final_review"] is True
+        assert data["skip_review"] is True
         assert data["skip_roadmap"] is True
         assert data["include_research"] is False
         assert data["max_planning_questions"] == 0
@@ -153,10 +150,9 @@ class TestGetPhasesForDepth:
         assert phases == ["PLAN", "IMPLEMENT", "TEST", "COMMIT"]
         assert len(phases) == 4
         assert "REVIEW" not in phases
-        assert "FINAL_REVIEW" not in phases
 
     def test_standard_mode_phases(self) -> None:
-        """Test STANDARD mode has 6 phases."""
+        """Test STANDARD mode has 5 phases."""
         config = DepthConfig.for_mode(DepthMode.STANDARD)
 
         phases = get_phases_for_depth(config)
@@ -164,30 +160,28 @@ class TestGetPhasesForDepth:
         assert phases == [
             "PLAN",
             "IMPLEMENT",
-            "REVIEW",
             "TEST",
-            "FINAL_REVIEW",
+            "REVIEW",
             "COMMIT",
         ]
-        assert len(phases) == 6
+        assert len(phases) == 5
 
     def test_comprehensive_mode_phases(self) -> None:
-        """Test COMPREHENSIVE mode has 8 phases."""
+        """Test COMPREHENSIVE mode has 7 phases."""
         config = DepthConfig.for_mode(DepthMode.COMPREHENSIVE)
 
         phases = get_phases_for_depth(config)
 
         assert phases == [
             "DISCOVER",
-            "ROADMAP",
             "PLAN",
             "IMPLEMENT",
-            "REVIEW",
             "TEST",
-            "FINAL_REVIEW",
+            "REVIEW",
             "COMMIT",
+            "ROADMAP",
         ]
-        assert len(phases) == 8
+        assert len(phases) == 7
 
 
 class TestShouldSkipPhase:
@@ -198,12 +192,6 @@ class TestShouldSkipPhase:
         config = DepthConfig.for_mode(DepthMode.QUICK)
 
         assert should_skip_phase("REVIEW", config) is True
-
-    def test_quick_mode_skips_final_review(self) -> None:
-        """Test QUICK mode skips FINAL_REVIEW."""
-        config = DepthConfig.for_mode(DepthMode.QUICK)
-
-        assert should_skip_phase("FINAL_REVIEW", config) is True
 
     def test_quick_mode_runs_plan(self) -> None:
         """Test QUICK mode runs PLAN."""
@@ -233,7 +221,7 @@ class TestShouldSkipPhase:
         """Test STANDARD mode runs all standard phases."""
         config = DepthConfig.for_mode(DepthMode.STANDARD)
 
-        for phase in ["PLAN", "IMPLEMENT", "REVIEW", "TEST", "FINAL_REVIEW", "COMMIT"]:
+        for phase in ["PLAN", "IMPLEMENT", "TEST", "REVIEW", "COMMIT"]:
             assert should_skip_phase(phase, config) is False, f"{phase} should run"
 
     def test_standard_mode_skips_discover(self) -> None:
@@ -254,12 +242,11 @@ class TestShouldSkipPhase:
 
         for phase in [
             "DISCOVER",
-            "ROADMAP",
             "PLAN",
             "IMPLEMENT",
-            "REVIEW",
             "TEST",
-            "FINAL_REVIEW",
+            "REVIEW",
             "COMMIT",
+            "ROADMAP",
         ]:
             assert should_skip_phase(phase, config) is False, f"{phase} should run"

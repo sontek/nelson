@@ -206,11 +206,10 @@ class TestPhaseColors:
         assert 0 in PHASE_COLORS  # DISCOVER
         assert 1 in PHASE_COLORS  # PLAN
         assert 2 in PHASE_COLORS  # IMPLEMENT
-        assert 3 in PHASE_COLORS  # REVIEW
-        assert 4 in PHASE_COLORS  # TEST
-        assert 5 in PHASE_COLORS  # FINAL_REVIEW
-        assert 6 in PHASE_COLORS  # COMMIT
-        assert 7 in PHASE_COLORS  # ROADMAP
+        assert 3 in PHASE_COLORS  # TEST
+        assert 4 in PHASE_COLORS  # REVIEW
+        assert 5 in PHASE_COLORS  # COMMIT
+        assert 6 in PHASE_COLORS  # ROADMAP
 
     def test_get_phase_color_returns_correct_style(self) -> None:
         """Test get_phase_color returns correct style for each phase."""

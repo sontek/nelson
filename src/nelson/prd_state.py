@@ -272,7 +272,7 @@ class PRDStateManager:
     ensuring consistency across the state tree.
     """
 
-    def __init__(self, prd_dir: Path, prd_file: str):
+    def __init__(self, prd_dir: Path, prd_file: str) -> None:
         """Initialize state manager.
 
         Args:

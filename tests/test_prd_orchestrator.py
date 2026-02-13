@@ -70,7 +70,7 @@ def mock_cli_runner():
         yield mock_nelson
 
 
-def test_orchestrator_initialization(temp_prd_file: Path, temp_prd_dir: Path):
+def test_orchestrator_initialization(temp_prd_file: Path, temp_prd_dir: Path) -> None:
     """Test orchestrator initializes correctly."""
     orchestrator = PRDOrchestrator(temp_prd_file, temp_prd_dir)
 
@@ -81,7 +81,7 @@ def test_orchestrator_initialization(temp_prd_file: Path, temp_prd_dir: Path):
     assert len(orchestrator.tasks) == 5
 
 
-def test_orchestrator_initializes_task_mapping(temp_prd_file: Path, temp_prd_dir: Path):
+def test_orchestrator_initializes_task_mapping(temp_prd_file: Path, temp_prd_dir: Path) -> None:
     """Test that orchestrator initializes task mapping in state."""
     orchestrator = PRDOrchestrator(temp_prd_file, temp_prd_dir)
 
@@ -93,7 +93,7 @@ def test_orchestrator_initializes_task_mapping(temp_prd_file: Path, temp_prd_dir
     assert prd_state.task_mapping["PRD-001"]["priority"] == "high"
 
 
-def test_get_next_pending_task_returns_high_priority_first(orchestrator: PRDOrchestrator):
+def test_get_next_pending_task_returns_high_priority_first(orchestrator: PRDOrchestrator) -> None:
     """Test that get_next_pending_task returns high priority tasks first."""
     result = orchestrator.get_next_pending_task()
 
@@ -104,7 +104,7 @@ def test_get_next_pending_task_returns_high_priority_first(orchestrator: PRDOrch
     assert priority == "high"
 
 
-def test_get_next_pending_task_priority_ordering(tmp_path: Path):
+def test_get_next_pending_task_priority_ordering(tmp_path: Path) -> None:
     """Test that tasks are returned in priority order."""
     # Create PRD with only medium and low tasks
     prd_content = """## Medium Priority
@@ -128,7 +128,7 @@ def test_get_next_pending_task_priority_ordering(tmp_path: Path):
     assert result[2] == "medium"
 
 
-def test_get_next_pending_task_skips_completed(tmp_path: Path):
+def test_get_next_pending_task_skips_completed(tmp_path: Path) -> None:
     """Test that get_next_pending_task skips completed tasks."""
     prd_content = """## High Priority
 - [x] PRD-001 Completed task
@@ -147,7 +147,7 @@ def test_get_next_pending_task_skips_completed(tmp_path: Path):
     assert result[0] == "PRD-002"
 
 
-def test_get_next_pending_task_skips_blocked(tmp_path: Path):
+def test_get_next_pending_task_skips_blocked(tmp_path: Path) -> None:
     """Test that get_next_pending_task skips blocked tasks."""
     prd_content = """## High Priority
 - [!] PRD-001 Blocked task (blocked: waiting)
@@ -166,7 +166,7 @@ def test_get_next_pending_task_skips_blocked(tmp_path: Path):
     assert result[0] == "PRD-002"
 
 
-def test_get_next_pending_task_returns_none_when_no_pending(tmp_path: Path):
+def test_get_next_pending_task_returns_none_when_no_pending(tmp_path: Path) -> None:
     """Test that get_next_pending_task returns None when no pending tasks."""
     prd_content = """## High Priority
 - [x] PRD-001 Completed task
@@ -190,7 +190,7 @@ def test_execute_task_success(
     orchestrator: PRDOrchestrator,
     tmp_path: Path,
     mock_cli_runner,
-):
+) -> None:
     """Test successful task execution."""
     # Setup mocks
     mock_ensure_branch.return_value = {
@@ -233,7 +233,7 @@ def test_execute_task_success_when_nelson_returns_none(
     orchestrator: PRDOrchestrator,
     tmp_path: Path,
     mock_cli_runner,
-):
+) -> None:
     """Test that task succeeds when nelson_main returns None.
 
     Click returns None (not 0) on successful completion when standalone_mode=False.
@@ -273,7 +273,7 @@ def test_execute_task_failure(
     mock_ensure_branch: Mock,
     orchestrator: PRDOrchestrator,
     mock_cli_runner,
-):
+) -> None:
     """Test failed task execution."""
     # Setup mocks
     mock_ensure_branch.return_value = {
@@ -300,7 +300,7 @@ def test_execute_task_failure(
 def test_execute_task_branch_creation_failure(
     mock_ensure_branch: Mock,
     orchestrator: PRDOrchestrator,
-):
+) -> None:
     """Test that execute_task handles branch creation failure."""
     from nelson.git_utils import GitError
 
@@ -319,7 +319,7 @@ def test_execute_task_with_resume_context(
     mock_ensure_branch: Mock,
     orchestrator: PRDOrchestrator,
     mock_cli_runner,
-):
+) -> None:
     """Test that execute_task prepends resume context to prompt."""
     # Setup mocks
     mock_ensure_branch.return_value = {
@@ -354,7 +354,7 @@ def test_execute_task_with_custom_prompt(
     mock_ensure_branch: Mock,
     orchestrator: PRDOrchestrator,
     mock_cli_runner,
-):
+) -> None:
     """Test execute_task with custom prompt."""
     # Setup mocks
     mock_ensure_branch.return_value = {
@@ -382,7 +382,7 @@ def test_execute_task_with_nelson_args(
     mock_ensure_branch: Mock,
     orchestrator: PRDOrchestrator,
     mock_cli_runner,
-):
+) -> None:
     """Test execute_task with additional Nelson arguments."""
     # Setup mocks
     mock_ensure_branch.return_value = {
@@ -414,7 +414,7 @@ def test_nelson_cli_command_construction(
     mock_ensure_branch: Mock,
     orchestrator: PRDOrchestrator,
     mock_cli_runner,
-):
+) -> None:
     """Test that nelson CLI commands are constructed correctly with all components."""
     # Setup mocks
     mock_ensure_branch.return_value = {
@@ -528,7 +528,7 @@ def test_execute_task_updates_cost_from_nelson_state(
     temp_prd_file: Path,
     temp_prd_dir: Path,
     mock_cli_runner,
-):
+) -> None:
     """Test that execute_task updates cost from Nelson state."""
     # Setup orchestrator with target_path
     orchestrator = PRDOrchestrator(temp_prd_file, temp_prd_dir, target_path=temp_prd_file.parent)
@@ -575,7 +575,7 @@ def test_cost_extraction_when_nelson_state_file_missing(
     mock_path: Mock,
     orchestrator: PRDOrchestrator,
     mock_cli_runner,
-):
+) -> None:
     """Test that task completes successfully even when Nelson state file doesn't exist."""
     # Setup mocks
     mock_ensure_branch.return_value = {
@@ -616,7 +616,7 @@ def test_cost_extraction_handles_corrupted_nelson_state(
     temp_prd_dir: Path,
     capsys,
     mock_cli_runner,
-):
+) -> None:
     """Test that cost extraction handles corrupted Nelson state gracefully."""
     # Create orchestrator with a target path
     orchestrator = PRDOrchestrator(temp_prd_file, temp_prd_dir, target_path=temp_prd_file.parent)
@@ -667,7 +667,7 @@ def test_cost_extraction_handles_missing_fields_in_nelson_state(
     temp_prd_dir: Path,
     capsys,
     mock_cli_runner,
-):
+) -> None:
     """Test that cost extraction handles Nelson state with missing fields."""
     # Setup orchestrator with target_path
     orchestrator = PRDOrchestrator(temp_prd_file, temp_prd_dir, target_path=temp_prd_file.parent)
@@ -717,7 +717,7 @@ def test_cost_extraction_with_zero_cost(
     temp_prd_file: Path,
     temp_prd_dir: Path,
     mock_cli_runner,
-):
+) -> None:
     """Test that cost extraction correctly handles zero cost from Nelson."""
     # Create orchestrator with a target path
     orchestrator = PRDOrchestrator(temp_prd_file, temp_prd_dir, target_path=temp_prd_file.parent)
@@ -767,7 +767,7 @@ def test_cost_extraction_with_high_cost_values(
     temp_prd_file: Path,
     temp_prd_dir: Path,
     mock_cli_runner,
-):
+) -> None:
     """Test that cost extraction handles large cost values correctly."""
     # Create orchestrator with a target path
     orchestrator = PRDOrchestrator(temp_prd_file, temp_prd_dir, target_path=temp_prd_file.parent)
@@ -819,7 +819,7 @@ def test_cost_extraction_with_partial_phase_data(
     temp_prd_file: Path,
     temp_prd_dir: Path,
     mock_cli_runner,
-):
+) -> None:
     """Test that cost extraction handles partial phase data (None values)."""
     # Create orchestrator with a target path
     orchestrator = PRDOrchestrator(temp_prd_file, temp_prd_dir, target_path=temp_prd_file.parent)
@@ -865,12 +865,12 @@ def test_cost_extraction_with_partial_phase_data(
 def test_execute_all_pending_runs_all_tasks(
     mock_execute: Mock,
     orchestrator: PRDOrchestrator,
-):
+) -> None:
     """Test that execute_all_pending runs all pending tasks."""
     # Track which tasks have been executed to simulate completion
     executed_tasks = set()
 
-    def execute_side_effect(task_id, *args, **kwargs):
+    def execute_side_effect(task_id, *args, **kwargs) -> bool:
         # Mark task as executed
         executed_tasks.add(task_id)
         # Actually update the PRD file to mark as complete
@@ -899,7 +899,7 @@ def test_execute_all_pending_runs_all_tasks(
 def test_execute_all_pending_stops_on_failure(
     mock_execute: Mock,
     orchestrator: PRDOrchestrator,
-):
+) -> None:
     """Test that execute_all_pending stops on failure when requested."""
     # Setup mock to fail on second task
     call_count = [0]
@@ -933,7 +933,7 @@ def test_execute_all_pending_stops_on_failure(
 def test_execute_all_pending_continues_on_failure(
     mock_execute: Mock,
     orchestrator: PRDOrchestrator,
-):
+) -> None:
     """Test that execute_all_pending continues on failure by default."""
     # Setup mock to fail on second task
     call_count = [0]
@@ -965,10 +965,10 @@ def test_execute_all_pending_continues_on_failure(
 def test_execute_all_pending_with_nelson_args(
     mock_execute: Mock,
     orchestrator: PRDOrchestrator,
-):
+) -> None:
     """Test that execute_all_pending passes Nelson args to execute_task."""
 
-    def execute_side_effect(task_id, *args, **kwargs):
+    def execute_side_effect(task_id, *args, **kwargs) -> bool:
         # Update PRD file to mark as complete
         orchestrator.parser.update_task_status(task_id, PRDTaskStatus.COMPLETED)
         return True
@@ -984,7 +984,7 @@ def test_execute_all_pending_with_nelson_args(
         assert call_args[1]["nelson_args"] == nelson_args
 
 
-def test_block_task(orchestrator: PRDOrchestrator):
+def test_block_task(orchestrator: PRDOrchestrator) -> None:
     """Test blocking a task."""
     # Block task
     success = orchestrator.block_task("PRD-001", "Waiting for database schema")
@@ -1006,13 +1006,13 @@ def test_block_task(orchestrator: PRDOrchestrator):
     assert task.blocking_reason == "Waiting for database schema"
 
 
-def test_block_task_nonexistent(orchestrator: PRDOrchestrator):
+def test_block_task_nonexistent(orchestrator: PRDOrchestrator) -> None:
     """Test blocking a nonexistent task returns False."""
     success = orchestrator.block_task("PRD-999", "Some reason")
     assert success is False
 
 
-def test_unblock_task(tmp_path: Path):
+def test_unblock_task(tmp_path: Path) -> None:
     """Test unblocking a task."""
     # Create PRD with blocked task
     prd_content = """## High Priority
@@ -1043,13 +1043,13 @@ def test_unblock_task(tmp_path: Path):
     assert task.status == PRDTaskStatus.PENDING
 
 
-def test_unblock_task_nonexistent(orchestrator: PRDOrchestrator):
+def test_unblock_task_nonexistent(orchestrator: PRDOrchestrator) -> None:
     """Test unblocking a nonexistent task returns False."""
     success = orchestrator.unblock_task("PRD-999")
     assert success is False
 
 
-def test_unblock_task_not_blocked(orchestrator: PRDOrchestrator):
+def test_unblock_task_not_blocked(orchestrator: PRDOrchestrator) -> None:
     """Test unblocking a non-blocked task returns False."""
     # PRD-001 is pending, not blocked
     success = orchestrator.unblock_task("PRD-001")
@@ -1057,7 +1057,7 @@ def test_unblock_task_not_blocked(orchestrator: PRDOrchestrator):
 
 
 @patch("nelson.prd_orchestrator.PRDOrchestrator.execute_task")
-def test_resume_task(mock_execute: Mock, tmp_path: Path):
+def test_resume_task(mock_execute: Mock, tmp_path: Path) -> None:
     """Test resuming a blocked task."""
     # Create PRD with blocked task
     prd_content = """## High Priority
@@ -1089,20 +1089,20 @@ def test_resume_task(mock_execute: Mock, tmp_path: Path):
     # (This happens inside resume_task before calling execute_task)
 
 
-def test_resume_task_nonexistent(orchestrator: PRDOrchestrator):
+def test_resume_task_nonexistent(orchestrator: PRDOrchestrator) -> None:
     """Test resuming a nonexistent task returns False."""
     success = orchestrator.resume_task("PRD-999")
     assert success is False
 
 
-def test_resume_task_wrong_status(orchestrator: PRDOrchestrator):
+def test_resume_task_wrong_status(orchestrator: PRDOrchestrator) -> None:
     """Test resuming a task in wrong status returns False."""
     # PRD-001 is pending, not blocked or in_progress
     success = orchestrator.resume_task("PRD-001")
     assert success is False
 
 
-def test_get_status_summary(orchestrator: PRDOrchestrator):
+def test_get_status_summary(orchestrator: PRDOrchestrator) -> None:
     """Test getting status summary."""
     summary = orchestrator.get_status_summary()
 
@@ -1125,7 +1125,7 @@ def test_get_status_summary(orchestrator: PRDOrchestrator):
     assert summary["in_progress"] == 0
 
 
-def test_get_status_summary_reads_from_prd_file(tmp_path: Path):
+def test_get_status_summary_reads_from_prd_file(tmp_path: Path) -> None:
     """Test that status summary reads actual status from PRD file, not state files.
 
     This test catches the bug where get_status_summary() was reading from state files
@@ -1170,7 +1170,7 @@ def test_get_status_summary_reads_from_prd_file(tmp_path: Path):
     assert tasks["PRD-005"]["task_text"] == "Another pending task"
 
 
-def test_get_task_info_existing(orchestrator: PRDOrchestrator):
+def test_get_task_info_existing(orchestrator: PRDOrchestrator) -> None:
     """Test getting info for an existing task."""
     info = orchestrator.get_task_info("PRD-001")
 
@@ -1186,7 +1186,7 @@ def test_get_task_info_existing(orchestrator: PRDOrchestrator):
     assert "iterations" in info
 
 
-def test_get_task_info_nonexistent(orchestrator: PRDOrchestrator):
+def test_get_task_info_nonexistent(orchestrator: PRDOrchestrator) -> None:
     """Test getting info for a nonexistent task."""
     info = orchestrator.get_task_info("PRD-999")
     assert info is None
@@ -1197,7 +1197,7 @@ def test_execute_task_exception(
     mock_ensure_branch: Mock,
     orchestrator: PRDOrchestrator,
     mock_cli_runner,
-):
+) -> None:
     """Test that execute_task handles general exceptions."""
     # Setup mocks
     mock_ensure_branch.return_value = {
@@ -1221,7 +1221,7 @@ def test_execute_task_handles_missing_nelson_state(
     mock_ensure_branch: Mock,
     orchestrator: PRDOrchestrator,
     mock_cli_runner,
-):
+) -> None:
     """Test that execute_task handles missing Nelson state gracefully."""
     # Setup mocks
     mock_ensure_branch.return_value = {
@@ -1251,7 +1251,7 @@ def test_execute_task_provides_exit_code_feedback(
     orchestrator: PRDOrchestrator,
     capsys: pytest.CaptureFixture,
     mock_cli_runner,
-):
+) -> None:
     """Test that execute_task provides specific feedback for exit codes."""
     # Setup mocks
     mock_ensure_branch.return_value = {
@@ -1288,7 +1288,7 @@ def test_execute_task_handles_unexpected_exception(
     orchestrator: PRDOrchestrator,
     capsys: pytest.CaptureFixture,
     mock_cli_runner,
-):
+) -> None:
     """Test that execute_task handles unexpected exceptions gracefully."""
     # Setup mocks
     mock_ensure_branch.return_value = {
@@ -1323,7 +1323,7 @@ def test_execute_all_pending_shows_progress_indicators(
     tmp_path: Path,
     capsys: pytest.CaptureFixture,
     mock_cli_runner,
-):
+) -> None:
     """Test that execute_all_pending shows progress indicators during execution."""
     # Create PRD file with multiple pending tasks
     prd_file = tmp_path / "requirements.md"
@@ -1381,7 +1381,7 @@ def test_execute_all_pending_shows_completion_percentage(
     tmp_path: Path,
     capsys: pytest.CaptureFixture,
     mock_cli_runner,
-):
+) -> None:
     """Test that progress shows completion percentage increasing."""
     # Create PRD with some already completed
     prd_file = tmp_path / "requirements.md"
@@ -1428,7 +1428,7 @@ def test_execute_task_shows_resume_indicator(
     orchestrator: PRDOrchestrator,
     capsys: pytest.CaptureFixture,
     mock_cli_runner,
-):
+) -> None:
     """Test that execute_task shows resume indicator when resuming with context."""
     # Setup mocks
     mock_ensure_branch.return_value = {
@@ -1462,7 +1462,7 @@ def test_execute_task_shows_visual_status_icons(
     orchestrator: PRDOrchestrator,
     capsys: pytest.CaptureFixture,
     mock_cli_runner,
-):
+) -> None:
     """Test that execute_task shows visual status icons (success/failure)."""
     # Setup mocks
     mock_ensure_branch.return_value = {
@@ -1495,7 +1495,7 @@ def test_execute_all_pending_no_pending_tasks(
     tmp_path: Path,
     capsys: pytest.CaptureFixture,
     mock_cli_runner,
-):
+) -> None:
     """Test that execute_all_pending handles case with no pending tasks gracefully."""
     # Create PRD with all completed tasks
     prd_file = tmp_path / "requirements.md"
@@ -1521,13 +1521,13 @@ def test_execute_all_pending_no_pending_tasks(
     assert "PRD Execution Progress" not in captured.out or "Pending to execute: 0" in captured.out
 
 
-def test_check_task_text_changes_no_changes(orchestrator: PRDOrchestrator):
+def test_check_task_text_changes_no_changes(orchestrator: PRDOrchestrator) -> None:
     """Test that check_task_text_changes returns empty list when no changes."""
     changes = orchestrator.check_task_text_changes()
     assert changes == []
 
 
-def test_check_task_text_changes_with_change(tmp_path: Path):
+def test_check_task_text_changes_with_change(tmp_path: Path) -> None:
     """Test that check_task_text_changes detects when task text is modified."""
     # Create initial PRD file
     prd_file = tmp_path / "test.md"
@@ -1563,7 +1563,7 @@ def test_check_task_text_changes_with_change(tmp_path: Path):
     assert changes[0]["current_text"] == "Implement authentication with OAuth"
 
 
-def test_check_task_text_changes_multiple_changes(tmp_path: Path):
+def test_check_task_text_changes_multiple_changes(tmp_path: Path) -> None:
     """Test detection of multiple task text changes."""
     # Create initial PRD file
     prd_file = tmp_path / "test.md"
@@ -1605,7 +1605,7 @@ def test_check_task_text_changes_multiple_changes(tmp_path: Path):
     assert changes_dict["PRD-002"]["current_text"] == "Task two completely different"
 
 
-def test_check_task_text_changes_whitespace_difference(tmp_path: Path):
+def test_check_task_text_changes_whitespace_difference(tmp_path: Path) -> None:
     """Test that whitespace changes are detected (strict comparison)."""
     # Create initial PRD file
     prd_file = tmp_path / "test.md"
@@ -1635,7 +1635,7 @@ def test_check_task_text_changes_whitespace_difference(tmp_path: Path):
     assert changes[0]["current_text"] == "Task  description"
 
 
-def test_check_task_text_changes_new_task_not_reported(tmp_path: Path):
+def test_check_task_text_changes_new_task_not_reported(tmp_path: Path) -> None:
     """Test that new tasks (not in mapping yet) are not reported as changes."""
     # Create initial PRD file
     prd_file = tmp_path / "test.md"
@@ -1661,7 +1661,7 @@ def test_check_task_text_changes_new_task_not_reported(tmp_path: Path):
     assert changes == []
 
 
-def test_check_task_text_changes_case_sensitive(tmp_path: Path):
+def test_check_task_text_changes_case_sensitive(tmp_path: Path) -> None:
     """Test that text comparison is case-sensitive."""
     # Create initial PRD file
     prd_file = tmp_path / "test.md"
@@ -1691,7 +1691,7 @@ def test_check_task_text_changes_case_sensitive(tmp_path: Path):
     assert changes[0]["current_text"] == "Implement Authentication"
 
 
-def test_full_prd_workflow_integration(tmp_path: Path):
+def test_full_prd_workflow_integration(tmp_path: Path) -> None:
     """Integration test for complete PRD orchestration workflow.
 
     This test simulates a full end-to-end workflow with mocked Nelson execution:
@@ -1822,7 +1822,7 @@ def test_full_prd_workflow_integration(tmp_path: Path):
         assert summary["completed"] == 2  # PRD-001, PRD-003
 
 
-def test_full_workflow_with_failure_handling(tmp_path: Path):
+def test_full_workflow_with_failure_handling(tmp_path: Path) -> None:
     """Integration test for workflow with task failure scenarios."""
     prd_file = tmp_path / "failure_test.md"
     prd_file.write_text("""# Failure Test PRD
@@ -1884,7 +1884,7 @@ def test_full_workflow_with_failure_handling(tmp_path: Path):
         assert final_summary["failed"] == 1  # PRD-002
 
 
-def test_concurrent_state_file_read_write(tmp_path: Path):
+def test_concurrent_state_file_read_write(tmp_path: Path) -> None:
     """Test that concurrent orchestrators can read shared state without corruption.
 
     Simulates scenario where two nelson-prd processes are reading the same
@@ -1941,7 +1941,7 @@ def test_concurrent_state_file_read_write(tmp_path: Path):
         assert task_id == "PRD-002"  # Should get next pending
 
 
-def test_concurrent_prd_file_modifications(tmp_path: Path):
+def test_concurrent_prd_file_modifications(tmp_path: Path) -> None:
     """Test that concurrent PRD file updates don't corrupt task statuses.
 
     Simulates scenario where one process is updating PRD file while another
@@ -1988,7 +1988,7 @@ def test_concurrent_prd_file_modifications(tmp_path: Path):
         assert task_id == "PRD-002"  # Should skip in-progress task
 
 
-def test_concurrent_task_double_execution_prevention(tmp_path: Path):
+def test_concurrent_task_double_execution_prevention(tmp_path: Path) -> None:
     """Test that task status markers prevent double-execution.
 
     When task is marked in-progress, a concurrent process should not
@@ -2052,7 +2052,7 @@ def test_concurrent_task_double_execution_prevention(tmp_path: Path):
         assert task1_orch2.status == PRDTaskStatus.IN_PROGRESS
 
 
-def test_concurrent_blocked_task_handling(tmp_path: Path):
+def test_concurrent_blocked_task_handling(tmp_path: Path) -> None:
     """Test that blocked tasks are consistently skipped by concurrent processes."""
     # Create PRD with blocked task
     prd_file = tmp_path / "concurrent.md"
@@ -2097,7 +2097,7 @@ def test_concurrent_blocked_task_handling(tmp_path: Path):
     assert task1_orch2.status == PRDTaskStatus.BLOCKED
 
 
-def test_concurrent_cost_tracking_isolation(tmp_path: Path):
+def test_concurrent_cost_tracking_isolation(tmp_path: Path) -> None:
     """Test that cost tracking remains accurate with concurrent updates.
 
     Each task maintains its own cost state, so concurrent execution
@@ -2159,7 +2159,7 @@ def test_concurrent_cost_tracking_isolation(tmp_path: Path):
         assert summary["total_cost"] == 1.50 + 2.75
 
 
-def test_concurrent_backup_file_creation(tmp_path: Path):
+def test_concurrent_backup_file_creation(tmp_path: Path) -> None:
     """Test that concurrent backup creation doesn't corrupt files.
 
     Multiple processes updating the PRD file should each create their own
@@ -2207,7 +2207,7 @@ def test_concurrent_backup_file_creation(tmp_path: Path):
             assert "## High Priority" in content
 
 
-def test_concurrent_state_persistence_consistency(tmp_path: Path):
+def test_concurrent_state_persistence_consistency(tmp_path: Path) -> None:
     """Test that state persistence remains consistent across concurrent processes.
 
     When multiple processes save state, the last write should win, and
@@ -2256,7 +2256,7 @@ def test_concurrent_state_persistence_consistency(tmp_path: Path):
     assert "tasks" in state_data
 
 
-def test_concurrent_branch_creation_same_task(tmp_path: Path):
+def test_concurrent_branch_creation_same_task(tmp_path: Path) -> None:
     """Test that concurrent branch creation for same task is idempotent.
 
     If two processes try to create the same branch, git should handle it
@@ -2305,7 +2305,7 @@ def test_concurrent_branch_creation_same_task(tmp_path: Path):
         assert all_calls[1][0] == ("PRD-001", "First task")
 
 
-def test_concurrent_execution_with_failures(tmp_path: Path):
+def test_concurrent_execution_with_failures(tmp_path: Path) -> None:
     """Test that concurrent execution handles failures independently.
 
     If one process has a task failure, it shouldn't affect the other
@@ -2360,7 +2360,7 @@ def test_concurrent_execution_with_failures(tmp_path: Path):
         assert summary["failed"] == 1
 
 
-def test_resume_context_prepending_format(tmp_path: Path):
+def test_resume_context_prepending_format(tmp_path: Path) -> None:
     """Test that resume context is prepended with correct format.
 
     Format: 'RESUME CONTEXT: {context}\\n\\n{prompt}'
@@ -2412,7 +2412,7 @@ def test_resume_context_prepending_format(tmp_path: Path):
         assert prompt == expected_start, f"Expected: {expected_start!r}, Got: {prompt!r}"
 
 
-def test_resume_context_prepending_order(tmp_path: Path):
+def test_resume_context_prepending_order(tmp_path: Path) -> None:
     """Test that resume context appears BEFORE task text (prepending, not appending)."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text("""# Test PRD
@@ -2463,7 +2463,7 @@ def test_resume_context_prepending_order(tmp_path: Path):
         assert resume_idx < task_idx, "Resume context should appear BEFORE task text"
 
 
-def test_resume_context_with_custom_prompt(tmp_path: Path):
+def test_resume_context_with_custom_prompt(tmp_path: Path) -> None:
     """Test that resume context is prepended to custom prompts as well."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text("""# Test PRD
@@ -2515,7 +2515,7 @@ def test_resume_context_with_custom_prompt(tmp_path: Path):
         assert prompt == expected
 
 
-def test_no_resume_context_prepending_when_none(tmp_path: Path):
+def test_no_resume_context_prepending_when_none(tmp_path: Path) -> None:
     """Test that no prepending occurs when resume_context is None."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text("""# Test PRD
@@ -2555,7 +2555,7 @@ def test_no_resume_context_prepending_when_none(tmp_path: Path):
         assert "RESUME CONTEXT:" not in prompt
 
 
-def test_resume_context_with_special_characters(tmp_path: Path):
+def test_resume_context_with_special_characters(tmp_path: Path) -> None:
     """Test resume context prepending with special characters (newlines, quotes, etc)."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text("""# Test PRD
@@ -2607,7 +2607,7 @@ def test_resume_context_with_special_characters(tmp_path: Path):
         assert "Setup CI/CD pipeline" in prompt
 
 
-def test_resume_context_with_long_text(tmp_path: Path):
+def test_resume_context_with_long_text(tmp_path: Path) -> None:
     """Test resume context prepending with long text (hundreds of characters)."""
     prd_file = tmp_path / "test.md"
     prd_file.write_text("""# Test PRD
@@ -2676,7 +2676,7 @@ def test_cost_accumulation_across_multiple_runs(
     temp_prd_file: Path,
     temp_prd_dir: Path,
     mock_cli_runner,
-):
+) -> None:
     """Test that costs accumulate across multiple runs of the same task.
 
     Simulates scenario:
@@ -2786,7 +2786,7 @@ def test_execute_task_marks_blocked_when_blocked_iterations_exceeded(
     temp_prd_dir: Path,
     capsys: pytest.CaptureFixture,
     mock_cli_runner,
-):
+) -> None:
     """Test that execute_task marks task as BLOCKED when Nelson's blocked_iterations >= 3.
 
     When Nelson detects a task is blocked on external dependency (e.g., awaiting user input),
@@ -2856,7 +2856,7 @@ def test_execute_task_completes_when_blocked_iterations_below_threshold(
     temp_prd_file: Path,
     temp_prd_dir: Path,
     mock_cli_runner,
-):
+) -> None:
     """Test that execute_task completes normally when blocked_iterations < 3.
 
     If Nelson had some blocked iterations but didn't reach the threshold,

@@ -77,6 +77,7 @@ class PRDParser:
 
     # Regex patterns
     PRIORITY_HEADER_PATTERN = re.compile(r"^##\s+(High|Medium|Low)\s+Priority\s*$", re.IGNORECASE)
+    IMPLEMENTATION_CONTEXT_PATTERN = re.compile(r"^##\s+Implementation Context\s*$", re.IGNORECASE)
     TASK_PATTERN = re.compile(r"^-\s+\[([x~! ])\]\s+(PRD-\d+)\s+(.+)$")
     BLOCKING_REASON_PATTERN = re.compile(r"\(blocked:\s*(.+?)\)\s*$", re.IGNORECASE)
     # Pattern for subtasks (indented checkbox items without PRD-ID)
@@ -97,6 +98,7 @@ class PRDParser:
         self._tasks: list[PRDTask] = []
         self._current_priority: str | None = None
         self._task_ids: set[str] = set()
+        self._implementation_context: str = ""  # Store Implementation Context section
 
     def parse(self) -> list[PRDTask]:
         """Parse the PRD file and return all tasks.
@@ -143,6 +145,22 @@ class PRDParser:
         while i < len(lines):
             line = lines[i].rstrip()
             line_num = i + 1
+
+            # Check for Implementation Context section
+            context_match = self.IMPLEMENTATION_CONTEXT_PATTERN.match(line)
+            if context_match:
+                # Extract all content until next ## header
+                context_lines = []
+                i += 1
+                while i < len(lines):
+                    next_line = lines[i].rstrip()
+                    if next_line.startswith("##"):
+                        # Hit next section, stop
+                        break
+                    context_lines.append(next_line)
+                    i += 1
+                self._implementation_context = "\n".join(context_lines).strip()
+                continue
 
             # Check for priority header
             priority_match = self.PRIORITY_HEADER_PATTERN.match(line)
@@ -404,6 +422,17 @@ class PRDParser:
             List of tasks with that status
         """
         return [t for t in self._tasks if t.status == status]
+
+    def get_implementation_context(self) -> str:
+        """Get the Implementation Context section from the PRD file.
+
+        This section provides additional context and guidelines that should be
+        included with every task prompt.
+
+        Returns:
+            Implementation context as a string, or empty string if not found
+        """
+        return self._implementation_context
 
     def get_task_by_id(self, task_id: str) -> PRDTask | None:
         """Get task by ID.

@@ -338,9 +338,7 @@ def test_cli_resume_task_command_success(
     result = cli_runner.invoke(main, ["--resume-task", "PRD-001", str(temp_prd_file)])
 
     assert result.exit_code == 0
-    mock_orchestrator.resume_task.assert_called_once_with(
-        "PRD-001", None, no_branch_setup=False
-    )
+    mock_orchestrator.resume_task.assert_called_once_with("PRD-001", None, no_branch_setup=False)
 
 
 @patch("nelson.prd_cli.PRDOrchestrator")
@@ -847,7 +845,7 @@ def test_status_shows_text_change_warnings(
     mock_orchestrator_class: Mock,
     cli_runner: CliRunner,
     temp_prd_file: Path,
-):
+) -> None:
     """Test that status command displays warnings for changed task text."""
     # Setup mock orchestrator
     mock_orchestrator = MagicMock()
@@ -915,7 +913,7 @@ def test_status_no_warnings_when_no_changes(
     mock_orchestrator_class: Mock,
     cli_runner: CliRunner,
     temp_prd_file: Path,
-):
+) -> None:
     """Test that status command shows no warnings when text hasn't changed."""
     # Setup mock orchestrator
     mock_orchestrator = MagicMock()

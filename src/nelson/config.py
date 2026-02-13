@@ -265,9 +265,7 @@ class NelsonConfig:
             raise ValueError(f"cost_limit must be > 0, got {self.cost_limit}")
 
         if self.stall_timeout_minutes <= 0:
-            raise ValueError(
-                f"stall_timeout_minutes must be > 0, got {self.stall_timeout_minutes}"
-            )
+            raise ValueError(f"stall_timeout_minutes must be > 0, got {self.stall_timeout_minutes}")
 
         if self.max_error_context_chars <= 0:
             raise ValueError(

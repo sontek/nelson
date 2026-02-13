@@ -30,7 +30,9 @@ if TYPE_CHECKING:
 console = Console()
 
 
-def alert_user(title: str, message: str, enable_notifications: bool = True, enable_sound: bool = True) -> None:
+def alert_user(
+    title: str, message: str, enable_notifications: bool = True, enable_sound: bool = True
+) -> None:
     """Alert user with terminal bell and/or desktop notification.
 
     Args:
@@ -129,7 +131,9 @@ class InteractionConfig:
         ambiguity_timeout = int(os.environ.get("NELSON_AMBIGUITY_TIMEOUT", "120"))
         prompt_on_blocked = os.environ.get("NELSON_PROMPT_ON_BLOCKED", "true").lower() == "true"
         skip_planning = os.environ.get("NELSON_SKIP_PLANNING_QUESTIONS", "false").lower() == "true"
-        enable_notifications = os.environ.get("NELSON_ENABLE_NOTIFICATIONS", "true").lower() == "true"
+        enable_notifications = (
+            os.environ.get("NELSON_ENABLE_NOTIFICATIONS", "true").lower() == "true"
+        )
         enable_sound_alert = os.environ.get("NELSON_ENABLE_SOUND_ALERT", "true").lower() == "true"
 
         return cls(
@@ -467,9 +471,7 @@ class UserInteraction:
             except (EOFError, KeyboardInterrupt):
                 return None
 
-    def _parse_option_response(
-        self, response: str, options: list[str], default: str
-    ) -> str:
+    def _parse_option_response(self, response: str, options: list[str], default: str) -> str:
         """Parse user response to option selection.
 
         Handles:

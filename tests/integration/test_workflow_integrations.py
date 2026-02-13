@@ -6,7 +6,7 @@ verification, depth modes, and JSON plans are properly wired into the workflow.
 
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -91,7 +91,11 @@ class TestPlanningQuestionsIntegration:
     """Test planning questions integration in workflow."""
 
     def test_questions_extracted_after_plan_phase(
-        self, temp_run_dir: Path, mock_config: NelsonConfig, mock_state: NelsonState, mock_provider: Mock
+        self,
+        temp_run_dir: Path,
+        mock_config: NelsonConfig,
+        mock_state: NelsonState,
+        mock_provider: Mock,
     ) -> None:
         """Test that questions are extracted after PLAN phase."""
         # Setup
@@ -119,16 +123,20 @@ Here's the plan...
 ]
 ```
 """
-        mock_provider.execute = Mock(return_value=AIResponse(content=response_content, usage=None))
+        mock_provider.execute = Mock(
+            return_value=AIResponse(
+                content=response_content, raw_output=response_content, metadata={}
+            )
+        )
 
-        orchestrator = WorkflowOrchestrator(mock_config, mock_state, mock_provider, temp_run_dir)
+        WorkflowOrchestrator(mock_config, mock_state, mock_provider, temp_run_dir)
 
         # Patch UserInteraction to simulate user answering
-        with patch("nelson.workflow.ask_planning_questions") as mock_ask:
+        with patch("nelson.planning_questions.ask_planning_questions") as mock_ask:
             mock_ask.return_value = {"q1": "PostgreSQL"}
 
             # Patch log function
-            with patch("nelson.workflow.log_planning_questions") as mock_log:
+            with patch("nelson.planning_questions.log_planning_questions"):
                 # Execute one iteration to trigger PLAN -> IMPLEMENT transition
                 # This would normally be in the run loop
                 from nelson.planning_questions import extract_questions_from_response
@@ -143,10 +151,14 @@ Here's the plan...
         self, temp_run_dir: Path, mock_config: NelsonConfig, mock_state: NelsonState
     ) -> None:
         """Test that questions are skipped when skip_planning_questions=True."""
-        # Modify config to skip questions
-        mock_config._interaction = InteractionConfig(
-            mode=InteractionMode.AUTONOMOUS,
-            skip_planning_questions=True,
+        # Modify config to skip questions (use object.__setattr__ to bypass frozen constraint)
+        object.__setattr__(
+            mock_config,
+            "_interaction",
+            InteractionConfig(
+                mode=InteractionMode.AUTONOMOUS,
+                skip_planning_questions=True,
+            ),
         )
 
         # Verify config setting
@@ -157,7 +169,11 @@ class TestBlockedHandlingIntegration:
     """Test blocked handling integration in workflow."""
 
     def test_blocked_status_detected_in_circuit_breaker(
-        self, temp_run_dir: Path, mock_config: NelsonConfig, mock_state: NelsonState, mock_provider: Mock
+        self,
+        temp_run_dir: Path,
+        mock_config: NelsonConfig,
+        mock_state: NelsonState,
+        mock_provider: Mock,
     ) -> None:
         """Test that BLOCKED status is detected in circuit breaker."""
         orchestrator = WorkflowOrchestrator(mock_config, mock_state, mock_provider, temp_run_dir)
@@ -176,10 +192,10 @@ class TestBlockedHandlingIntegration:
         temp_run_dir.joinpath("last_output.txt").write_text(response_content)
 
         # Patch prompt_blocked_resolution to simulate user choosing RESOLVED
-        with patch("nelson.workflow.prompt_blocked_resolution") as mock_prompt:
+        with patch("nelson.blocked_handling.prompt_blocked_resolution") as mock_prompt:
             mock_prompt.return_value = (BlockedResolution.RESOLVED, "Added API key")
 
-            with patch("nelson.workflow.log_blocked_event"):
+            with patch("nelson.blocked_handling.log_blocked_event"):
                 result = orchestrator._check_circuit_breaker(status_block)
 
                 # Should return RETRY_NO_INCREMENT when resolved
@@ -187,7 +203,11 @@ class TestBlockedHandlingIntegration:
                 mock_prompt.assert_called_once()
 
     def test_blocked_skip_continues_workflow(
-        self, temp_run_dir: Path, mock_config: NelsonConfig, mock_state: NelsonState, mock_provider: Mock
+        self,
+        temp_run_dir: Path,
+        mock_config: NelsonConfig,
+        mock_state: NelsonState,
+        mock_provider: Mock,
     ) -> None:
         """Test that SKIP resolution continues workflow."""
         orchestrator = WorkflowOrchestrator(mock_config, mock_state, mock_provider, temp_run_dir)
@@ -200,10 +220,10 @@ class TestBlockedHandlingIntegration:
 
         temp_run_dir.joinpath("last_output.txt").write_text("Blocked")
 
-        with patch("nelson.workflow.prompt_blocked_resolution") as mock_prompt:
+        with patch("nelson.blocked_handling.prompt_blocked_resolution") as mock_prompt:
             mock_prompt.return_value = (BlockedResolution.SKIP, None)
 
-            with patch("nelson.workflow.log_blocked_event"):
+            with patch("nelson.blocked_handling.log_blocked_event"):
                 result = orchestrator._check_circuit_breaker(status_block)
 
                 assert result == CircuitBreakerResult.OK
@@ -319,29 +339,27 @@ class TestDepthModesIntegration:
     """Test depth modes integration in workflow."""
 
     def test_quick_mode_skips_review_phases(self) -> None:
-        """Test that QUICK mode skips REVIEW and FINAL_REVIEW."""
+        """Test that QUICK mode skips REVIEW."""
         from nelson.depth import should_skip_phase
 
         depth = DepthConfig.for_mode(DepthMode.QUICK)
 
         assert should_skip_phase("REVIEW", depth) is True
-        assert should_skip_phase("FINAL_REVIEW", depth) is True
         assert should_skip_phase("PLAN", depth) is False
         assert should_skip_phase("IMPLEMENT", depth) is False
 
     def test_standard_mode_includes_all_phases(self) -> None:
-        """Test that STANDARD mode includes all 6 phases."""
+        """Test that STANDARD mode includes all 5 phases."""
         from nelson.depth import get_phases_for_depth
 
         depth = DepthConfig.for_mode(DepthMode.STANDARD)
         phases = get_phases_for_depth(depth)
 
-        assert len(phases) == 6
+        assert len(phases) == 5
         assert "PLAN" in phases
         assert "IMPLEMENT" in phases
-        assert "REVIEW" in phases
         assert "TEST" in phases
-        assert "FINAL_REVIEW" in phases
+        assert "REVIEW" in phases
         assert "COMMIT" in phases
 
     def test_lean_prompts_used_in_quick_mode(self) -> None:
@@ -514,7 +532,7 @@ class TestComprehensiveModeIntegration:
         from nelson.depth import get_phases_for_depth
 
         depth = DepthConfig.for_mode(DepthMode.COMPREHENSIVE)
-        phases = get_phases_for_depth(depth)
+        get_phases_for_depth(depth)
 
         # Comprehensive mode should NOT skip roadmap
         assert depth.skip_roadmap is False
@@ -564,7 +582,11 @@ class TestWorkflowEndToEnd:
     """End-to-end tests for workflow with all integrations."""
 
     def test_workflow_with_all_features_enabled(
-        self, temp_run_dir: Path, mock_config: NelsonConfig, mock_state: NelsonState, mock_provider: Mock
+        self,
+        temp_run_dir: Path,
+        mock_config: NelsonConfig,
+        mock_state: NelsonState,
+        mock_provider: Mock,
     ) -> None:
         """Test workflow with planning questions, deviations, and verification."""
         # This is a high-level test to ensure all pieces work together

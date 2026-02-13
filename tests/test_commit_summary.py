@@ -45,7 +45,7 @@ def temp_git_repo(tmp_path: Path) -> Path:
 class TestCommitSummary:
     """Tests for CommitSummary dataclass."""
 
-    def test_commit_summary_creation(self):
+    def test_commit_summary_creation(self) -> None:
         """Test creating a CommitSummary object."""
         summary = CommitSummary(
             starting_commit="abc123",
@@ -58,7 +58,7 @@ class TestCommitSummary:
         assert summary.commit_count == 5
         assert len(summary.commit_messages) == 2
 
-    def test_has_commits_property(self):
+    def test_has_commits_property(self) -> None:
         """Test has_commits property."""
         summary_with_commits = CommitSummary(
             starting_commit="abc123",
@@ -76,7 +76,7 @@ class TestCommitSummary:
         )
         assert summary_without_commits.has_commits is False
 
-    def test_immutability(self):
+    def test_immutability(self) -> None:
         """Test that CommitSummary is immutable."""
         summary = CommitSummary(
             starting_commit="abc123",
@@ -91,7 +91,7 @@ class TestCommitSummary:
 class TestGetCommitMessages:
     """Tests for get_commit_messages function."""
 
-    def test_get_commit_messages_with_commits(self, temp_git_repo: Path):
+    def test_get_commit_messages_with_commits(self, temp_git_repo: Path) -> None:
         """Test getting commit messages when commits exist."""
         # Get starting commit
         result = subprocess.run(
@@ -124,7 +124,7 @@ class TestGetCommitMessages:
         assert "Commit 3" in messages[0]
         assert "Commit 2" in messages[1]
 
-    def test_get_commit_messages_no_commits(self, temp_git_repo: Path):
+    def test_get_commit_messages_no_commits(self, temp_git_repo: Path) -> None:
         """Test getting commit messages when no new commits exist."""
         result = subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -138,7 +138,7 @@ class TestGetCommitMessages:
         messages = get_commit_messages(current_commit, path=temp_git_repo)
         assert messages == []
 
-    def test_get_commit_messages_with_end_commit(self, temp_git_repo: Path):
+    def test_get_commit_messages_with_end_commit(self, temp_git_repo: Path) -> None:
         """Test getting commit messages with explicit end commit."""
         # Get starting commit
         result = subprocess.run(
@@ -179,7 +179,7 @@ class TestGetCommitMessages:
         messages = get_commit_messages(start_commit, end_commit, temp_git_repo)
         assert len(messages) == 2
 
-    def test_get_commit_messages_git_error(self):
+    def test_get_commit_messages_git_error(self) -> None:
         """Test error handling when git command fails."""
         with pytest.raises(GitError, match="Failed to get commit messages"):
             get_commit_messages("invalid_commit_sha", path=Path("/nonexistent"))
@@ -188,7 +188,7 @@ class TestGetCommitMessages:
 class TestGenerateCommitSummary:
     """Tests for generate_commit_summary function."""
 
-    def test_generate_summary_with_commits(self, temp_git_repo: Path):
+    def test_generate_summary_with_commits(self, temp_git_repo: Path) -> None:
         """Test generating summary when commits were made."""
         # Get starting commit
         result = subprocess.run(
@@ -223,7 +223,7 @@ class TestGenerateCommitSummary:
         assert len(summary.commit_messages) == 3
         assert summary.has_commits is True
 
-    def test_generate_summary_no_commits(self, temp_git_repo: Path):
+    def test_generate_summary_no_commits(self, temp_git_repo: Path) -> None:
         """Test generating summary when no commits were made."""
         result = subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -240,12 +240,12 @@ class TestGenerateCommitSummary:
         assert summary.commit_messages == []
         assert summary.has_commits is False
 
-    def test_generate_summary_no_starting_commit(self, temp_git_repo: Path):
+    def test_generate_summary_no_starting_commit(self, temp_git_repo: Path) -> None:
         """Test generating summary with empty starting commit."""
         summary = generate_commit_summary("", temp_git_repo)
         assert summary is None
 
-    def test_generate_summary_not_in_repo(self, tmp_path: Path):
+    def test_generate_summary_not_in_repo(self, tmp_path: Path) -> None:
         """Test generating summary when not in a git repo."""
         non_repo = tmp_path / "not_a_repo"
         non_repo.mkdir()
@@ -253,7 +253,7 @@ class TestGenerateCommitSummary:
         summary = generate_commit_summary("abc123", non_repo)
         assert summary is None
 
-    def test_generate_summary_git_error(self, temp_git_repo: Path):
+    def test_generate_summary_git_error(self, temp_git_repo: Path) -> None:
         """Test handling git errors during summary generation."""
         # Use invalid commit SHA
         summary = generate_commit_summary("invalid_sha", temp_git_repo)
@@ -264,13 +264,13 @@ class TestGenerateCommitSummary:
 class TestDisplayCommitSummary:
     """Tests for display_commit_summary function."""
 
-    def test_display_none_summary(self, capsys):
+    def test_display_none_summary(self, capsys) -> None:
         """Test displaying None summary does nothing."""
         display_commit_summary(None)
         captured = capsys.readouterr()
         assert captured.out == ""
 
-    def test_display_no_commits(self, capsys):
+    def test_display_no_commits(self, capsys) -> None:
         """Test displaying summary with no commits."""
         summary = CommitSummary(
             starting_commit="abc123",
@@ -282,7 +282,7 @@ class TestDisplayCommitSummary:
         captured = capsys.readouterr()
         assert "No commits made during this Nelson session" in captured.out
 
-    def test_display_with_commits(self, capsys):
+    def test_display_with_commits(self, capsys) -> None:
         """Test displaying summary with commits."""
         summary = CommitSummary(
             starting_commit="abc123",
@@ -307,7 +307,7 @@ class TestDisplayCommitSummary:
         # Check for commit count
         assert "Total commits: 2" in captured.out
 
-    def test_display_with_single_commit(self, capsys):
+    def test_display_with_single_commit(self, capsys) -> None:
         """Test displaying summary with single commit."""
         summary = CommitSummary(
             starting_commit="abc123",

@@ -18,26 +18,26 @@ from nelson.prd_branch import (
 )
 
 
-def test_slugify_basic():
+def test_slugify_basic() -> None:
     """Test basic slugification."""
     assert slugify_task_text("Add User Authentication") == "add-user-authentication"
     assert slugify_task_text("Fix Bug in API") == "fix-bug-in-api"
 
 
-def test_slugify_special_characters():
+def test_slugify_special_characters() -> None:
     """Test slugification removes special characters."""
     assert slugify_task_text("Add feature (issue #123)") == "add-feature-issue-123"
     assert slugify_task_text("Update API @ endpoint") == "update-api-endpoint"
     assert slugify_task_text("Fix $$$") == "fix"
 
 
-def test_slugify_multiple_spaces():
+def test_slugify_multiple_spaces() -> None:
     """Test slugification handles multiple spaces."""
     assert slugify_task_text("Add   multiple    spaces") == "add-multiple-spaces"
     assert slugify_task_text("  Leading and trailing  ") == "leading-and-trailing"
 
 
-def test_slugify_max_length():
+def test_slugify_max_length() -> None:
     """Test slugification respects max length."""
     long_text = "This is a very long task description that should be truncated"
     slug = slugify_task_text(long_text, max_length=20)
@@ -46,27 +46,27 @@ def test_slugify_max_length():
     assert not slug.endswith("-")  # Should not end with hyphen
 
 
-def test_slugify_empty_after_filtering():
+def test_slugify_empty_after_filtering() -> None:
     """Test slugification handles text that becomes empty."""
     assert slugify_task_text("!!!") == ""
     assert slugify_task_text("@@@") == ""
 
 
-def test_generate_branch_name():
+def test_generate_branch_name() -> None:
     """Test branch name generation."""
     branch = generate_branch_name("PRD-001", "Add user authentication")
 
     assert branch == "feature/PRD-001-add-user-authentication"
 
 
-def test_generate_branch_name_with_special_chars():
+def test_generate_branch_name_with_special_chars() -> None:
     """Test branch name with special characters."""
     branch = generate_branch_name("PRD-042", "Fix bug (issue #123)")
 
     assert branch == "feature/PRD-042-fix-bug-issue-123"
 
 
-def test_generate_branch_name_long_description():
+def test_generate_branch_name_long_description() -> None:
     """Test branch name with long description gets truncated."""
     long_desc = "This is a very long task description that will be truncated to fit"
     branch = generate_branch_name("PRD-001", long_desc)
@@ -76,30 +76,30 @@ def test_generate_branch_name_long_description():
     assert len(branch) < 100
 
 
-def test_slugify_unicode():
+def test_slugify_unicode() -> None:
     """Test slugification handles unicode characters."""
     # Unicode should be removed
     assert slugify_task_text("Add café feature") == "add-caf-feature"
 
 
-def test_slugify_numbers():
+def test_slugify_numbers() -> None:
     """Test slugification preserves numbers."""
     assert slugify_task_text("Update API v2") == "update-api-v2"
     assert slugify_task_text("Add Python 3.12 support") == "add-python-312-support"
 
 
-def test_slugify_hyphens():
+def test_slugify_hyphens() -> None:
     """Test slugification handles existing hyphens."""
     assert slugify_task_text("Add well-known endpoint") == "add-well-known-endpoint"
     assert slugify_task_text("Fix pre-commit hook") == "fix-pre-commit-hook"
 
 
-def test_slugify_consecutive_hyphens():
+def test_slugify_consecutive_hyphens() -> None:
     """Test slugification collapses consecutive hyphens."""
     assert slugify_task_text("Add -- multiple --- hyphens") == "add-multiple-hyphens"
 
 
-def test_generate_branch_name_preserves_task_id():
+def test_generate_branch_name_preserves_task_id() -> None:
     """Test that task ID is preserved in branch name."""
     branch1 = generate_branch_name("PRD-001", "Task description")
     branch2 = generate_branch_name("PRD-999", "Task description")
@@ -108,7 +108,7 @@ def test_generate_branch_name_preserves_task_id():
     assert "PRD-999" in branch2
 
 
-def test_generate_branch_name_format():
+def test_generate_branch_name_format() -> None:
     """Test branch name follows feature/ format."""
     branch = generate_branch_name("PRD-001", "Test task")
 
@@ -116,7 +116,7 @@ def test_generate_branch_name_format():
     assert branch.count("/") == 1  # Only one slash
 
 
-def test_slugify_edge_cases():
+def test_slugify_edge_cases() -> None:
     """Test slugification edge cases."""
     # Only special characters
     assert slugify_task_text("!@#$%^&*()") == ""
@@ -128,7 +128,7 @@ def test_slugify_edge_cases():
     assert slugify_task_text("already-slugified") == "already-slugified"
 
 
-def test_slugify_preserves_readability():
+def test_slugify_preserves_readability() -> None:
     """Test that slugification preserves readability."""
     result = slugify_task_text("Add User Authentication System")
 
@@ -141,7 +141,7 @@ def test_slugify_preserves_readability():
     assert "-" in result
 
 
-def test_generate_branch_name_consistency():
+def test_generate_branch_name_consistency() -> None:
     """Test that same inputs produce same branch name."""
     branch1 = generate_branch_name("PRD-001", "Add authentication")
     branch2 = generate_branch_name("PRD-001", "Add authentication")
@@ -149,7 +149,7 @@ def test_generate_branch_name_consistency():
     assert branch1 == branch2
 
 
-def test_slugify_truncation_doesnt_break_words_badly():
+def test_slugify_truncation_doesnt_break_words_badly() -> None:
     """Test that truncation doesn't leave trailing hyphens."""
     long_text = "Add very-long-hyphenated-task-name-here"
     slug = slugify_task_text(long_text, max_length=25)
@@ -162,7 +162,7 @@ def test_slugify_truncation_doesnt_break_words_badly():
 
 
 @patch("nelson.prd_branch.is_git_repo")
-def test_branch_exists_requires_git_repo(mock_is_git_repo):
+def test_branch_exists_requires_git_repo(mock_is_git_repo) -> None:
     """Test that branch_exists validates git repository."""
     mock_is_git_repo.return_value = False
 
@@ -176,7 +176,7 @@ def test_branch_exists_requires_git_repo(mock_is_git_repo):
 
 
 @patch("nelson.prd_branch.is_git_repo")
-def test_create_branch_requires_git_repo(mock_is_git_repo):
+def test_create_branch_requires_git_repo(mock_is_git_repo) -> None:
     """Test that create_branch validates git repository."""
     mock_is_git_repo.return_value = False
 
@@ -189,7 +189,7 @@ def test_create_branch_requires_git_repo(mock_is_git_repo):
 
 
 @patch("nelson.prd_branch.is_git_repo")
-def test_switch_branch_requires_git_repo(mock_is_git_repo):
+def test_switch_branch_requires_git_repo(mock_is_git_repo) -> None:
     """Test that switch_branch validates git repository."""
     mock_is_git_repo.return_value = False
 
@@ -201,7 +201,7 @@ def test_switch_branch_requires_git_repo(mock_is_git_repo):
 
 
 @patch("nelson.prd_branch.is_git_repo")
-def test_create_and_switch_branch_requires_git_repo(mock_is_git_repo):
+def test_create_and_switch_branch_requires_git_repo(mock_is_git_repo) -> None:
     """Test that create_and_switch_branch validates git repository."""
     mock_is_git_repo.return_value = False
 
@@ -214,7 +214,7 @@ def test_create_and_switch_branch_requires_git_repo(mock_is_git_repo):
 
 
 @patch("nelson.prd_branch.is_git_repo")
-def test_delete_branch_requires_git_repo(mock_is_git_repo):
+def test_delete_branch_requires_git_repo(mock_is_git_repo) -> None:
     """Test that delete_branch validates git repository."""
     mock_is_git_repo.return_value = False
 
@@ -226,7 +226,7 @@ def test_delete_branch_requires_git_repo(mock_is_git_repo):
 
 
 @patch("nelson.prd_branch.is_git_repo")
-def test_ensure_branch_for_task_requires_git_repo(mock_is_git_repo):
+def test_ensure_branch_for_task_requires_git_repo(mock_is_git_repo) -> None:
     """Test that ensure_branch_for_task validates git repository."""
     mock_is_git_repo.return_value = False
 
@@ -238,7 +238,7 @@ def test_ensure_branch_for_task_requires_git_repo(mock_is_git_repo):
 
 
 @patch("nelson.prd_branch.is_git_repo")
-def test_git_repo_validation_with_valid_repo(mock_is_git_repo):
+def test_git_repo_validation_with_valid_repo(mock_is_git_repo) -> None:
     """Test that functions proceed when in a valid git repository."""
     mock_is_git_repo.return_value = True
 
@@ -252,7 +252,7 @@ def test_git_repo_validation_with_valid_repo(mock_is_git_repo):
 
 
 @patch("nelson.prd_branch.is_git_repo")
-def test_git_repo_validation_error_message_for_path(mock_is_git_repo):
+def test_git_repo_validation_error_message_for_path(mock_is_git_repo) -> None:
     """Test error message includes path when provided."""
     mock_is_git_repo.return_value = False
     test_path = Path("/tmp/my-project")
@@ -266,7 +266,7 @@ def test_git_repo_validation_error_message_for_path(mock_is_git_repo):
 
 
 @patch("nelson.prd_branch.is_git_repo")
-def test_git_repo_validation_error_message_for_current_dir(mock_is_git_repo):
+def test_git_repo_validation_error_message_for_current_dir(mock_is_git_repo) -> None:
     """Test error message mentions current directory when no path provided."""
     mock_is_git_repo.return_value = False
 

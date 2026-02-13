@@ -48,7 +48,7 @@ class TestInteractionConfig:
 
         assert config.mode == InteractionMode.INTERACTIVE
         assert config.planning_timeout_seconds == 60
-        assert config.ambiguity_timeout_seconds == 30
+        assert config.ambiguity_timeout_seconds == 120
         assert config.prompt_on_blocked is True
         assert config.skip_planning_questions is False
 
@@ -79,7 +79,7 @@ class TestInteractionConfig:
 
         assert config.mode == InteractionMode.INTERACTIVE
         assert config.planning_timeout_seconds == 60
-        assert config.ambiguity_timeout_seconds == 30
+        assert config.ambiguity_timeout_seconds == 120
         assert config.prompt_on_blocked is True
         assert config.skip_planning_questions is False
 
@@ -107,9 +107,7 @@ class TestInteractionConfig:
 
         assert config.mode == InteractionMode.AUTONOMOUS
 
-    def test_from_env_invalid_mode_defaults_to_interactive(
-        self, monkeypatch: MonkeyPatch
-    ) -> None:
+    def test_from_env_invalid_mode_defaults_to_interactive(self, monkeypatch: MonkeyPatch) -> None:
         """Test that invalid mode defaults to interactive."""
         monkeypatch.setenv("NELSON_INTERACTION_MODE", "invalid_mode")
 
@@ -338,9 +336,7 @@ class TestUserInteraction:
 
     @patch("nelson.interaction.UserInteraction._get_input_with_timeout")
     @patch("nelson.interaction.UserInteraction._display_question")
-    def test_interactive_mode_timeout(
-        self, mock_display: MagicMock, mock_input: MagicMock
-    ) -> None:
+    def test_interactive_mode_timeout(self, mock_display: MagicMock, mock_input: MagicMock) -> None:
         """Test interactive mode on timeout."""
         config = InteractionConfig(mode=InteractionMode.INTERACTIVE)
         interaction = UserInteraction(config)
@@ -387,9 +383,7 @@ class TestUserInteraction:
         self, mock_display: MagicMock, mock_input: MagicMock
     ) -> None:
         """Test that question-specific timeout overrides config."""
-        config = InteractionConfig(
-            mode=InteractionMode.INTERACTIVE, planning_timeout_seconds=60
-        )
+        config = InteractionConfig(mode=InteractionMode.INTERACTIVE, planning_timeout_seconds=60)
         interaction = UserInteraction(config)
         mock_input.return_value = "response"
 

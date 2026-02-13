@@ -1,12 +1,12 @@
 """Prompt generation for Nelson's AI orchestration system.
 
 This module provides the system prompt (generic Nelson instructions) and phase-specific
-prompts that guide the AI through the 6-phase autonomous workflow.
+prompts that guide the AI through the 5-phase autonomous workflow.
 
 Supports depth modes:
 - QUICK: Lean prompts, 4 phases (PLAN, IMPLEMENT, TEST, COMMIT)
-- STANDARD: Full prompts, 6 phases (adds REVIEW, FINAL_REVIEW)
-- COMPREHENSIVE: Full prompts, 8 phases (adds DISCOVER, ROADMAP)
+- STANDARD: Full prompts, 5 phases (adds REVIEW)
+- COMPREHENSIVE: Full prompts, 7 phases (adds DISCOVER, ROADMAP)
 """
 
 from __future__ import annotations
@@ -716,7 +716,7 @@ def get_phase_prompt_for_depth(
             return _get_lean_test_prompt(plan_file, decisions_file)
         elif phase == Phase.COMMIT:
             return _get_lean_commit_prompt(plan_file, decisions_file)
-        # REVIEW and FINAL_REVIEW are skipped in quick mode
+        # REVIEW is skipped in quick mode
         # but return standard prompt as fallback
         return get_phase_prompt(phase, plan_file, decisions_file)
 

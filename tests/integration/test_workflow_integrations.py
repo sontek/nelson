@@ -289,7 +289,7 @@ class TestVerificationIntegration:
     """Test verification integration in workflow."""
 
     def test_verification_runs_after_final_review(self, temp_run_dir: Path) -> None:
-        """Test that verification runs after FINAL_REVIEW phase."""
+        """Test that verification runs after REVIEW phase."""
         # Create plan.json with verification criteria
         plan_data = {
             "name": "Test Plan",

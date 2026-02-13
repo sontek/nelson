@@ -567,9 +567,9 @@ class WorkflowOrchestrator:
                                 max_dev = self.config.deviations.max_deviations_per_task
                                 logger.warning(f"Max deviations ({max_dev}) reached for this task")
 
-                    # Phase 6: Run verification after FINAL_REVIEW before COMMIT
+                    # Phase 4: Run verification after REVIEW before COMMIT
                     if (
-                        current_phase == Phase.FINAL_REVIEW
+                        current_phase == Phase.REVIEW
                         and next_phase == Phase.COMMIT
                         and not self.config.skip_verification
                     ):
@@ -770,7 +770,7 @@ class WorkflowOrchestrator:
         # DISCOVER, PLAN, and ROADMAP phases use the plan model
         if current_phase in (Phase.DISCOVER, Phase.PLAN, Phase.ROADMAP):
             model = self.config.plan_model
-        elif current_phase in (Phase.REVIEW, Phase.FINAL_REVIEW):
+        elif current_phase == Phase.REVIEW:
             model = self.config.review_model
         else:
             model = self.config.model
@@ -1206,8 +1206,8 @@ class WorkflowOrchestrator:
             approach = "Reviewing changes for bugs, patterns, and quality"
         elif current_phase == Phase.TEST:
             approach = "Running tests and fixing any failures"
-        elif current_phase == Phase.FINAL_REVIEW:
-            approach = "Final review of all changes before commit"
+        elif current_phase == Phase.REVIEW:
+            approach = "Comprehensive code review before commit"
         elif current_phase == Phase.COMMIT:
             approach = "Committing remaining changes"
         elif current_phase == Phase.DISCOVER:
